@@ -24,29 +24,32 @@ function NotFoundComponent() {
       style={{ backgroundColor: C.paper }}
     >
       <div className="w-full max-w-md">
-        <Pop className="flex flex-col items-center p-7 text-center" depth={5} radius={12}>
-          <Mark size={52} />
+        <Pop className="flex flex-col items-center p-8 text-center">
+          <Mark size={56} />
+          <span
+            className="mt-4 text-[11px] tracking-[0.22em] uppercase"
+            style={{ fontFamily: F.mono, color: C.mute }}
+          >
+            VISA ENTRY NOT FOUND · CODE 404
+          </span>
           <h1
-            className="mt-4 text-[56px] leading-none"
+            className="mt-2 text-[34px] font-bold leading-tight"
             style={{ fontFamily: F.display, color: C.ink }}
           >
-            404
+            Uncharted Heritage Page
           </h1>
-          <h2 className="mt-2 text-[22px]" style={{ fontFamily: F.display, color: C.ink }}>
-            Naligaw ka yata
-          </h2>
           <p
             className="mt-2 text-[15px] leading-[22px]"
             style={{ fontFamily: F.body, color: C.mute }}
           >
-            The page you are looking for does not exist or has been moved. Head back to Tahanan to
-            continue exploring CALABARZON.
+            This passport page does not exist or has been relocated. Return to the reception desk to
+            continue your CALABARZON journey.
           </p>
           <div className="mt-6 w-full">
             <Btn
-              label="Go to Tahanan"
-              sub="Back to Home"
-              color={C.blue}
+              label="Return to Passport Desk"
+              sub="Balik sa Tahanan"
+              color={C.cover}
               onClick={() => navigate({ to: "/" })}
             />
           </div>
@@ -69,28 +72,31 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
       style={{ backgroundColor: C.paper }}
     >
       <div className="w-full max-w-md">
-        <Pop className="flex flex-col items-center p-7 text-center" depth={5} radius={12}>
-          <Mark size={52} />
-          <h1 className="mt-4 text-[26px]" style={{ fontFamily: F.display, color: C.ink }}>
-            May nangyaring aberya
+        <Pop className="flex flex-col items-center p-8 text-center">
+          <Mark size={56} />
+          <h1
+            className="mt-4 text-[28px] font-bold"
+            style={{ fontFamily: F.display, color: C.ink }}
+          >
+            Passport Ledger Interrupted
           </h1>
           <p
             className="mt-2 text-[15px] leading-[22px]"
             style={{ fontFamily: F.body, color: C.mute }}
           >
-            This page could not load right now. Try refreshing or return to the home screen.
+            This page could not load right now. Try refreshing or return to the main passport desk.
           </p>
           <div className="mt-6 w-full space-y-2.5">
             <Btn
               label="Try again"
-              color={C.blue}
+              color={C.cover}
               onClick={() => {
                 router.invalidate();
                 reset();
               }}
             />
             <Btn
-              label="Go to Tahanan"
+              label="Return to Home"
               color={C.card}
               onClick={() => {
                 window.location.href = "/";
@@ -108,13 +114,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Sulyap — CALABARZON Virtual Tour and Cultural Mapping" },
+      { title: "Pasaporte ng Pamana — CALABARZON Cultural Heritage Passport" },
       {
         name: "description",
         content:
-          "Walk through the heritage sites of Region IV-A (Cavite, Laguna, Batangas, Rizal, Quezon), take the quiz, and collect passport stamps.",
+          "Official Cultural Heritage Passport & Virtual Field Trip across Region IV-A (Cavite, Laguna, Batangas, Rizal, Quezon). Collect arrival stamps and complete field quizzes.",
       },
-      { name: "theme-color", content: "#FAF8F1" },
+      { name: "theme-color", content: "#4A181B" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -125,10 +131,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "apple-touch-icon", href: "/apple-touch-icon.png" },
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      {
+        rel: "preconnect",
+        href: "https://fonts.gstatic.com",
+        crossOrigin: "anonymous",
+      },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Figtree:wght@500;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=JetBrains+Mono:wght@500;700&family=Work+Sans:wght@400;500;600;700&display=swap",
       },
     ],
   }),
@@ -157,10 +167,7 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div
-        className="min-h-screen pb-20 md:pb-0"
-        style={{ backgroundColor: C.paper, color: C.ink }}
-      >
+      <div className="min-h-screen pb-20 md:pb-0" style={{ color: C.ink }}>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
       </div>

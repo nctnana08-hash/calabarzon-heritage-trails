@@ -137,7 +137,6 @@ export function DestinationForm({
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    // M1.10: Save double-tap guard
     if (saving) return;
     if (!validate()) return;
 
@@ -182,7 +181,6 @@ export function DestinationForm({
 
       const savedId = await save.mutateAsync({ destination, input });
 
-      // Persist Sulyap extended fields (Kasaysayan, Kahalagahan, Mga Sanggunian, gallery links)
       saveCustomMeta(finalSlug, {
         history: values.history.trim(),
         significance: values.significance.trim(),
@@ -198,7 +196,7 @@ export function DestinationForm({
         });
       }
 
-      toast.success(destination ? "Place updated." : "Place added.");
+      toast.success(destination ? "Visa dossier updated." : "New heritage site registered.");
       onDone();
     } catch (err) {
       toast.error(friendlyError(err instanceof Error ? err.message : "Could not save this place."));
@@ -209,14 +207,14 @@ export function DestinationForm({
 
   const inputStyle: React.CSSProperties = {
     fontFamily: F.body,
-    fontSize: 16,
+    fontSize: 15,
     color: C.ink,
     backgroundColor: C.card,
-    borderWidth: 2,
+    borderWidth: 1.5,
     borderStyle: "solid",
-    borderColor: C.ink,
-    borderRadius: 10,
-    padding: "10px 12px",
+    borderColor: "#BFB399",
+    borderRadius: 6,
+    padding: "9px 12px",
     width: "100%",
   };
 
@@ -225,8 +223,8 @@ export function DestinationForm({
       {/* Name */}
       <div>
         <div className="mb-1.5 flex items-center justify-between">
-          <Label>Name (max 80 characters) *</Label>
-          <span className="text-[12px]" style={{ fontFamily: F.body, color: C.mute }}>
+          <Label>SITE NAME (MAX 80 CHARACTERS) *</Label>
+          <span className="text-[11px]" style={{ fontFamily: F.mono, color: C.mute }}>
             {values.name.trim().length}/80
           </span>
         </div>
@@ -239,11 +237,11 @@ export function DestinationForm({
           placeholder="e.g. Taal Basilica"
           style={{
             ...inputStyle,
-            borderColor: errors.name ? C.red : C.ink,
+            borderColor: errors.name ? C.red : "#BFB399",
           }}
         />
         {errors.name ? (
-          <p className="mt-1 text-[13px] font-bold" style={{ fontFamily: F.bold, color: C.red }}>
+          <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
             {errors.name}
           </p>
         ) : null}
@@ -251,7 +249,7 @@ export function DestinationForm({
 
       {/* Address */}
       <div>
-        <Label className="mb-1.5">Address *</Label>
+        <Label className="mb-1.5">MUNICIPALITY / ADDRESS *</Label>
         <input
           id="dest-address"
           type="text"
@@ -260,11 +258,11 @@ export function DestinationForm({
           placeholder="Street, town, province"
           style={{
             ...inputStyle,
-            borderColor: errors.address ? C.red : C.ink,
+            borderColor: errors.address ? C.red : "#BFB399",
           }}
         />
         {errors.address ? (
-          <p className="mt-1 text-[13px] font-bold" style={{ fontFamily: F.bold, color: C.red }}>
+          <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
             {errors.address}
           </p>
         ) : null}
@@ -272,25 +270,31 @@ export function DestinationForm({
 
       {/* Province Chips */}
       <div>
-        <Label className="mb-2">Province</Label>
+        <Label className="mb-2">PROVINCIAL SECTOR</Label>
         <div className="flex flex-wrap gap-2">
           {PROVINCES.map((p) => (
-            <Chip key={p} label={p} on={values.province === p} onClick={() => set("province", p)} />
+            <Chip
+              key={p}
+              label={p}
+              color={C.cover}
+              on={values.province === p}
+              onClick={() => set("province", p)}
+            />
           ))}
         </div>
       </div>
 
       {/* Category Chips */}
       <div>
-        <Label className="mb-2">Category</Label>
+        <Label className="mb-2">STAMP SEAL CLASSIFICATION</Label>
         <div className="flex flex-wrap gap-2">
           {CATEGORIES.map((c) => {
             const meta = getCategoryMeta(c);
             return (
               <Chip
                 key={c}
-                label={`${meta.fil} (${c})`}
-                color={meta.color}
+                label={`${meta.fil} · ${meta.code}`}
+                color={meta.deep}
                 on={values.category === c}
                 onClick={() => set("category", c)}
               />
@@ -301,7 +305,7 @@ export function DestinationForm({
 
       {/* Description */}
       <div>
-        <Label className="mb-1.5">Description</Label>
+        <Label className="mb-1.5">CURATORIAL OVERVIEW (STOP 01)</Label>
         <textarea
           id="dest-description"
           rows={3}
@@ -314,7 +318,7 @@ export function DestinationForm({
 
       {/* History (Kasaysayan) */}
       <div>
-        <Label className="mb-1.5">History (Kasaysayan)</Label>
+        <Label className="mb-1.5">HISTORICAL RECORD / KASAYSAYAN (STOP 02)</Label>
         <textarea
           id="dest-history"
           rows={3}
@@ -327,7 +331,7 @@ export function DestinationForm({
 
       {/* Cultural Significance (Kahalagahan) */}
       <div>
-        <Label className="mb-1.5">Cultural significance (Kahalagahan)</Label>
+        <Label className="mb-1.5">CULTURAL SIGNIFICANCE / KAHALAGAHAN (STOP 03)</Label>
         <textarea
           id="dest-significance"
           rows={3}
@@ -340,7 +344,7 @@ export function DestinationForm({
 
       {/* Sources (Mga Sanggunian) */}
       <div>
-        <Label className="mb-1.5">Sources (Mga Sanggunian)</Label>
+        <Label className="mb-1.5">ARCHIVAL SOURCES (MGA SANGGUNIAN)</Label>
         <input
           id="dest-sources"
           type="text"
@@ -351,10 +355,10 @@ export function DestinationForm({
         />
       </div>
 
-      {/* Coordinates (M6.1) */}
+      {/* Coordinates */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <Label className="mb-1.5">Latitude (-90 to 90)</Label>
+          <Label className="mb-1.5">LATITUDE (-90 TO 90)</Label>
           <input
             id="dest-lat"
             type="number"
@@ -364,17 +368,17 @@ export function DestinationForm({
             placeholder="14.2115"
             style={{
               ...inputStyle,
-              borderColor: errors.latitude ? C.red : C.ink,
+              borderColor: errors.latitude ? C.red : "#BFB399",
             }}
           />
           {errors.latitude ? (
-            <p className="mt-1 text-[13px] font-bold" style={{ fontFamily: F.bold, color: C.red }}>
+            <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
               {errors.latitude}
             </p>
           ) : null}
         </div>
         <div>
-          <Label className="mb-1.5">Longitude (-180 to 180)</Label>
+          <Label className="mb-1.5">LONGITUDE (-180 TO 180)</Label>
           <input
             id="dest-lng"
             type="number"
@@ -384,11 +388,11 @@ export function DestinationForm({
             placeholder="121.1614"
             style={{
               ...inputStyle,
-              borderColor: errors.longitude ? C.red : C.ink,
+              borderColor: errors.longitude ? C.red : "#BFB399",
             }}
           />
           {errors.longitude ? (
-            <p className="mt-1 text-[13px] font-bold" style={{ fontFamily: F.bold, color: C.red }}>
+            <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
               {errors.longitude}
             </p>
           ) : null}
@@ -397,7 +401,7 @@ export function DestinationForm({
 
       {/* Photos (Upload + Image URL Links) */}
       <div>
-        <Label className="mb-2">Photos (the first one is the cover)</Label>
+        <Label className="mb-2">ARCHIVAL PHOTOGRAPHS (FIRST IMAGE IS PRIMARY PLATE)</Label>
         {(preview || extraImages.length > 0) && (
           <div className="mb-3 flex flex-wrap gap-3">
             {preview ? (
@@ -405,8 +409,7 @@ export function DestinationForm({
                 <img
                   src={preview}
                   alt="Cover preview"
-                  className="size-20 rounded-[10px] object-cover"
-                  style={{ borderWidth: 2, borderStyle: "solid", borderColor: C.ink }}
+                  className="size-20 rounded-xs border border-[#B8AC93] object-cover"
                 />
                 {file && (
                   <button
@@ -416,12 +419,9 @@ export function DestinationForm({
                       if (fileInputRef.current) fileInputRef.current.value = "";
                       onFileChange(null);
                     }}
-                    className="absolute -top-2 -right-2 flex size-6 cursor-pointer items-center justify-center rounded-full text-[12px] font-bold text-white"
+                    className="absolute -top-2 -right-2 flex size-6 cursor-pointer items-center justify-center rounded-full text-[11px] font-bold text-white"
                     style={{
                       backgroundColor: C.red,
-                      borderWidth: 2,
-                      borderStyle: "solid",
-                      borderColor: C.ink,
                     }}
                   >
                     ✕
@@ -435,19 +435,15 @@ export function DestinationForm({
                 <img
                   src={u}
                   alt={`Gallery ${idx + 1}`}
-                  className="size-20 rounded-[10px] object-cover"
-                  style={{ borderWidth: 2, borderStyle: "solid", borderColor: C.ink }}
+                  className="size-20 rounded-xs border border-[#B8AC93] object-cover"
                 />
                 <button
                   type="button"
                   aria-label="Remove photo link"
                   onClick={() => setExtraImages((imgs) => imgs.filter((_, j) => j !== idx))}
-                  className="absolute -top-2 -right-2 flex size-6 cursor-pointer items-center justify-center rounded-full text-[12px] font-bold text-white"
+                  className="absolute -top-2 -right-2 flex size-6 cursor-pointer items-center justify-center rounded-full text-[11px] font-bold text-white"
                   style={{
                     backgroundColor: C.red,
-                    borderWidth: 2,
-                    borderStyle: "solid",
-                    borderColor: C.ink,
                   }}
                 >
                   ✕
@@ -466,13 +462,13 @@ export function DestinationForm({
           onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
         />
         <Btn
-          label="Choose from gallery"
+          label="Upload Photograph File"
           color={C.card}
           onClick={() => fileInputRef.current?.click()}
         />
 
         <div className="mt-3">
-          <Label className="mb-1.5">Or paste an image link (http or https)</Label>
+          <Label className="mb-1.5">OR PASTE AN EXTERNAL IMAGE URL (HTTP / HTTPS)</Label>
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
               type="url"
@@ -496,15 +492,15 @@ export function DestinationForm({
               placeholder="https://..."
               style={{
                 ...inputStyle,
-                borderColor: errors.urlInput ? C.red : C.ink,
+                borderColor: errors.urlInput ? C.red : "#BFB399",
               }}
             />
             <div className="shrink-0 sm:w-36">
-              <Btn label="Add link" color={C.card} onClick={addUrl} />
+              <Btn label="Add Image" color={C.card} onClick={addUrl} />
             </div>
           </div>
           {errors.urlInput ? (
-            <p className="mt-1 text-[13px] font-bold" style={{ fontFamily: F.bold, color: C.red }}>
+            <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
               {errors.urlInput}
             </p>
           ) : null}
@@ -517,10 +513,10 @@ export function DestinationForm({
           type="checkbox"
           checked={values.featured}
           onChange={(e) => set("featured", e.target.checked)}
-          className="size-5 accent-[#2B59C3]"
+          className="size-4 accent-[#4A181B]"
         />
-        <span className="text-[14px] font-bold" style={{ fontFamily: F.bold, color: C.ink }}>
-          Feature on Tahanan (Home screen)
+        <span className="text-[13px] font-semibold" style={{ fontFamily: F.body, color: C.ink }}>
+          Feature as Priority Dossier on Port of Entry (Home screen)
         </span>
       </label>
 
@@ -529,8 +525,8 @@ export function DestinationForm({
         <Btn label="Cancel" color={C.card} onClick={onDone} />
         <Btn
           type="submit"
-          label={saving ? "Saving place..." : "Save place"}
-          color={C.blue}
+          label={saving ? "Recording Dossier..." : "Save Visa Dossier"}
+          color={C.cover}
           disabled={saving}
         />
       </div>
