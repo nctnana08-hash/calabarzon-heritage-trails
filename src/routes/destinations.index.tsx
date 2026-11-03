@@ -24,7 +24,7 @@ type ExploreSearch = {
   view?: "map" | "list" | undefined;
 };
 
-export const Route = createFileRoute("/destinations")({
+export const Route = createFileRoute("/destinations/")({
   validateSearch: (search: Record<string, unknown>): ExploreSearch => ({
     q: typeof search["q"] === "string" ? search["q"] : undefined,
     category: typeof search["category"] === "string" ? search["category"] : undefined,
