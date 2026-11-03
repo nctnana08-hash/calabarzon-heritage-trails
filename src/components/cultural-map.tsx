@@ -24,10 +24,10 @@ export default function CulturalMap({
   interactive = true,
 }: {
   destinations: Destination[];
-  center?: [number, number];
-  zoom?: number;
-  className?: string;
-  interactive?: boolean;
+  center?: [number, number] | undefined;
+  zoom?: number | undefined;
+  className?: string | undefined;
+  interactive?: boolean | undefined;
 }) {
   useEffect(() => {
     // Leaflet needs a resize nudge when it mounts inside a hidden/animated container.

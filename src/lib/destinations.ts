@@ -41,7 +41,11 @@ export function imageUrl(
 
 export function filterDestinations(
   destinations: Destination[],
-  filters: { q?: string; category?: string; province?: string },
+  filters: {
+    q?: string | undefined;
+    category?: string | undefined;
+    province?: string | undefined;
+  },
 ): Destination[] {
   const q = filters.q?.trim().toLowerCase();
   return destinations.filter((d) => {

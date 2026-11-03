@@ -53,7 +53,7 @@ export function useSaveDestination() {
       destination,
       input,
     }: {
-      destination?: Destination;
+      destination?: Destination | undefined;
       input: DestinationInput;
     }) => {
       if (destination) {
