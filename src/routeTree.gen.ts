@@ -10,12 +10,24 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DestinationsRouteImport } from './routes/destinations'
+import { Route as DestinationsSlugRouteImport } from './routes/destinations.$slug'
 import { Route as ApiPublicImagesSplatRouteImport } from './routes/api/public/images.$'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const DestinationsRoute = DestinationsRouteImport.update({
+  id: '/destinations',
+  path: '/destinations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DestinationsSlugRoute = DestinationsSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => DestinationsRoute,
 } as any)
 const ApiPublicImagesSplatRoute = ApiPublicImagesSplatRouteImport.update({
   id: '/api/public/images/$',
@@ -25,27 +37,40 @@ const ApiPublicImagesSplatRoute = ApiPublicImagesSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/destinations': typeof DestinationsRouteWithChildren
+  '/destinations/$slug': typeof DestinationsSlugRoute
   '/api/public/images/$': typeof ApiPublicImagesSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/destinations': typeof DestinationsRouteWithChildren
+  '/destinations/$slug': typeof DestinationsSlugRoute
   '/api/public/images/$': typeof ApiPublicImagesSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/destinations': typeof DestinationsRouteWithChildren
+  '/destinations/$slug': typeof DestinationsSlugRoute
   '/api/public/images/$': typeof ApiPublicImagesSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/api/public/images/$'
+  fullPaths:
+    '/' | '/destinations' | '/destinations/$slug' | '/api/public/images/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/api/public/images/$'
-  id: '__root__' | '/' | '/api/public/images/$'
+  to: '/' | '/destinations' | '/destinations/$slug' | '/api/public/images/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/destinations'
+    | '/destinations/$slug'
+    | '/api/public/images/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DestinationsRoute: typeof DestinationsRouteWithChildren
   ApiPublicImagesSplatRoute: typeof ApiPublicImagesSplatRoute
 }
 
@@ -58,6 +83,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/destinations': {
+      id: '/destinations'
+      path: '/destinations'
+      fullPath: '/destinations'
+      preLoaderRoute: typeof DestinationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/destinations/$slug': {
+      id: '/destinations/$slug'
+      path: '/$slug'
+      fullPath: '/destinations/$slug'
+      preLoaderRoute: typeof DestinationsSlugRouteImport
+      parentRoute: typeof DestinationsRoute
+    }
     '/api/public/images/$': {
       id: '/api/public/images/$'
       path: '/api/public/images/$'
@@ -68,8 +107,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface DestinationsRouteChildren {
+  DestinationsSlugRoute: typeof DestinationsSlugRoute
+}
+
+const DestinationsRouteChildren: DestinationsRouteChildren = {
+  DestinationsSlugRoute: DestinationsSlugRoute,
+}
+
+const DestinationsRouteWithChildren = DestinationsRoute._addFileChildren(
+  DestinationsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DestinationsRoute: DestinationsRouteWithChildren,
   ApiPublicImagesSplatRoute: ApiPublicImagesSplatRoute,
 }
 export const routeTree = rootRouteImport
