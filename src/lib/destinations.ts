@@ -21,6 +21,10 @@ export type Destination = {
   latitude: number | null;
   longitude: number | null;
   featured: boolean;
+  history?: string | null;
+  significance?: string | null;
+  sources?: string | null;
+  gallery_urls?: string[] | null;
   created_at: string;
   updated_at: string;
 };
@@ -52,7 +56,8 @@ export function filterDestinations(
     if (filters.category && d.category !== filters.category) return false;
     if (filters.province && d.province !== filters.province) return false;
     if (q) {
-      const haystack = `${d.name} ${d.address} ${d.province} ${d.description} ${d.category}`.toLowerCase();
+      const haystack =
+        `${d.name} ${d.address} ${d.province} ${d.description} ${d.category}`.toLowerCase();
       if (!haystack.includes(q)) return false;
     }
     return true;

@@ -37,10 +37,7 @@ export const Route = createFileRoute("/api/public/images/$")({
           "content-type",
           upstream.headers.get("content-type") ?? "application/octet-stream",
         );
-        headers.set(
-          "cache-control",
-          "public, max-age=86400, stale-while-revalidate=604800",
-        );
+        headers.set("cache-control", "public, max-age=86400, stale-while-revalidate=604800");
         return new Response(upstream.body, { status: 200, headers });
       },
     },

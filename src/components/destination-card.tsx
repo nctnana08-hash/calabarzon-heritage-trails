@@ -1,49 +1,68 @@
-import { Link } from "@tanstack/react-router";
-import { MapPin } from "lucide-react";
-
-import { imageUrl, type Destination } from "@/lib/destinations";
-import { Badge } from "@/components/ui/badge";
+import { useNavigate } from "@tanstack/react-router";
+import type { Destination } from "@/lib/destinations";
+import { isDestinationToured, useSulyapProgress } from "@/lib/sulyap-data";
+import { C, F, getCategoryMeta } from "@/lib/sulyap-theme";
+import { Cover, Pop } from "./sulyap-ui";
 
 export function DestinationCard({ destination }: { destination: Destination }) {
-  const img = imageUrl(destination);
+  const navigate = useNavigate();
+  const progress = useSulyapProgress();
+  const toured = isDestinationToured(destination, progress);
+  const cat = getCategoryMeta(destination.category);
 
   return (
-    <Link
-      to="/destinations/$slug"
-      params={{ slug: destination.slug }}
-      className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-md"
+    <Pop
+      onClick={() =>
+        navigate({
+          to: "/destinations/$slug",
+          params: { slug: destination.slug },
+        })
+      }
+      ariaLabel={`${destination.name}, ${destination.province}, ${cat.fil} (${destination.category})`}
+      className="flex h-full flex-col"
     >
-      <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-        {img ? (
-          <img
-            src={img}
-            alt={destination.name}
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center bg-secondary">
-            <MapPin className="size-8 text-muted-foreground/50" />
-          </div>
-        )}
-        <Badge
-          variant="secondary"
-          className="absolute left-3 top-3 border border-border/60 bg-background/90 font-medium text-primary backdrop-blur"
-        >
-          {destination.category}
-        </Badge>
+      <div className="relative h-44 w-full overflow-hidden">
+        <Cover destination={destination} className="h-full w-full" />
+        {toured ? (
+          <span
+            className="absolute top-3 right-3 rounded-full px-2.5 py-0.5 text-[12px] font-bold"
+            style={{
+              fontFamily: F.bold,
+              backgroundColor: C.green,
+              color: "#FFFFFF",
+              borderWidth: 2,
+              borderStyle: "solid",
+              borderColor: C.ink,
+            }}
+          >
+            ✓ Stamped
+          </span>
+        ) : null}
       </div>
-      <div className="flex flex-1 flex-col p-4">
-        <h3 className="font-display text-xl font-semibold leading-snug text-foreground">
+      <div
+        className="flex flex-1 flex-col p-4"
+        style={{
+          borderTopWidth: 2,
+          borderTopStyle: "solid",
+          borderTopColor: C.ink,
+        }}
+      >
+        <span className="text-[13px] font-bold" style={{ fontFamily: F.bold, color: cat.deep }}>
+          {cat.fil}, {destination.province}
+        </span>
+        <h3
+          className="mt-1 text-[20px] leading-[25px]"
+          style={{ fontFamily: F.display, color: C.ink }}
+        >
           {destination.name}
         </h3>
-        <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground">
-          <MapPin className="size-3.5 shrink-0" />
-          <span className="line-clamp-1">
-            {destination.address} · {destination.province}
-          </span>
+        <p
+          className="mt-1.5 line-clamp-2 text-[14px] leading-[20px]"
+          style={{ fontFamily: F.body, color: C.mute }}
+        >
+          {destination.description}
         </p>
       </div>
-    </Link>
+    </Pop>
   );
 }

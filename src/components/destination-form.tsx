@@ -1,36 +1,18 @@
 import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import {
-  useSaveDestination,
-  type DestinationInput,
-} from "@/hooks/use-destinations";
-import {
-  CATEGORIES,
-  PROVINCES,
-  imageUrl,
-  slugify,
-  type Destination,
-} from "@/lib/destinations";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useSaveDestination, type DestinationInput } from "@/hooks/use-destinations";
+import { CATEGORIES, PROVINCES, imageUrl, slugify, type Destination } from "@/lib/destinations";
+import { getEnrichment, saveCustomMeta } from "@/lib/sulyap-data";
+import { C, F, getCategoryMeta } from "@/lib/sulyap-theme";
+import { Btn, Chip, Label } from "./sulyap-ui";
 
 function friendlyError(message: string): string {
   if (message.includes("duplicate key")) {
-    return "A destination with this link (slug) already exists — pick a different one.";
+    return "A place with this link (slug) already exists. Change the name or slug slightly.";
   }
   if (message.includes("destinations_province_check")) {
-    return "Please choose one of the five CALABARZON provinces.";
+    return "Choose one of the five CALABARZON provinces.";
   }
   return message;
 }
@@ -44,26 +26,41 @@ export function DestinationForm({
 }) {
   const save = useSaveDestination();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const existingEnrichment = destination ? getEnrichment(destination) : null;
+
   const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<string | null>(
-    destination ? imageUrl(destination) : null,
-  );
+  const [preview, setPreview] = useState<string | null>(destination ? imageUrl(destination) : null);
+  const [extraImages, setExtraImages] = useState<string[]>(existingEnrichment?.images ?? []);
+  const [urlInput, setUrlInput] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
   const [values, setValues] = useState({
     name: destination?.name ?? "",
     slug: destination?.slug ?? "",
     slugTouched: !!destination,
     description: destination?.description ?? "",
+    history: existingEnrichment?.history ?? "",
+    significance: existingEnrichment?.significance ?? "",
+    sources: existingEnrichment?.sources ?? "",
     address: destination?.address ?? "",
-    province: destination?.province ?? "",
-    category: destination?.category ?? "",
+    province: destination?.province ?? "Laguna",
+    category: destination?.category ?? "Historical Shrines",
     latitude: destination?.latitude != null ? String(destination.latitude) : "",
     longitude: destination?.longitude != null ? String(destination.longitude) : "",
     featured: destination?.featured ?? false,
   });
   const [saving, setSaving] = useState(false);
 
-  const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) =>
+  const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) => {
     setValues((v) => ({ ...v, [key]: value }));
+    if (errors[key]) {
+      setErrors((e) => {
+        const next = { ...e };
+        delete next[key];
+        return next;
+      });
+    }
+  };
 
   function onNameChange(name: string) {
     setValues((v) => ({
@@ -71,6 +68,13 @@ export function DestinationForm({
       name,
       slug: v.slugTouched ? v.slug : slugify(name),
     }));
+    if (errors.name) {
+      setErrors((e) => {
+        const next = { ...e };
+        delete next.name;
+        return next;
+      });
+    }
   }
 
   function onFileChange(f: File | null) {
@@ -79,25 +83,76 @@ export function DestinationForm({
     setPreview(f ? URL.createObjectURL(f) : destination ? imageUrl(destination) : null);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!values.name.trim() || !values.province || !values.category) {
-      toast.error("Name, province, and category are required.");
+  function addUrl() {
+    const trimmed = urlInput.trim();
+    if (!trimmed) return;
+    if (!/^https?:\/\/.+/i.test(trimmed)) {
+      setErrors((e) => ({
+        ...e,
+        urlInput: "Paste a full image link that starts with http:// or https://.",
+      }));
       return;
     }
+    setExtraImages((imgs) => [...imgs, trimmed]);
+    setUrlInput("");
+    setErrors((e) => {
+      const next = { ...e };
+      delete next.urlInput;
+      return next;
+    });
+  }
+
+  function validate(): boolean {
+    const nextErrors: Record<string, string> = {};
+    const trimmedName = values.name.trim();
+    const trimmedAddr = values.address.trim();
+
+    if (!trimmedName) {
+      nextErrors.name = "Name is required. Enter the heritage site's name.";
+    } else if (trimmedName.length > 80) {
+      nextErrors.name = `Name must be 80 characters or fewer (currently ${trimmedName.length}).`;
+    }
+
+    if (!trimmedAddr) {
+      nextErrors.address = "Address is required. Enter the street, barangay, or municipality.";
+    }
+
+    if (values.latitude.trim()) {
+      const lat = Number(values.latitude);
+      if (Number.isNaN(lat) || lat < -90 || lat > 90) {
+        nextErrors.latitude = "Latitude must be a number between -90 and 90.";
+      }
+    }
+
+    if (values.longitude.trim()) {
+      const lng = Number(values.longitude);
+      if (Number.isNaN(lng) || lng < -180 || lng > 180) {
+        nextErrors.longitude = "Longitude must be a number between -180 and 180.";
+      }
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    // M1.10: Save double-tap guard
+    if (saving) return;
+    if (!validate()) return;
+
     setSaving(true);
     try {
+      const finalSlug = values.slug.trim() || slugify(values.name);
       let imagePath = destination?.image_path ?? null;
+
       if (file) {
-        const slug = values.slug.trim() || slugify(values.name);
         const ext = (file.name.split(".").pop() ?? "jpg").toLowerCase();
-        const path = `${slug}-${Date.now()}.${ext}`;
-        const { error } = await supabase.storage
-          .from("destination-images")
-          .upload(path, file, {
-            upsert: true,
-            contentType: file.type || "image/jpeg",
-          });
+        const path = `${finalSlug}-${Date.now()}.${ext}`;
+        const { error } = await supabase.storage.from("destination-images").upload(path, file, {
+          upsert: true,
+          contentType: file.type || "image/jpeg",
+        });
         if (error) throw new Error(error.message);
         if (imagePath && imagePath !== path) {
           await supabase.storage
@@ -110,177 +165,374 @@ export function DestinationForm({
 
       const input: DestinationInput = {
         name: values.name.trim(),
-        slug: values.slug.trim() || slugify(values.name),
+        slug: finalSlug,
         description: values.description.trim(),
         address: values.address.trim(),
         province: values.province,
         category: values.category,
         image_path: imagePath,
-        latitude: values.latitude ? Number(values.latitude) : null,
-        longitude: values.longitude ? Number(values.longitude) : null,
+        latitude: values.latitude.trim() ? Number(values.latitude) : null,
+        longitude: values.longitude.trim() ? Number(values.longitude) : null,
         featured: values.featured,
+        history: values.history.trim(),
+        significance: values.significance.trim(),
+        sources: values.sources.trim(),
+        gallery_urls: extraImages,
       };
 
-      await save.mutateAsync({ destination, input });
-      toast.success(destination ? "Destination updated." : "Destination added.");
+      const savedId = await save.mutateAsync({ destination, input });
+
+      // Persist Sulyap extended fields (Kasaysayan, Kahalagahan, Mga Sanggunian, gallery links)
+      saveCustomMeta(finalSlug, {
+        history: values.history.trim(),
+        significance: values.significance.trim(),
+        sources: values.sources.trim(),
+        images: extraImages,
+      });
+      if (savedId) {
+        saveCustomMeta(savedId, {
+          history: values.history.trim(),
+          significance: values.significance.trim(),
+          sources: values.sources.trim(),
+          images: extraImages,
+        });
+      }
+
+      toast.success(destination ? "Place updated." : "Place added.");
       onDone();
     } catch (err) {
-      toast.error(friendlyError(err instanceof Error ? err.message : "Something went wrong."));
+      toast.error(friendlyError(err instanceof Error ? err.message : "Could not save this place."));
     } finally {
       setSaving(false);
     }
   }
 
+  const inputStyle: React.CSSProperties = {
+    fontFamily: F.body,
+    fontSize: 16,
+    color: C.ink,
+    backgroundColor: C.card,
+    borderWidth: 2,
+    borderStyle: "solid",
+    borderColor: C.ink,
+    borderRadius: 10,
+    padding: "10px 12px",
+    width: "100%",
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <div className="sm:col-span-2">
-        <Label htmlFor="dest-name">Name *</Label>
-        <Input
+    <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+      {/* Name */}
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <Label>Name (max 80 characters) *</Label>
+          <span className="text-[12px]" style={{ fontFamily: F.body, color: C.mute }}>
+            {values.name.trim().length}/80
+          </span>
+        </div>
+        <input
           id="dest-name"
+          type="text"
+          maxLength={85}
           value={values.name}
           onChange={(e) => onNameChange(e.target.value)}
-          placeholder="e.g. Rizal Shrine"
-          required
+          placeholder="e.g. Taal Basilica"
+          style={{
+            ...inputStyle,
+            borderColor: errors.name ? C.red : C.ink,
+          }}
         />
+        {errors.name ? (
+          <p className="mt-1 text-[13px] font-bold" style={{ fontFamily: F.bold, color: C.red }}>
+            {errors.name}
+          </p>
+        ) : null}
       </div>
 
+      {/* Address */}
       <div>
-        <Label htmlFor="dest-slug">Link (slug)</Label>
-        <Input
-          id="dest-slug"
-          value={values.slug}
-          onChange={(e) => set("slug", slugify(e.target.value))}
-          placeholder="rizal-shrine"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="dest-address">Address</Label>
-        <Input
+        <Label className="mb-1.5">Address *</Label>
+        <input
           id="dest-address"
+          type="text"
           value={values.address}
           onChange={(e) => set("address", e.target.value)}
-          placeholder="Street, city, municipality"
+          placeholder="Street, town, province"
+          style={{
+            ...inputStyle,
+            borderColor: errors.address ? C.red : C.ink,
+          }}
         />
+        {errors.address ? (
+          <p className="mt-1 text-[13px] font-bold" style={{ fontFamily: F.bold, color: C.red }}>
+            {errors.address}
+          </p>
+        ) : null}
       </div>
 
+      {/* Province Chips */}
       <div>
-        <Label>Province *</Label>
-        <Select value={values.province} onValueChange={(v) => set("province", v)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Choose a province" />
-          </SelectTrigger>
-          <SelectContent>
-            {PROVINCES.map((p) => (
-              <SelectItem key={p} value={p}>
-                {p}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div>
-        <Label>Category *</Label>
-        <Select value={values.category} onValueChange={(v) => set("category", v)}>
-          <SelectTrigger>
-            <SelectValue placeholder="Choose a category" />
-          </SelectTrigger>
-          <SelectContent>
-            {CATEGORIES.map((c) => (
-              <SelectItem key={c} value={c}>
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="sm:col-span-2">
-        <Label htmlFor="dest-description">Description</Label>
-        <Textarea
-          id="dest-description"
-          value={values.description}
-          onChange={(e) => set("description", e.target.value)}
-          rows={5}
-          placeholder="The story, history, and what visitors should look for…"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="dest-lat">Latitude</Label>
-        <Input
-          id="dest-lat"
-          type="number"
-          step="any"
-          value={values.latitude}
-          onChange={(e) => set("latitude", e.target.value)}
-          placeholder="14.2115"
-        />
-      </div>
-
-      <div>
-        <Label htmlFor="dest-lng">Longitude</Label>
-        <Input
-          id="dest-lng"
-          type="number"
-          step="any"
-          value={values.longitude}
-          onChange={(e) => set("longitude", e.target.value)}
-          placeholder="121.1614"
-        />
-      </div>
-
-      <div className="sm:col-span-2">
-        <Label htmlFor="dest-image">Image</Label>
-        <div className="flex items-center gap-4">
-          {preview && (
-            <img
-              src={preview}
-              alt="Preview"
-              className="size-20 rounded-md border border-border object-cover"
-            />
-          )}
-          <Input
-            id="dest-image"
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="flex-1"
-            onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
-          />
-          {file && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                if (fileInputRef.current) fileInputRef.current.value = "";
-                onFileChange(null);
-              }}
-            >
-              Remove
-            </Button>
-          )}
+        <Label className="mb-2">Province</Label>
+        <div className="flex flex-wrap gap-2">
+          {PROVINCES.map((p) => (
+            <Chip key={p} label={p} on={values.province === p} onClick={() => set("province", p)} />
+          ))}
         </div>
       </div>
 
-      <div className="flex items-center gap-2 sm:col-span-2">
-        <Checkbox
-          id="dest-featured"
-          checked={values.featured}
-          onCheckedChange={(checked) => set("featured", checked === true)}
-        />
-        <Label htmlFor="dest-featured">Feature on the home screen</Label>
+      {/* Category Chips */}
+      <div>
+        <Label className="mb-2">Category</Label>
+        <div className="flex flex-wrap gap-2">
+          {CATEGORIES.map((c) => {
+            const meta = getCategoryMeta(c);
+            return (
+              <Chip
+                key={c}
+                label={`${meta.fil} (${c})`}
+                color={meta.color}
+                on={values.category === c}
+                onClick={() => set("category", c)}
+              />
+            );
+          })}
+        </div>
       </div>
 
-      <div className="flex justify-end gap-2 sm:col-span-2">
-        <Button type="button" variant="outline" onClick={onDone}>
-          Cancel
-        </Button>
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : destination ? "Save changes" : "Add destination"}
-        </Button>
+      {/* Description */}
+      <div>
+        <Label className="mb-1.5">Description</Label>
+        <textarea
+          id="dest-description"
+          rows={3}
+          value={values.description}
+          onChange={(e) => set("description", e.target.value)}
+          placeholder="What is this place?"
+          style={inputStyle}
+        />
+      </div>
+
+      {/* History (Kasaysayan) */}
+      <div>
+        <Label className="mb-1.5">History (Kasaysayan)</Label>
+        <textarea
+          id="dest-history"
+          rows={3}
+          value={values.history}
+          onChange={(e) => set("history", e.target.value)}
+          placeholder="How did it come to be?"
+          style={inputStyle}
+        />
+      </div>
+
+      {/* Cultural Significance (Kahalagahan) */}
+      <div>
+        <Label className="mb-1.5">Cultural significance (Kahalagahan)</Label>
+        <textarea
+          id="dest-significance"
+          rows={3}
+          value={values.significance}
+          onChange={(e) => set("significance", e.target.value)}
+          placeholder="Why does it matter to Filipinos today?"
+          style={inputStyle}
+        />
+      </div>
+
+      {/* Sources (Mga Sanggunian) */}
+      <div>
+        <Label className="mb-1.5">Sources (Mga Sanggunian)</Label>
+        <input
+          id="dest-sources"
+          type="text"
+          value={values.sources}
+          onChange={(e) => set("sources", e.target.value)}
+          placeholder="e.g. NHCP Historical Marker; National Museum of the Philippines"
+          style={inputStyle}
+        />
+      </div>
+
+      {/* Coordinates (M6.1) */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <Label className="mb-1.5">Latitude (-90 to 90)</Label>
+          <input
+            id="dest-lat"
+            type="number"
+            step="any"
+            value={values.latitude}
+            onChange={(e) => set("latitude", e.target.value)}
+            placeholder="14.2115"
+            style={{
+              ...inputStyle,
+              borderColor: errors.latitude ? C.red : C.ink,
+            }}
+          />
+          {errors.latitude ? (
+            <p className="mt-1 text-[13px] font-bold" style={{ fontFamily: F.bold, color: C.red }}>
+              {errors.latitude}
+            </p>
+          ) : null}
+        </div>
+        <div>
+          <Label className="mb-1.5">Longitude (-180 to 180)</Label>
+          <input
+            id="dest-lng"
+            type="number"
+            step="any"
+            value={values.longitude}
+            onChange={(e) => set("longitude", e.target.value)}
+            placeholder="121.1614"
+            style={{
+              ...inputStyle,
+              borderColor: errors.longitude ? C.red : C.ink,
+            }}
+          />
+          {errors.longitude ? (
+            <p className="mt-1 text-[13px] font-bold" style={{ fontFamily: F.bold, color: C.red }}>
+              {errors.longitude}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Photos (Upload + Image URL Links) */}
+      <div>
+        <Label className="mb-2">Photos (the first one is the cover)</Label>
+        {(preview || extraImages.length > 0) && (
+          <div className="mb-3 flex flex-wrap gap-3">
+            {preview ? (
+              <div className="relative">
+                <img
+                  src={preview}
+                  alt="Cover preview"
+                  className="size-20 rounded-[10px] object-cover"
+                  style={{ borderWidth: 2, borderStyle: "solid", borderColor: C.ink }}
+                />
+                {file && (
+                  <button
+                    type="button"
+                    aria-label="Remove uploaded photo"
+                    onClick={() => {
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                      onFileChange(null);
+                    }}
+                    className="absolute -top-2 -right-2 flex size-6 cursor-pointer items-center justify-center rounded-full text-[12px] font-bold text-white"
+                    style={{
+                      backgroundColor: C.red,
+                      borderWidth: 2,
+                      borderStyle: "solid",
+                      borderColor: C.ink,
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            ) : null}
+
+            {extraImages.map((u, idx) => (
+              <div key={u + idx} className="relative">
+                <img
+                  src={u}
+                  alt={`Gallery ${idx + 1}`}
+                  className="size-20 rounded-[10px] object-cover"
+                  style={{ borderWidth: 2, borderStyle: "solid", borderColor: C.ink }}
+                />
+                <button
+                  type="button"
+                  aria-label="Remove photo link"
+                  onClick={() => setExtraImages((imgs) => imgs.filter((_, j) => j !== idx))}
+                  className="absolute -top-2 -right-2 flex size-6 cursor-pointer items-center justify-center rounded-full text-[12px] font-bold text-white"
+                  style={{
+                    backgroundColor: C.red,
+                    borderWidth: 2,
+                    borderStyle: "solid",
+                    borderColor: C.ink,
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <input
+          id="dest-image"
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
+        />
+        <Btn
+          label="Choose from gallery"
+          color={C.card}
+          onClick={() => fileInputRef.current?.click()}
+        />
+
+        <div className="mt-3">
+          <Label className="mb-1.5">Or paste an image link (http or https)</Label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="url"
+              value={urlInput}
+              onChange={(e) => {
+                setUrlInput(e.target.value);
+                if (errors.urlInput) {
+                  setErrors((prev) => {
+                    const next = { ...prev };
+                    delete next.urlInput;
+                    return next;
+                  });
+                }
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addUrl();
+                }
+              }}
+              placeholder="https://..."
+              style={{
+                ...inputStyle,
+                borderColor: errors.urlInput ? C.red : C.ink,
+              }}
+            />
+            <div className="shrink-0 sm:w-36">
+              <Btn label="Add link" color={C.card} onClick={addUrl} />
+            </div>
+          </div>
+          {errors.urlInput ? (
+            <p className="mt-1 text-[13px] font-bold" style={{ fontFamily: F.bold, color: C.red }}>
+              {errors.urlInput}
+            </p>
+          ) : null}
+        </div>
+      </div>
+
+      {/* Featured Toggle */}
+      <label className="flex cursor-pointer items-center gap-2.5 pt-1">
+        <input
+          type="checkbox"
+          checked={values.featured}
+          onChange={(e) => set("featured", e.target.checked)}
+          className="size-5 accent-[#2B59C3]"
+        />
+        <span className="text-[14px] font-bold" style={{ fontFamily: F.bold, color: C.ink }}>
+          Feature on Tahanan (Home screen)
+        </span>
+      </label>
+
+      {/* Actions */}
+      <div className="grid grid-cols-1 gap-3 pt-3 sm:grid-cols-2">
+        <Btn label="Cancel" color={C.card} onClick={onDone} />
+        <Btn
+          type="submit"
+          label={saving ? "Saving place..." : "Save place"}
+          color={C.blue}
+          disabled={saving}
+        />
       </div>
     </form>
   );

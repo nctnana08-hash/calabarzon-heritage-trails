@@ -27,24 +27,14 @@ export function MapView({
 
   if (!mounted) {
     return (
-      <div
-        className={cn(
-          "w-full animate-pulse rounded-lg bg-muted",
-          className ?? "h-[420px]",
-        )}
-      />
+      <div className={cn("w-full animate-pulse rounded-lg bg-muted", className ?? "h-[420px]")} />
     );
   }
 
   return (
     <React.Suspense
       fallback={
-        <div
-          className={cn(
-            "w-full animate-pulse rounded-lg bg-muted",
-            className ?? "h-[420px]",
-          )}
-        />
+        <div className={cn("w-full animate-pulse rounded-lg bg-muted", className ?? "h-[420px]")} />
       }
     >
       <CulturalMap

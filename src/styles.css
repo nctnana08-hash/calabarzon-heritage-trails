@@ -5,13 +5,11 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Design system: "cultural museum" aesthetic modeled on the National Museum
- * of Fine Arts — warm ivory paper, deep oxblood maroon, aged gold accents,
- * Cormorant Garamond display serif over Work Sans.
- *
- * All colors MUST use oklch format. To add a new semantic color:
- * 1. Add the variable to :root (light value) and .dark (dark value)
- * 2. Register it in @theme inline as --color-<name>: var(--<name>)
+ * Sulyap Design System:
+ * Google's four primaries tuned to Philippine heritage (flag blue #2B59C3,
+ * Katipunan red #D2372B, araw gold #F6B21A, palay green #2E8B4F) on
+ * abaca-white paper (#FAF8F1) with deep indigo ink (#1B2247).
+ * Typography: Alfa Slab One for titles and numbers, Figtree (500, 700) for body.
  */
 
 @theme inline {
@@ -22,8 +20,8 @@
   --radius-2xl: calc(var(--radius) + 8px);
   --radius-3xl: calc(var(--radius) + 12px);
   --radius-4xl: calc(var(--radius) + 16px);
-  --font-display: "Cormorant Garamond", Georgia, serif;
-  --font-sans: "Work Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Alfa Slab One", Georgia, serif;
+  --font-sans: "Figtree", ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -59,74 +57,39 @@
 }
 
 :root {
-  --radius: 0.375rem;
-  --background: oklch(0.977 0.009 92);
-  --foreground: oklch(0.26 0.022 47);
-  --card: oklch(0.995 0.004 92);
-  --card-foreground: oklch(0.26 0.022 47);
-  --popover: oklch(0.995 0.004 92);
-  --popover-foreground: oklch(0.26 0.022 47);
-  --primary: oklch(0.40 0.095 32);
-  --primary-foreground: oklch(0.97 0.012 85);
-  --secondary: oklch(0.935 0.021 85);
-  --secondary-foreground: oklch(0.37 0.05 40);
-  --muted: oklch(0.945 0.014 87);
-  --muted-foreground: oklch(0.50 0.028 55);
-  --accent: oklch(0.79 0.082 82);
-  --accent-foreground: oklch(0.30 0.05 45);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.895 0.018 84);
-  --input: oklch(0.895 0.018 84);
-  --ring: oklch(0.55 0.08 40);
-  --chart-1: oklch(0.40 0.095 32);
-  --chart-2: oklch(0.79 0.082 82);
-  --chart-3: oklch(0.55 0.08 40);
-  --chart-4: oklch(0.65 0.07 75);
-  --chart-5: oklch(0.35 0.04 45);
-  --sidebar: oklch(0.965 0.012 88);
-  --sidebar-foreground: oklch(0.26 0.022 47);
-  --sidebar-primary: oklch(0.40 0.095 32);
-  --sidebar-primary-foreground: oklch(0.97 0.012 85);
-  --sidebar-accent: oklch(0.935 0.021 85);
-  --sidebar-accent-foreground: oklch(0.37 0.05 40);
-  --sidebar-border: oklch(0.895 0.018 84);
-  --sidebar-ring: oklch(0.55 0.08 40);
-}
-
-.dark {
-  --background: oklch(0.18 0.014 45);
-  --foreground: oklch(0.95 0.012 85);
-  --card: oklch(0.23 0.018 45);
-  --card-foreground: oklch(0.95 0.012 85);
-  --popover: oklch(0.23 0.018 45);
-  --popover-foreground: oklch(0.95 0.012 85);
-  --primary: oklch(0.78 0.075 78);
-  --primary-foreground: oklch(0.20 0.03 40);
-  --secondary: oklch(0.28 0.02 48);
-  --secondary-foreground: oklch(0.95 0.012 85);
-  --muted: oklch(0.28 0.02 48);
-  --muted-foreground: oklch(0.68 0.025 70);
-  --accent: oklch(0.35 0.05 35);
-  --accent-foreground: oklch(0.95 0.012 85);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.6 0.05 60);
-  --chart-1: oklch(0.78 0.075 78);
-  --chart-2: oklch(0.55 0.08 40);
-  --chart-3: oklch(0.65 0.07 75);
-  --chart-4: oklch(0.79 0.082 82);
-  --chart-5: oklch(0.5 0.04 50);
-  --sidebar: oklch(0.23 0.018 45);
-  --sidebar-foreground: oklch(0.95 0.012 85);
-  --sidebar-primary: oklch(0.78 0.075 78);
-  --sidebar-primary-foreground: oklch(0.20 0.03 40);
-  --sidebar-accent: oklch(0.28 0.02 48);
-  --sidebar-accent-foreground: oklch(0.95 0.012 85);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.6 0.05 60);
+  --radius: 0.625rem;
+  --background: oklch(0.98 0.011 92);
+  --foreground: oklch(0.24 0.068 268);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.24 0.068 268);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.24 0.068 268);
+  --primary: oklch(0.49 0.175 262);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.92 0.022 88);
+  --secondary-foreground: oklch(0.24 0.068 268);
+  --muted: oklch(0.92 0.022 88);
+  --muted-foreground: oklch(0.53 0.045 272);
+  --accent: oklch(0.81 0.165 82);
+  --accent-foreground: oklch(0.24 0.068 268);
+  --destructive: oklch(0.55 0.195 27);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.24 0.068 268);
+  --input: oklch(0.24 0.068 268);
+  --ring: oklch(0.49 0.175 262);
+  --chart-1: oklch(0.49 0.175 262);
+  --chart-2: oklch(0.55 0.195 27);
+  --chart-3: oklch(0.81 0.165 82);
+  --chart-4: oklch(0.56 0.13 152);
+  --chart-5: oklch(0.24 0.068 268);
+  --sidebar: oklch(0.98 0.011 92);
+  --sidebar-foreground: oklch(0.24 0.068 268);
+  --sidebar-primary: oklch(0.49 0.175 262);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.92 0.022 88);
+  --sidebar-accent-foreground: oklch(0.24 0.068 268);
+  --sidebar-border: oklch(0.24 0.068 268);
+  --sidebar-ring: oklch(0.49 0.175 262);
 }
 
 @layer base {
@@ -135,14 +98,15 @@
   }
 
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
-    font-family: var(--font-sans);
+    background-color: #faf8f1;
+    color: #1b2247;
+    font-family: "Figtree", ui-sans-serif, system-ui, sans-serif;
+    font-weight: 500;
   }
 
   ::selection {
-    background-color: var(--color-accent);
-    color: var(--color-accent-foreground);
+    background-color: #f6b21a;
+    color: #1b2247;
   }
 }
 
@@ -152,28 +116,13 @@
   border: none;
 }
 
-.lk-map-pin > span {
-  display: block;
-  width: 16px;
-  height: 16px;
-  border-radius: 9999px;
-  background: var(--color-primary);
-  border: 2px solid var(--color-primary-foreground);
-  box-shadow: 0 1px 4px oklch(0.2 0.05 45 / 0.5);
-}
-
 .leaflet-popup-content-wrapper {
-  border-radius: var(--radius);
+  border-radius: 10px;
+  border: 2px solid #1b2247;
+  box-shadow: 4px 4px 0 #1b2247;
 }
 
 .leaflet-popup-content {
   margin: 10px 14px;
-  font-family: var(--font-sans);
-}
-
-.leaflet-popup-content a {
-  color: var(--color-primary);
-  font-weight: 600;
-  font-family: var(--font-display);
-  font-size: 1rem;
+  font-family: "Figtree", ui-sans-serif, system-ui, sans-serif;
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 
 import {
   CATEGORIES,
@@ -8,6 +8,19 @@ import {
   slugify,
   type Destination,
 } from "@/lib/destinations";
+import {
+  FALLBACK_DESTINATIONS,
+  clearAllProgressForTests,
+  deleteDestinationProgress,
+  generateQuestionsForDestination,
+  getEnrichment,
+  getProgress,
+  getQuestionsForDestination,
+  listProgress,
+  markToured,
+  saveScore,
+} from "@/lib/sulyap-data";
+import { C, CATS, getCategoryMeta, onColor } from "@/lib/sulyap-theme";
 
 const row = (over: Partial<Destination>): Destination => ({
   id: "id",
@@ -26,7 +39,11 @@ const row = (over: Partial<Destination>): Destination => ({
   ...over,
 });
 
-describe("destination data rules", () => {
+describe("destination data rules & Sulyap milestones", () => {
+  beforeEach(() => {
+    clearAllProgressForTests();
+  });
+
   it("covers exactly the five CALABARZON provinces", () => {
     expect([...PROVINCES]).toEqual(["Cavite", "Laguna", "Batangas", "Rizal", "Quezon"]);
   });
@@ -43,7 +60,12 @@ describe("destination data rules", () => {
   it("filters by category, province, and search text", () => {
     const data = [
       row({ id: "1", name: "Rizal Shrine", province: "Laguna", category: "Historical Shrines" }),
-      row({ id: "2", name: "Taal Basilica", province: "Batangas", category: "Religious Landmarks" }),
+      row({
+        id: "2",
+        name: "Taal Basilica",
+        province: "Batangas",
+        category: "Religious Landmarks",
+      }),
       row({ id: "3", name: "Taal Volcano", province: "Batangas", category: "Natural Heritage" }),
     ];
 
@@ -58,9 +80,9 @@ describe("destination data rules", () => {
   });
 
   it("builds proxied image URLs from the stored path", () => {
-    expect(
-      imageUrl({ image_path: "taal-volcano.jpg", updated_at: "2026-01-01T00:00:00Z" }),
-    ).toBe("/api/public/images/destination-images/taal-volcano.jpg?v=2026-01-01T00%3A00%3A00Z");
+    expect(imageUrl({ image_path: "taal-volcano.jpg", updated_at: "2026-01-01T00:00:00Z" })).toBe(
+      "/api/public/images/destination-images/taal-volcano.jpg?v=2026-01-01T00%3A00%3A00Z",
+    );
     expect(imageUrl({ image_path: null, updated_at: "x" })).toBeNull();
   });
 
@@ -68,5 +90,104 @@ describe("destination data rules", () => {
     expect(slugify("Minor Basilica of St. Martin de Tours")).toBe(
       "minor-basilica-of-st-martin-de-tours",
     );
+  });
+
+  it("enforces Sulyap design tokens and contrast rule (gold uses ink text)", () => {
+    expect(onColor(C.gold)).toBe(C.ink);
+    expect(onColor(C.blue)).toBe("#FFFFFF");
+    expect(onColor(C.red)).toBe("#FFFFFF");
+    expect(onColor(C.green)).toBe("#FFFFFF");
+    expect(CATS.Museum.deep).toBe("#8F6200");
+    expect(getCategoryMeta("Historical Shrines").fil).toBe("Pamana");
+    expect(getCategoryMeta("Religious Landmarks").fil).toBe("Simbahan");
+    expect(getCategoryMeta("Museums").fil).toBe("Museo");
+    expect(getCategoryMeta("Natural Heritage").fil).toBe("Kalikasan");
+  });
+
+  it("M3: every seeded destination has description, history, significance, sources, and 4+ quiz questions with explanations", () => {
+    expect(FALLBACK_DESTINATIONS.length).toBeGreaterThanOrEqual(12);
+
+    // Every province has at least 2 places
+    for (const p of PROVINCES) {
+      const count = FALLBACK_DESTINATIONS.filter((d) => d.province === p).length;
+      expect(count).toBeGreaterThanOrEqual(2);
+    }
+
+    // Every category has at least 2 places
+    for (const c of CATEGORIES) {
+      const count = FALLBACK_DESTINATIONS.filter((d) => d.category === c).length;
+      expect(count).toBeGreaterThanOrEqual(2);
+    }
+
+    for (const d of FALLBACK_DESTINATIONS) {
+      const enrichment = getEnrichment(d);
+      expect(d.description.length).toBeGreaterThan(20);
+      expect(enrichment.history.length).toBeGreaterThan(20);
+      expect(enrichment.significance.length).toBeGreaterThan(20);
+      expect(enrichment.sources.length).toBeGreaterThan(10);
+
+      const qs = getQuestionsForDestination(d);
+      expect(qs.length).toBeGreaterThanOrEqual(4);
+      for (const q of qs) {
+        expect(q.options).toHaveLength(4);
+        expect(new Set(q.options).size).toBe(4);
+        expect(q.answer).toBeGreaterThanOrEqual(0);
+        expect(q.answer).toBeLessThan(4);
+        expect(q.explanation.length).toBeGreaterThan(10);
+      }
+    }
+  });
+
+  it("M4: quiz generator produces 4 unique options containing the correct answer", () => {
+    const custom = row({
+      id: "custom-1",
+      slug: "custom-heritage-house",
+      name: "Custom Heritage House",
+      province: "Quezon",
+      category: "Museums",
+      address: "Poblacion, Lucban",
+    });
+
+    const qs = generateQuestionsForDestination(custom);
+    expect(qs).toHaveLength(4);
+    for (const q of qs) {
+      expect(q.options).toHaveLength(4);
+      expect(new Set(q.options).size).toBe(4);
+      expect(q.options[q.answer]).toBeDefined();
+    }
+    expect(qs[0]?.options[qs[0].answer]).toBe("Quezon");
+    expect(qs[1]?.options[qs[1].answer]).toBe("Museums");
+  });
+
+  it("M4: saveScore tracks best = max, attempts + 1, last score, and deleteDestinationProgress cascades", () => {
+    markToured("dest-1", "aguinaldo-shrine");
+    expect(getProgress("aguinaldo-shrine")?.toured).toBe(1);
+
+    saveScore("dest-1", 2, 4, "aguinaldo-shrine");
+    let p = getProgress("aguinaldo-shrine");
+    expect(p?.best).toBe(2);
+    expect(p?.total).toBe(4);
+    expect(p?.attempts).toBe(1);
+    expect(p?.last).toBe(2);
+    expect(p?.toured).toBe(1);
+
+    // Higher score updates best
+    saveScore("dest-1", 4, 4, "aguinaldo-shrine");
+    p = getProgress("aguinaldo-shrine");
+    expect(p?.best).toBe(4);
+    expect(p?.attempts).toBe(2);
+    expect(p?.last).toBe(4);
+
+    // Lower score keeps best = max(best, score) while updating last and attempts
+    saveScore("dest-1", 1, 4, "aguinaldo-shrine");
+    p = getProgress("aguinaldo-shrine");
+    expect(p?.best).toBe(4);
+    expect(p?.attempts).toBe(3);
+    expect(p?.last).toBe(1);
+
+    // Cascade delete removes progress row
+    deleteDestinationProgress("dest-1", "aguinaldo-shrine");
+    expect(getProgress("aguinaldo-shrine")).toBeNull();
+    expect(listProgress()).toHaveLength(0);
   });
 });

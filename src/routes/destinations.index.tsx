@@ -1,27 +1,22 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { List, MapPinned, Search, SlidersHorizontal } from "lucide-react";
+import { useState } from "react";
 
 import { SiteHeader, MobileBottomNav } from "@/components/site-nav";
-import { DestinationCard } from "@/components/destination-card";
+import { DestinationForm } from "@/components/destination-form";
 import { MapView } from "@/components/map-view";
+import { SulyapPassport } from "@/components/sulyap-passport";
+import { Btn, Chip, Label, Pop, Ticket } from "@/components/sulyap-ui";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDestinations } from "@/hooks/use-destinations";
 import { CATEGORIES, PROVINCES, filterDestinations } from "@/lib/destinations";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { getDestinationProgress, isDestinationToured, useSulyapProgress } from "@/lib/sulyap-data";
+import { C, F, getCategoryMeta } from "@/lib/sulyap-theme";
 
 type ExploreSearch = {
   q?: string | undefined;
   category?: string | undefined;
   province?: string | undefined;
-  view?: "map" | "list" | undefined;
+  view?: "map" | "list" | "passport" | undefined;
 };
 
 export const Route = createFileRoute("/destinations/")({
@@ -29,21 +24,21 @@ export const Route = createFileRoute("/destinations/")({
     q: typeof search["q"] === "string" ? search["q"] : undefined,
     category: typeof search["category"] === "string" ? search["category"] : undefined,
     province: typeof search["province"] === "string" ? search["province"] : undefined,
-    view: search["view"] === "map" ? "map" : "list",
+    view: search["view"] === "map" ? "map" : search["view"] === "passport" ? "passport" : "list",
   }),
   head: () => ({
     meta: [
-      { title: "Explore Destinations | Lakbay Kultura" },
+      { title: "Destinasyon & Pasaporte | Sulyap" },
       {
         name: "description",
         content:
-          "Search and filter the heritage destinations of CALABARZON by category and province, or browse them on the cultural map.",
+          "Search and filter the heritage destinations of CALABARZON by category and province, browse the cultural map, or inspect your Pasaporte stamps.",
       },
-      { property: "og:title", content: "Explore Destinations | Lakbay Kultura" },
+      { property: "og:title", content: "Destinasyon & Pasaporte | Sulyap" },
       {
         property: "og:description",
         content:
-          "Search and filter the heritage destinations of CALABARZON by category and province, or browse them on the cultural map.",
+          "Search and filter the heritage destinations of CALABARZON by category and province.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -56,146 +51,257 @@ function ExplorePage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
   const { data: destinations, isPending, isError, error } = useDestinations();
+  const progress = useSulyapProgress();
+  const [addOpen, setAddOpen] = useState(false);
 
   const setSearch = (patch: Partial<ExploreSearch>) =>
     navigate({ search: (prev) => ({ ...prev, ...patch }), replace: true });
 
-  const filtered = filterDestinations(destinations ?? [], search);
+  const allDestinations = destinations ?? [];
+  const filtered = filterDestinations(allDestinations, search);
   const hasFilters = !!(search.q || search.category || search.province);
-  const isMap = search.view === "map";
+  const view = search.view ?? "list";
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col" style={{ backgroundColor: C.paper }}>
       <SiteHeader />
 
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-        <p className="text-[0.65rem] font-semibold uppercase tracking-[0.3em] text-muted-foreground">
-          Cultural map of Region IV-A
-        </p>
-        <h1 className="mt-2 font-display text-4xl font-semibold text-foreground">
-          Explore destinations
-        </h1>
-
-        {/* Filters */}
-        <div className="mt-6 flex flex-col gap-3 rounded-lg border border-border bg-card p-4 sm:flex-row sm:items-center">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search.q ?? ""}
-              onChange={(e) => setSearch({ q: e.target.value })}
-              placeholder="Search destinations, places, stories…"
-              className="pl-9"
-              aria-label="Search destinations"
-            />
-          </div>
-          <div className="flex gap-3">
-            <Select
-              value={search.category ?? "all"}
-              onValueChange={(v) => setSearch({ category: v === "all" ? undefined : v })}
-            >
-              <SelectTrigger className="w-full sm:w-48" aria-label="Filter by category">
-                <SlidersHorizontal className="size-4 text-muted-foreground" />
-                <SelectValue placeholder="Category" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All categories</SelectItem>
-                {CATEGORIES.map((c) => (
-                  <SelectItem key={c} value={c}>
-                    {c}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select
-              value={search.province ?? "all"}
-              onValueChange={(v) => setSearch({ province: v === "all" ? undefined : v })}
-            >
-              <SelectTrigger className="w-full sm:w-40" aria-label="Filter by province">
-                <SelectValue placeholder="Province" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All provinces</SelectItem>
-                {PROVINCES.map((p) => (
-                  <SelectItem key={p} value={p}>
-                    {p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-1 rounded-md border border-border p-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn("h-8 gap-1.5 px-3", !isMap && "bg-secondary text-primary")}
-              onClick={() => setSearch({ view: "list" })}
-            >
-              <List className="size-4" /> List
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn("h-8 gap-1.5 px-3", isMap && "bg-secondary text-primary")}
-              onClick={() => setSearch({ view: "map" })}
-            >
-              <MapPinned className="size-4" /> Map
-            </Button>
-          </div>
-        </div>
-
-        {isError && (
-          <p className="mt-6 rounded-md border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
-            Could not load destinations: {error.message}
-          </p>
-        )}
-
-        {!isError && isPending && (
-          <div className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-72 animate-pulse rounded-lg bg-muted" />
-            ))}
-          </div>
-        )}
-
-        {!isError && !isPending && (
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">
+        {view === "passport" ? (
+          <SulyapPassport destinations={allDestinations} />
+        ) : (
           <>
-            <p className="mt-6 text-sm text-muted-foreground" aria-live="polite">
-              {filtered.length} {filtered.length === 1 ? "destination" : "destinations"}
-              {hasFilters && " found"}
-            </p>
+            {/* Top Header Row */}
+            <div className="flex flex-wrap items-end justify-between gap-4 pb-4">
+              <div>
+                <h1
+                  className="text-[32px] leading-tight sm:text-[38px]"
+                  style={{ fontFamily: F.display, color: C.ink }}
+                >
+                  Destinasyon
+                </h1>
+                <Label>
+                  {filtered.length} {filtered.length === 1 ? "place" : "places"} to visit
+                </Label>
+              </div>
 
-            {isMap ? (
-              <div className="mt-4 overflow-hidden rounded-lg border border-border">
-                <MapView destinations={filtered} className="h-[520px] w-full" />
+              <div className="flex flex-wrap items-center gap-2.5">
+                <Chip
+                  label="Tickets"
+                  on={view === "list"}
+                  color={C.blue}
+                  onClick={() => setSearch({ view: "list" })}
+                />
+                <Chip
+                  label="Mapa"
+                  on={view === "map"}
+                  color={C.green}
+                  onClick={() => setSearch({ view: "map" })}
+                />
+                <div className="w-32">
+                  <Btn label="Add place" color={C.gold} onClick={() => setAddOpen(true)} />
+                </div>
               </div>
-            ) : filtered.length === 0 ? (
-              <div className="mt-8 rounded-lg border border-dashed border-border p-10 text-center">
-                <p className="font-display text-2xl text-foreground">No destinations found</p>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  {hasFilters
-                    ? "Try loosening your search or filters."
-                    : "Destinations will appear here once added in Manage."}
+            </div>
+
+            {/* Search Input */}
+            <div className="mb-3">
+              <input
+                type="search"
+                value={search.q ?? ""}
+                onChange={(e) => setSearch({ q: e.target.value || undefined })}
+                placeholder="Search name, town, or province"
+                aria-label="Search name, town, or province"
+                className="w-full rounded-[10px] px-4 py-3 text-[16px] focus-visible:outline-2"
+                style={{
+                  fontFamily: F.body,
+                  color: C.ink,
+                  backgroundColor: C.card,
+                  borderWidth: 2,
+                  borderStyle: "solid",
+                  borderColor: C.ink,
+                  outlineColor: C.blue,
+                }}
+              />
+            </div>
+
+            {/* Category Filter Chips */}
+            <div
+              className="mb-2.5 flex flex-wrap items-center gap-2"
+              role="group"
+              aria-label="Filter by category"
+            >
+              <Chip
+                label="All"
+                on={!search.category}
+                color={C.ink}
+                onClick={() => setSearch({ category: undefined })}
+              />
+              {CATEGORIES.map((c) => {
+                const meta = getCategoryMeta(c);
+                return (
+                  <Chip
+                    key={c}
+                    label={`${meta.fil} (${c})`}
+                    on={search.category === c}
+                    color={meta.color}
+                    onClick={() =>
+                      setSearch({
+                        category: search.category === c ? undefined : c,
+                      })
+                    }
+                  />
+                );
+              })}
+              {search.province ? (
+                <Chip
+                  label={`${search.province}  ✕`}
+                  on={true}
+                  color={C.ink}
+                  ariaLabel={`Clear province filter ${search.province}`}
+                  onClick={() => setSearch({ province: undefined })}
+                />
+              ) : null}
+            </div>
+
+            {/* Province Filter Chips */}
+            <div
+              className="mb-5 flex flex-wrap items-center gap-2"
+              role="group"
+              aria-label="Filter by province"
+            >
+              {PROVINCES.map((p) => (
+                <Chip
+                  key={p}
+                  label={p}
+                  on={search.province === p}
+                  color={C.blue}
+                  onClick={() =>
+                    setSearch({
+                      province: search.province === p ? undefined : p,
+                    })
+                  }
+                />
+              ))}
+            </div>
+
+            {/* Error State */}
+            {isError ? (
+              <Pop className="my-4 p-5">
+                <h2 className="text-[20px]" style={{ fontFamily: F.display, color: C.red }}>
+                  Hindi nabuksan ang listahan
+                </h2>
+                <p className="mt-1 text-[15px]" style={{ fontFamily: F.body, color: C.ink }}>
+                  Could not load places: {error.message}
                 </p>
-                {hasFilters && (
-                  <Button
-                    variant="outline"
-                    className="mt-4"
-                    onClick={() => setSearch({ q: undefined, category: undefined, province: undefined })}
-                  >
-                    Clear filters
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="mt-4 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                {filtered.map((destination) => (
-                  <DestinationCard key={destination.id} destination={destination} />
+              </Pop>
+            ) : null}
+
+            {/* Loading State */}
+            {!isError && isPending ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-32 animate-pulse rounded-[10px]"
+                    style={{
+                      backgroundColor: C.sand,
+                      borderWidth: 2,
+                      borderStyle: "solid",
+                      borderColor: C.ink,
+                    }}
+                  />
                 ))}
               </div>
-            )}
+            ) : null}
+
+            {/* Loaded View */}
+            {!isError && !isPending ? (
+              view === "map" ? (
+                <Pop className="overflow-hidden">
+                  <MapView destinations={filtered} className="h-[520px] w-full" />
+                </Pop>
+              ) : filtered.length === 0 ? (
+                <Pop className="p-6">
+                  <h2 className="text-[22px]" style={{ fontFamily: F.display, color: C.ink }}>
+                    Walang nakita
+                  </h2>
+                  <p
+                    className="my-2 text-[15px] leading-[22px]"
+                    style={{ fontFamily: F.body, color: C.mute }}
+                  >
+                    No place matches your search. Clear a filter, or add the place yourself.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    {hasFilters ? (
+                      <div className="w-40">
+                        <Btn
+                          label="Clear filters"
+                          color={C.card}
+                          onClick={() =>
+                            setSearch({
+                              q: undefined,
+                              category: undefined,
+                              province: undefined,
+                            })
+                          }
+                        />
+                      </div>
+                    ) : null}
+                    <div className="w-40">
+                      <Btn label="Add place" color={C.gold} onClick={() => setAddOpen(true)} />
+                    </div>
+                  </div>
+                </Pop>
+              ) : (
+                <div className="space-y-3.5">
+                  {filtered.map((item) => {
+                    const prog = getDestinationProgress(item, progress);
+                    return (
+                      <Ticket
+                        key={item.id}
+                        destination={item}
+                        done={isDestinationToured(item, progress)}
+                        quizBest={
+                          prog && prog.attempts > 0 && prog.total > 0
+                            ? { best: prog.best, total: prog.total }
+                            : null
+                        }
+                        onClick={() =>
+                          navigate({
+                            to: "/destinations/$slug",
+                            params: { slug: item.slug },
+                          })
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              )
+            ) : null}
           </>
         )}
       </main>
+
+      {/* Add Place Modal */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+          style={{
+            backgroundColor: C.paper,
+            borderWidth: 2,
+            borderStyle: "solid",
+            borderColor: C.ink,
+          }}
+        >
+          <DialogHeader>
+            <DialogTitle className="text-[26px]" style={{ fontFamily: F.display, color: C.ink }}>
+              Add a place
+            </DialogTitle>
+          </DialogHeader>
+          <DestinationForm onDone={() => setAddOpen(false)} />
+        </DialogContent>
+      </Dialog>
 
       <MobileBottomNav />
     </div>
