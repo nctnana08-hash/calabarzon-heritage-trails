@@ -17,10 +17,10 @@ export function MapView({
   interactive = true,
 }: {
   destinations: Destination[];
-  center?: [number, number];
-  zoom?: number;
-  className?: string;
-  interactive?: boolean;
+  center?: [number, number] | undefined;
+  zoom?: number | undefined;
+  className?: string | undefined;
+  interactive?: boolean | undefined;
 }) {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);

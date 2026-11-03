@@ -39,7 +39,7 @@ export function DestinationForm({
   destination,
   onDone,
 }: {
-  destination?: Destination;
+  destination?: Destination | undefined;
   onDone: () => void;
 }) {
   const save = useSaveDestination();

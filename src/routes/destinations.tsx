@@ -18,18 +18,18 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type ExploreSearch = {
-  q?: string;
-  category?: string;
-  province?: string;
-  view?: "map" | "list";
+  q?: string | undefined;
+  category?: string | undefined;
+  province?: string | undefined;
+  view?: "map" | "list" | undefined;
 };
 
 export const Route = createFileRoute("/destinations")({
   validateSearch: (search: Record<string, unknown>): ExploreSearch => ({
-    q: typeof search.q === "string" ? search.q : undefined,
-    category: typeof search.category === "string" ? search.category : undefined,
-    province: typeof search.province === "string" ? search.province : undefined,
-    view: search.view === "map" ? "map" : "list",
+    q: typeof search["q"] === "string" ? search["q"] : undefined,
+    category: typeof search["category"] === "string" ? search["category"] : undefined,
+    province: typeof search["province"] === "string" ? search["province"] : undefined,
+    view: search["view"] === "map" ? "map" : "list",
   }),
   head: () => ({
     meta: [
