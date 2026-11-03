@@ -1,4 +1,4 @@
-import { Link } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { Building2, Church, Landmark, MapPin, Mountain } from "lucide-react";
 
 import { SiteHeader, MobileBottomNav } from "@/components/site-nav";
