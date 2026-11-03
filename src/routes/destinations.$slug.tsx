@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { SiteHeader, MobileBottomNav } from "@/components/site-nav";
 import { DestinationForm } from "@/components/destination-form";
 import { MapView } from "@/components/map-view";
+import { SulyapArt360Map } from "@/components/sulyap-art-360";
 import { SulyapQuiz, SulyapTour } from "@/components/sulyap-tour-quiz";
 import { Btn, Cover, Label, Pop, Sec, Stamp, Top } from "@/components/sulyap-ui";
 import {
@@ -22,7 +23,7 @@ import { useDeleteDestination, useDestination } from "@/hooks/use-destinations";
 import { getDestinationProgress, getEnrichment, useSulyapProgress } from "@/lib/sulyap-data";
 import { C, F, PROVINCE_CODES, getCategoryMeta, seedFromId } from "@/lib/sulyap-theme";
 
-type DetailMode = "detail" | "tour" | "quiz";
+type DetailMode = "detail" | "tour" | "quiz" | "art360";
 
 function Row({ k, v }: { k: string; v: string }) {
   return (
@@ -170,6 +171,19 @@ function DestinationDetail() {
           />
         )}
 
+        {destination && mode === "art360" && (
+          <div className="pb-12">
+            <Top
+              onBack={() => setMode("detail")}
+              kicker={`360° CURATED ART & RELIC MAP · ${destination.province.toUpperCase()}`}
+              title={destination.name}
+            />
+            <div className="mt-4">
+              <SulyapArt360Map destination={destination} onBack={() => setMode("detail")} />
+            </div>
+          </div>
+        )}
+
         {destination &&
           mode === "detail" &&
           (() => {
@@ -303,17 +317,23 @@ function DestinationDetail() {
                       </div>
                     ) : null}
 
-                    {/* Primary Learning Actions: Tour + Quiz */}
+                    {/* Primary Learning Actions: Tour + 360 Art Map + Quiz + Maps */}
                     <Sec
                       fil="Inspeksyon at Tatak sa Pasaporte"
-                      en="COMPLETE THE 3-STOP VIRTUAL TOUR TO STAMP YOUR PASSPORT"
+                      en="COMPLETE THE 3-STOP VIRTUAL TOUR OR INSPECT THE 360° ART & RELIC MAP"
                     />
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <Btn
                         label="Start 3-Stop Tour"
                         sub="Earn Visa Stamp"
                         color={C.cover}
                         onClick={() => setMode("tour")}
+                      />
+                      <Btn
+                        label="360° Art & Relic Map"
+                        sub="Inspect 4 Site Masterworks"
+                        color={C.blue}
+                        onClick={() => setMode("art360")}
                       />
                       <Btn
                         label="Examiner's Quiz"
@@ -459,6 +479,11 @@ function DestinationDetail() {
                       />
                     </Pop>
                   </aside>
+                </div>
+
+                {/* Embedded 360° Art & Relic Panorama Map Section */}
+                <div className="mt-10 border-t border-[#D6CCB5] pt-8">
+                  <SulyapArt360Map destination={destination} />
                 </div>
               </article>
             );

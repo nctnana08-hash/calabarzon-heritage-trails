@@ -20,6 +20,7 @@ import {
   markToured,
   saveScore,
 } from "@/lib/sulyap-data";
+import { getArtPieces360 } from "@/lib/sulyap-art-360";
 import { C, CATS, getCategoryMeta, onColor } from "@/lib/sulyap-theme";
 
 const row = (over: Partial<Destination>): Destination => ({
@@ -189,5 +190,31 @@ describe("destination data rules & Sulyap milestones", () => {
     deleteDestinationProgress("dest-1", "aguinaldo-shrine");
     expect(getProgress("aguinaldo-shrine")).toBeNull();
     expect(listProgress()).toHaveLength(0);
+  });
+
+  it("provides 4 360-degree art pieces and architectural relics with curatorial details for every destination", () => {
+    for (const d of FALLBACK_DESTINATIONS) {
+      const pieces = getArtPieces360(d);
+      expect(pieces).toHaveLength(4);
+      for (const p of pieces) {
+        expect(p.title.length).toBeGreaterThan(5);
+        expect(p.artistOrMaker.length).toBeGreaterThan(3);
+        expect(p.medium.length).toBeGreaterThan(5);
+        expect(p.details.length).toBeGreaterThan(20);
+        expect(p.bearing).toBeGreaterThanOrEqual(0);
+        expect(p.bearing).toBeLessThan(360);
+      }
+    }
+
+    const customPieces = getArtPieces360(
+      row({
+        id: "custom-art-site",
+        slug: "custom-art-site",
+        name: "Custom Art Sanctuary",
+        province: "Rizal",
+        category: "Museums",
+      }),
+    );
+    expect(customPieces).toHaveLength(4);
   });
 });

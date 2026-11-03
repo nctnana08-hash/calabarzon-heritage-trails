@@ -7,6 +7,7 @@ import {
   saveScore,
 } from "@/lib/sulyap-data";
 import { C, F, PROVINCE_CODES, getCategoryMeta } from "@/lib/sulyap-theme";
+import { SulyapArt360Map } from "./sulyap-art-360";
 import { Btn, Cover, Label, Pop, Stamp, Top } from "./sulyap-ui";
 
 const STOPS = [
@@ -195,6 +196,11 @@ export function SulyapTour({
             >
               {destination.description}
             </p>
+
+            {/* 360° Curated Art & Relic Map inside Tour Checkpoint 01 */}
+            <div className="mt-6 border-t border-dashed border-[#D5CBB4] pt-5">
+              <SulyapArt360Map destination={destination} compact />
+            </div>
 
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {streetViewUrl ? (
