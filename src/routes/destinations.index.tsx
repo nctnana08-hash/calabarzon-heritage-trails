@@ -28,20 +28,11 @@ export const Route = createFileRoute("/destinations/")({
   }),
   head: () => ({
     meta: [
-      { title: "Visa Directory & Pasaporte | Sulyap" },
+      { title: "Places & Passport | Sulyap" },
       {
         name: "description",
-        content:
-          "Search and filter the heritage destinations of CALABARZON by category and province, browse the cultural cartography map, or inspect your Pasaporte stamps.",
+        content: "Explore heritage destinations across CALABARZON.",
       },
-      { property: "og:title", content: "Visa Directory & Pasaporte | Sulyap" },
-      {
-        property: "og:description",
-        content:
-          "Search and filter the heritage destinations of CALABARZON by category and province.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: ExplorePage,
@@ -66,97 +57,93 @@ function ExplorePage() {
     <div className="flex min-h-screen flex-col" style={{ backgroundColor: C.paper }}>
       <SiteHeader />
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">
+      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8">
         {view === "passport" ? (
           <SulyapPassport destinations={allDestinations} />
         ) : (
           <>
-            {/* Top Passport Registry Header Row */}
-            <div
-              className="mb-5 flex flex-wrap items-end justify-between gap-4 border-b pb-4"
-              style={{ borderColor: "#D6CCB5" }}
-            >
+            {/* Clean Header */}
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
               <div>
-                <Label>OFFICIAL REGIONAL DIRECTORY · REHIYON IV-A</Label>
                 <h1
-                  className="mt-0.5 text-[32px] font-bold leading-tight sm:text-[40px]"
+                  className="text-[30px] font-bold leading-tight sm:text-[36px]"
                   style={{ fontFamily: F.display, color: C.ink }}
                 >
-                  Talaan ng mga Destinasyon
+                  Places
                 </h1>
-                <span
-                  className="text-[12px] font-semibold"
-                  style={{ fontFamily: F.mono, color: C.mute }}
-                >
-                  {filtered.length} {filtered.length === 1 ? "VISA DOSSIER" : "VISA DOSSIERS"}{" "}
-                  AVAILABLE FOR INSPECTION
-                </span>
+                <Label>
+                  {filtered.length} {filtered.length === 1 ? "destination" : "destinations"}
+                </Label>
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
                 <Chip
-                  label="Visa Dossiers"
+                  label="List"
                   on={view === "list"}
                   color={C.cover}
                   onClick={() => setSearch({ view: "list" })}
                 />
                 <Chip
-                  label="Cartography Map"
+                  label="Map"
                   on={view === "map"}
                   color={C.green}
                   onClick={() => setSearch({ view: "map" })}
                 />
                 <Chip
-                  label="Stamp Booklet"
+                  label="Passport"
                   on={false}
                   color={C.cover}
                   onClick={() => setSearch({ view: "passport" })}
                 />
-                <div className="w-36">
-                  <Btn label="+ Register Site" color={C.foil} onClick={() => setAddOpen(true)} />
-                </div>
+                <Btn label="+ Add Place" color={C.foil} onClick={() => setAddOpen(true)} />
               </div>
             </div>
 
-            {/* Search & Filter Control Panel */}
-            <div className="passport-page-surface mb-6 rounded-lg border border-[#C8BDA4] p-4 shadow-xs">
-              <div className="mb-3">
-                <Label className="mb-1">SEARCH HERITAGE REGISTRY</Label>
-                <input
-                  type="search"
-                  value={search.q ?? ""}
-                  onChange={(e) => setSearch({ q: e.target.value || undefined })}
-                  placeholder="Search destination name, municipality, or province..."
-                  aria-label="Search name, town, or province"
-                  className="w-full rounded-md border px-4 py-2.5 text-[15px] focus-visible:outline-2"
-                  style={{
-                    fontFamily: F.body,
-                    color: C.ink,
-                    backgroundColor: C.card,
-                    borderColor: "#BFB399",
-                    outlineColor: C.cover,
-                  }}
-                />
-              </div>
+            {/* Clean Search & Filter Bar */}
+            <div className="mb-6 space-y-3">
+              <input
+                type="search"
+                value={search.q ?? ""}
+                onChange={(e) => setSearch({ q: e.target.value || undefined })}
+                placeholder="Search by name, town, or province..."
+                aria-label="Search by name, town, or province"
+                className="w-full rounded-xl border px-4 py-2.5 text-[15px] focus-visible:outline-2"
+                style={{
+                  fontFamily: F.body,
+                  color: C.ink,
+                  backgroundColor: C.card,
+                  borderColor: "#DED5C0",
+                  outlineColor: C.cover,
+                }}
+              />
 
-              {/* Category Filter Chips */}
-              <div
-                className="mb-2.5 flex flex-wrap items-center gap-2"
-                role="group"
-                aria-label="Filter by category"
-              >
+              <div className="flex flex-wrap items-center gap-1.5">
                 <Chip
-                  label="All Seals"
-                  on={!search.category}
+                  label="All"
+                  on={!search.category && !search.province}
                   color={C.cover}
-                  onClick={() => setSearch({ category: undefined })}
+                  onClick={() => setSearch({ category: undefined, province: undefined })}
                 />
+                {PROVINCES.map((p) => (
+                  <Chip
+                    key={p}
+                    label={p}
+                    on={search.province === p}
+                    color={C.cover}
+                    onClick={() =>
+                      setSearch({
+                        province: search.province === p ? undefined : p,
+                      })
+                    }
+                  />
+                ))}
+                <span className="mx-1 text-[#C8BDA4]">|</span>
                 {CATEGORIES.map((c) => {
                   const meta = getCategoryMeta(c);
                   return (
                     <Chip
                       key={c}
-                      label={`${meta.fil} · ${meta.code}`}
+                      label={meta.fil}
                       on={search.category === c}
                       color={meta.deep}
                       onClick={() =>
@@ -167,33 +154,6 @@ function ExplorePage() {
                     />
                   );
                 })}
-              </div>
-
-              {/* Province Filter Chips */}
-              <div
-                className="flex flex-wrap items-center gap-2 border-t border-dashed border-[#D5CBB4] pt-2.5"
-                role="group"
-                aria-label="Filter by province"
-              >
-                <span
-                  className="mr-1 text-[11px] font-bold uppercase tracking-[0.12em]"
-                  style={{ fontFamily: F.mono, color: C.mute }}
-                >
-                  PROVINCE:
-                </span>
-                {PROVINCES.map((p) => (
-                  <Chip
-                    key={p}
-                    label={p}
-                    on={search.province === p}
-                    color={C.blue}
-                    onClick={() =>
-                      setSearch({
-                        province: search.province === p ? undefined : p,
-                      })
-                    }
-                  />
-                ))}
                 {hasFilters ? (
                   <button
                     type="button"
@@ -204,94 +164,54 @@ function ExplorePage() {
                         province: undefined,
                       })
                     }
-                    className="ml-auto cursor-pointer text-[11px] font-bold uppercase tracking-[0.12em] underline"
-                    style={{ fontFamily: F.mono, color: C.red }}
+                    className="ml-2 cursor-pointer text-[12px] font-medium underline"
+                    style={{ fontFamily: F.body, color: C.mute }}
                   >
-                    Reset Filters ✕
+                    Clear
                   </button>
                 ) : null}
               </div>
             </div>
 
-            {/* Error State */}
             {isError ? (
               <Pop className="my-4 p-5">
-                <h2
-                  className="text-[20px] font-bold"
-                  style={{ fontFamily: F.display, color: C.red }}
-                >
-                  Hindi nabuksan ang listahan
-                </h2>
-                <p className="mt-1 text-[14px]" style={{ fontFamily: F.body, color: C.ink }}>
+                <p className="text-[14px]" style={{ color: C.red }}>
                   Could not load places: {error.message}
                 </p>
               </Pop>
             ) : null}
 
-            {/* Loading State */}
             {!isError && isPending ? (
               <div className="space-y-3">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <div
                     key={i}
-                    className="h-32 animate-pulse rounded-lg border"
-                    style={{
-                      backgroundColor: C.sand,
-                      borderColor: "#C8BDA4",
-                    }}
+                    className="h-24 animate-pulse rounded-xl"
+                    style={{ backgroundColor: C.sand }}
                   />
                 ))}
               </div>
             ) : null}
 
-            {/* Loaded View */}
             {!isError && !isPending ? (
               view === "map" ? (
-                <Pop className="overflow-hidden p-1.5">
-                  <MapView destinations={filtered} className="h-[540px] w-full rounded-md" />
+                <Pop className="overflow-hidden p-1">
+                  <MapView destinations={filtered} className="h-[520px] w-full rounded-lg" />
                 </Pop>
               ) : filtered.length === 0 ? (
-                <Pop className="passport-page-surface p-6">
+                <Pop className="p-6 text-center">
                   <h2
-                    className="text-[24px] font-bold"
+                    className="text-[22px] font-bold"
                     style={{ fontFamily: F.display, color: C.ink }}
                   >
-                    Walang Nakitang Dossier
+                    No places found
                   </h2>
-                  <p
-                    className="my-2 text-[14px] leading-relaxed"
-                    style={{ fontFamily: F.body, color: C.mute }}
-                  >
-                    No heritage visa entry matches your current search or filter criteria. Clear a
-                    filter or register a new heritage site below.
+                  <p className="mt-1 text-[14px]" style={{ fontFamily: F.body, color: C.mute }}>
+                    Try clearing your filters or add a new place.
                   </p>
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {hasFilters ? (
-                      <div className="w-40">
-                        <Btn
-                          label="Clear Filters"
-                          color={C.card}
-                          onClick={() =>
-                            setSearch({
-                              q: undefined,
-                              category: undefined,
-                              province: undefined,
-                            })
-                          }
-                        />
-                      </div>
-                    ) : null}
-                    <div className="w-44">
-                      <Btn
-                        label="+ Register Site"
-                        color={C.foil}
-                        onClick={() => setAddOpen(true)}
-                      />
-                    </div>
-                  </div>
                 </Pop>
               ) : (
-                <div className="space-y-3.5">
+                <div className="space-y-2.5">
                   {filtered.map((item) => {
                     const prog = getDestinationProgress(item, progress);
                     return (
@@ -320,23 +240,20 @@ function ExplorePage() {
         )}
       </main>
 
-      {/* Add Place Modal */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent
-          className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+          className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
           style={{
             backgroundColor: C.card,
-            borderWidth: 1.5,
-            borderStyle: "solid",
-            borderColor: "#B8AC93",
+            borderColor: "#DED5C0",
           }}
         >
           <DialogHeader>
             <DialogTitle
-              className="text-[26px] font-bold"
+              className="text-[24px] font-bold"
               style={{ fontFamily: F.display, color: C.ink }}
             >
-              Register a Heritage Site in the Passport Directory
+              Add a Place
             </DialogTitle>
           </DialogHeader>
           <DestinationForm onDone={() => setAddOpen(false)} />

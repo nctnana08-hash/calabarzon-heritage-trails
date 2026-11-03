@@ -19,26 +19,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useDeleteDestination, useDestinations } from "@/hooks/use-destinations";
 import type { Destination } from "@/lib/destinations";
 import { isDestinationToured, useSulyapProgress } from "@/lib/sulyap-data";
-import { C, F, PROVINCE_CODES, getCategoryMeta, seedFromId } from "@/lib/sulyap-theme";
+import { C, F, getCategoryMeta } from "@/lib/sulyap-theme";
 
 export const Route = createFileRoute("/manage")({
   head: () => ({
-    meta: [
-      { title: "Pamahalaan — Passport Registry Desk | Sulyap" },
-      {
-        name: "description",
-        content:
-          "Add, edit, and remove the heritage visa dossiers shown in the Sulyap CALABARZON virtual tour.",
-      },
-      { property: "og:title", content: "Pamahalaan — Passport Registry Desk | Sulyap" },
-      {
-        property: "og:description",
-        content:
-          "Add, edit, and remove the heritage visa dossiers shown in the Sulyap CALABARZON virtual tour.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
+    meta: [{ title: "Manage Places | Sulyap" }],
   }),
   component: ManagePage,
 });
@@ -65,7 +50,7 @@ function ManagePage() {
   function confirmDelete() {
     if (!deleting) return;
     deleteMutation.mutate(deleting, {
-      onSuccess: () => toast.success(`Removed "${deleting.name}" from registry.`),
+      onSuccess: () => toast.success(`Deleted "${deleting.name}".`),
       onError: (e) => toast.error(e.message),
     });
     setDeleting(null);
@@ -75,33 +60,24 @@ function ManagePage() {
     <div className="flex min-h-screen flex-col" style={{ backgroundColor: C.paper }}>
       <SiteHeader />
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">
-        <div
-          className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b pb-4"
-          style={{ borderColor: "#D6CCB5" }}
-        >
+      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <Label>OFFICIAL ARCHIVAL REGISTRY DESK · REHIYON IV-A</Label>
             <h1
-              className="mt-0.5 text-[32px] font-bold leading-tight sm:text-[40px]"
+              className="text-[30px] font-bold leading-tight sm:text-[36px]"
               style={{ fontFamily: F.display, color: C.ink }}
             >
-              Pamahalaan ang mga Dossier
+              Manage Places
             </h1>
-            <p className="mt-1 text-[14px]" style={{ fontFamily: F.body, color: C.mute }}>
-              Register, amend, and maintain the heritage sites in the CALABARZON Pasaporte ng
-              Pamana.
-            </p>
+            <Label>Add, edit, or remove destinations</Label>
           </div>
-          <div className="w-44">
-            <Btn label="+ Register Site" color={C.foil} onClick={openNew} />
-          </div>
+          <Btn label="+ Add Place" color={C.foil} onClick={openNew} />
         </div>
 
         {isError ? (
           <Pop className="my-4 p-5">
-            <p className="text-[14px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
-              Could not load registry records: {error.message}
+            <p className="text-[14px]" style={{ color: C.red }}>
+              Could not load places: {error.message}
             </p>
           </Pop>
         ) : null}
@@ -111,82 +87,40 @@ function ManagePage() {
             {Array.from({ length: 5 }).map((_, i) => (
               <div
                 key={i}
-                className="h-24 animate-pulse rounded-lg border"
-                style={{
-                  backgroundColor: C.sand,
-                  borderColor: "#C8BDA4",
-                }}
+                className="h-20 animate-pulse rounded-xl"
+                style={{ backgroundColor: C.sand }}
               />
             ))}
           </div>
         ) : null}
 
         {!isPending && !isError ? (
-          <div className="space-y-3">
-            {(destinations ?? []).length === 0 ? (
-              <Pop className="passport-page-surface p-7 text-center">
-                <h2
-                  className="text-[24px] font-bold"
-                  style={{ fontFamily: F.display, color: C.ink }}
-                >
-                  Wala Pang Nakatalang Lugar
-                </h2>
-                <p className="my-2 text-[14px]" style={{ fontFamily: F.body, color: C.mute }}>
-                  Register your first CALABARZON heritage visa dossier to begin.
-                </p>
-                <div className="mx-auto mt-4 w-44">
-                  <Btn label="+ Register Site" color={C.foil} onClick={openNew} />
-                </div>
-              </Pop>
-            ) : (
-              (destinations ?? []).map((destination) => {
-                const cat = getCategoryMeta(destination.category);
-                const toured = isDestinationToured(destination, progress);
-                const provCode = PROVINCE_CODES[destination.province] ?? "IVA";
-                const seed = seedFromId(destination.slug || destination.id);
-                const visaSerial = `IV-A-${provCode}-${String(seed).padStart(3, "0")}`;
+          <div className="space-y-2.5">
+            {(destinations ?? []).map((destination) => {
+              const cat = getCategoryMeta(destination.category);
+              const toured = isDestinationToured(destination, progress);
 
-                return (
-                  <Pop
-                    key={destination.id}
-                    className="passport-page-surface flex flex-col gap-3.5 p-3.5 sm:flex-row sm:items-center"
-                  >
-                    <div className="h-16 w-24 shrink-0 overflow-hidden rounded-xs border border-[#B8AC93] bg-[#EAE2CE] p-1">
-                      <Cover destination={destination} className="h-full w-full rounded-xs" />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
+              return (
+                <Pop key={destination.id} className="flex items-center justify-between gap-4 p-3.5">
+                  <div className="flex min-w-0 items-center gap-3.5">
+                    <Cover destination={destination} className="h-14 w-18 shrink-0 rounded-lg" />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
                         <span
-                          className="text-[11px] font-bold uppercase tracking-[0.12em]"
-                          style={{ fontFamily: F.mono, color: cat.deep }}
+                          className="text-[12px] font-medium"
+                          style={{ fontFamily: F.body, color: cat.deep }}
                         >
-                          {visaSerial} · {cat.fil} ({destination.category})
+                          {destination.province} · {cat.fil}
                         </span>
-                        {destination.featured ? (
-                          <span
-                            className="rounded-xs border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em]"
-                            style={{
-                              fontFamily: F.mono,
-                              backgroundColor: "rgba(212, 175, 55, 0.2)",
-                              borderColor: "#9A701E",
-                              color: C.ink,
-                            }}
-                          >
-                            Priority Dossier
-                          </span>
-                        ) : null}
                         {toured ? (
                           <span
-                            className="rounded-xs border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-[0.1em]"
+                            className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
                             style={{
-                              fontFamily: F.mono,
                               backgroundColor: "rgba(35, 99, 67, 0.12)",
-                              borderColor: C.green,
                               color: C.green,
                             }}
                           >
-                            ★ Stamped
+                            ✓ Stamped
                           </span>
                         ) : null}
                       </div>
@@ -199,71 +133,53 @@ function ManagePage() {
                             params: { slug: destination.slug },
                           })
                         }
-                        className="mt-0.5 block cursor-pointer truncate text-left text-[20px] font-bold hover:underline"
+                        className="block cursor-pointer truncate text-left text-[18px] font-bold hover:underline"
                         style={{ fontFamily: F.display, color: C.ink }}
                       >
                         {destination.name}
                       </button>
-
-                      <p
-                        className="truncate text-[12px]"
-                        style={{ fontFamily: F.mono, color: C.mute }}
-                      >
-                        {destination.address}, {destination.province}
-                      </p>
                     </div>
+                  </div>
 
-                    <div className="flex shrink-0 items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(destination)}
-                        aria-label={`Edit ${destination.name}`}
-                        className="min-h-[38px] cursor-pointer rounded-xs border border-[#B8AC93] bg-[#FCF9F0] px-3.5 py-1.5 text-[12px] font-bold uppercase tracking-[0.1em] transition-colors hover:bg-[#EAE2CE]"
-                        style={{
-                          fontFamily: F.mono,
-                          color: C.ink,
-                        }}
-                      >
-                        ✎ Edit
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleting(destination)}
-                        aria-label={`Delete ${destination.name}`}
-                        className="min-h-[38px] cursor-pointer rounded-xs border px-3.5 py-1.5 text-[12px] font-bold uppercase tracking-[0.1em] text-white transition-opacity hover:opacity-90"
-                        style={{
-                          fontFamily: F.mono,
-                          backgroundColor: C.red,
-                          borderColor: C.red,
-                        }}
-                      >
-                        ✕ Delete
-                      </button>
-                    </div>
-                  </Pop>
-                );
-              })
-            )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => openEdit(destination)}
+                      className="cursor-pointer rounded-lg border border-[#D5CBB4] bg-[#FCF9F0] px-3 py-1.5 text-[12px] font-medium hover:bg-[#EAE2CE]"
+                      style={{ fontFamily: F.body, color: C.ink }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleting(destination)}
+                      className="cursor-pointer rounded-lg border border-[#D5CBB4] bg-[#FCF9F0] px-3 py-1.5 text-[12px] font-medium hover:bg-[#F9E3E3]"
+                      style={{ fontFamily: F.body, color: C.red }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </Pop>
+              );
+            })}
           </div>
         ) : null}
       </main>
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent
-          className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+          className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
           style={{
             backgroundColor: C.card,
-            borderWidth: 1.5,
-            borderStyle: "solid",
-            borderColor: "#B8AC93",
+            borderColor: "#DED5C0",
           }}
         >
           <DialogHeader>
             <DialogTitle
-              className="text-[26px] font-bold"
+              className="text-[24px] font-bold"
               style={{ fontFamily: F.display, color: C.ink }}
             >
-              {editing ? `Edit Dossier: ${editing.name}` : "Register New Heritage Site"}
+              {editing ? `Edit ${editing.name}` : "Add Place"}
             </DialogTitle>
           </DialogHeader>
           <DestinationForm destination={editing} onDone={() => setFormOpen(false)} />
@@ -274,32 +190,29 @@ function ManagePage() {
         <AlertDialogContent
           style={{
             backgroundColor: C.card,
-            borderWidth: 1.5,
-            borderStyle: "solid",
-            borderColor: "#B8AC93",
+            borderColor: "#DED5C0",
           }}
         >
           <AlertDialogHeader>
             <AlertDialogTitle
-              className="text-[24px] font-bold"
+              className="text-[22px] font-bold"
               style={{ fontFamily: F.display, color: C.ink }}
             >
-              Remove this heritage site from the registry?
+              Delete {deleting?.name}?
             </AlertDialogTitle>
             <AlertDialogDescription
               className="text-[14px]"
               style={{ fontFamily: F.body, color: C.mute }}
             >
-              "{deleting?.name}" and its associated visa stamp progress will be permanently removed.
+              This place and its stamp progress will be permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
               style={{
-                borderColor: "#B8AC93",
+                borderColor: "#D5CBB4",
                 backgroundColor: C.paper,
                 color: C.ink,
-                fontFamily: F.mono,
               }}
             >
               Cancel
@@ -309,10 +222,9 @@ function ManagePage() {
               style={{
                 backgroundColor: C.red,
                 color: "#FFFFFF",
-                fontFamily: F.mono,
               }}
             >
-              Delete Dossier
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -7,7 +7,7 @@ import { DestinationForm } from "@/components/destination-form";
 import { MapView } from "@/components/map-view";
 import { SulyapArt360Map } from "@/components/sulyap-art-360";
 import { SulyapQuiz, SulyapTour } from "@/components/sulyap-tour-quiz";
-import { Btn, Cover, Label, Pop, Sec, Stamp, Top } from "@/components/sulyap-ui";
+import { Btn, Chip, Cover, Label, Pop, Stamp } from "@/components/sulyap-ui";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,46 +21,18 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDeleteDestination, useDestination } from "@/hooks/use-destinations";
 import { getDestinationProgress, getEnrichment, useSulyapProgress } from "@/lib/sulyap-data";
-import { C, F, PROVINCE_CODES, getCategoryMeta, seedFromId } from "@/lib/sulyap-theme";
+import { C, F, getCategoryMeta } from "@/lib/sulyap-theme";
 
-type DetailMode = "detail" | "tour" | "quiz" | "art360";
-
-function Row({ k, v }: { k: string; v: string }) {
-  return (
-    <div
-      className="flex items-start border-b border-dashed py-2.5"
-      style={{
-        borderColor: "#D5CBB4",
-      }}
-    >
-      <Label className="w-28 shrink-0">{k}</Label>
-      <span
-        className="flex-1 text-[14px] font-semibold leading-snug"
-        style={{ fontFamily: F.body, color: C.ink }}
-      >
-        {v}
-      </span>
-    </div>
-  );
-}
+type DetailTab = "overview" | "tour" | "art360" | "quiz";
 
 export const Route = createFileRoute("/destinations/$slug")({
   head: () => ({
     meta: [
-      { title: "Visa Dossier | Sulyap Pasaporte" },
+      { title: "Place Details | Sulyap" },
       {
         name: "description",
-        content:
-          "Explore a CALABARZON heritage site: take its three-stop virtual tour, answer the quiz, and earn a Pasaporte rubber stamp.",
+        content: "Explore this CALABARZON heritage site, take the virtual tour, and earn a stamp.",
       },
-      { property: "og:title", content: "Visa Dossier | Sulyap Pasaporte" },
-      {
-        property: "og:description",
-        content:
-          "Explore a CALABARZON heritage site: take its three-stop virtual tour, answer the quiz, and earn a Pasaporte rubber stamp.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: DestinationDetail,
@@ -73,16 +45,16 @@ function DestinationDetail() {
   const progress = useSulyapProgress();
   const deleteMutation = useDeleteDestination();
 
-  const [mode, setMode] = useState<DetailMode>("detail");
+  const [tab, setTab] = useState<DetailTab>("overview");
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
-    setMode("detail");
+    setTab("overview");
   }, [slug]);
 
   useEffect(() => {
-    if (destination) document.title = `${destination.name} | Sulyap Pasaporte`;
+    if (destination) document.title = `${destination.name} | Sulyap`;
   }, [destination]);
 
   const goBackToList = () => navigate({ to: "/destinations", search: { view: "list" } });
@@ -91,7 +63,7 @@ function DestinationDetail() {
     if (!destination) return;
     deleteMutation.mutate(destination, {
       onSuccess: () => {
-        toast.success(`Removed "${destination.name}" from the registry.`);
+        toast.success(`Deleted "${destination.name}".`);
         goBackToList();
       },
       onError: (e) => toast.error(e.message),
@@ -103,96 +75,48 @@ function DestinationDetail() {
     <div className="flex min-h-screen flex-col" style={{ backgroundColor: C.paper }}>
       <SiteHeader />
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 sm:py-8">
+      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:py-8">
         {isPending && (
-          <div className="space-y-4 py-4">
+          <div className="space-y-4">
+            <div className="h-64 animate-pulse rounded-2xl" style={{ backgroundColor: C.sand }} />
             <div
-              className="h-64 animate-pulse rounded-xl border sm:h-80"
-              style={{
-                backgroundColor: C.sand,
-                borderColor: "#C8BDA4",
-              }}
-            />
-            <div
-              className="h-10 w-2/3 animate-pulse rounded-lg"
+              className="h-8 w-1/2 animate-pulse rounded-lg"
               style={{ backgroundColor: C.sand }}
             />
-            <div className="h-28 animate-pulse rounded-lg" style={{ backgroundColor: C.sand }} />
           </div>
         )}
 
         {isError && (
           <Pop className="my-6 p-6">
-            <h1 className="text-[24px] font-bold" style={{ fontFamily: F.display, color: C.red }}>
-              Hindi nabuksan ang pahina
-            </h1>
-            <p className="my-2 text-[15px]" style={{ fontFamily: F.body, color: C.ink }}>
+            <p className="text-[15px]" style={{ color: C.red }}>
               Could not load this place: {error.message}
             </p>
-            <div className="mt-4 w-48">
-              <Btn label="Back to Directory" color={C.card} onClick={goBackToList} />
+            <div className="mt-4 w-40">
+              <Btn label="Back to Places" color={C.card} onClick={goBackToList} />
             </div>
           </Pop>
         )}
 
-        {/* Handle getDestination returning null (deleted or missing id) */}
         {!isPending && !isError && !destination && (
-          <div className="mx-auto max-w-lg py-10">
-            <Pop className="passport-page-surface p-6 text-center">
-              <h1 className="text-[28px] font-bold" style={{ fontFamily: F.display, color: C.ink }}>
-                Wala na ang lugar na ito
+          <div className="mx-auto max-w-md py-12 text-center">
+            <Pop className="p-6">
+              <h1 className="text-[24px] font-bold" style={{ fontFamily: F.display, color: C.ink }}>
+                Place not found
               </h1>
-              <p
-                className="my-3 text-[14px] leading-relaxed"
-                style={{ fontFamily: F.body, color: C.mute }}
-              >
-                This heritage visa dossier could not be found or has been removed. Return to the
-                Visa Directory to inspect another heritage site.
+              <p className="my-2 text-[14px]" style={{ fontFamily: F.body, color: C.mute }}>
+                This place may have been removed.
               </p>
-              <Btn label="Back to Visa Directory" color={C.cover} onClick={goBackToList} />
+              <Btn label="Back to Places" color={C.cover} onClick={goBackToList} />
             </Pop>
           </div>
         )}
 
-        {destination && mode === "tour" && (
-          <SulyapTour
-            destination={destination}
-            onBack={() => setMode("detail")}
-            onStartQuiz={() => setMode("quiz")}
-          />
-        )}
-
-        {destination && mode === "quiz" && (
-          <SulyapQuiz
-            destination={destination}
-            onBack={() => setMode("detail")}
-            onReviewTour={() => setMode("tour")}
-            onOpenPassport={() => navigate({ to: "/destinations", search: { view: "passport" } })}
-          />
-        )}
-
-        {destination && mode === "art360" && (
-          <div className="pb-12">
-            <Top
-              onBack={() => setMode("detail")}
-              kicker={`360° CURATED ART & RELIC MAP · ${destination.province.toUpperCase()}`}
-              title={destination.name}
-            />
-            <div className="mt-4">
-              <SulyapArt360Map destination={destination} onBack={() => setMode("detail")} />
-            </div>
-          </div>
-        )}
-
         {destination &&
-          mode === "detail" &&
           (() => {
             const cat = getCategoryMeta(destination.category);
             const pr = getDestinationProgress(destination, progress);
             const enrichment = getEnrichment(destination);
-            const provCode = PROVINCE_CODES[destination.province] ?? "IVA";
-            const seed = seedFromId(destination.slug || destination.id);
-            const visaSerial = `IV-A-${provCode}-${String(seed).padStart(3, "0")}`;
+            const isStamped = pr?.toured === 1;
 
             const mapsQuery =
               destination.latitude != null && destination.longitude != null
@@ -204,287 +128,264 @@ function DestinationDetail() {
 
             return (
               <article className="pb-12">
-                <Top
-                  onBack={goBackToList}
-                  kicker={`OFFICIAL VISA DOSSIER · ${visaSerial} · ${cat.fil.toUpperCase()}`}
-                />
+                {/* Minimal Top Action Row */}
+                <div className="mb-4 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={goBackToList}
+                    className="inline-flex cursor-pointer items-center gap-1.5 text-[14px] font-medium hover:underline"
+                    style={{ fontFamily: F.body, color: C.ink }}
+                  >
+                    ← Back to Places
+                  </button>
 
-                <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-                  {/* Left Column: Official Visa Dossier Page */}
-                  <div className="passport-page-surface rounded-xl border border-[#C8BDA4] p-5 shadow-sm sm:p-7">
-                    {/* Framed Archival Photograph */}
-                    <div className="rounded-md border border-[#BFB399] bg-[#EAE2CE] p-2.5 shadow-inner">
-                      <Cover destination={destination} className="h-60 w-full rounded-xs sm:h-80" />
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditOpen(true)}
+                      className="cursor-pointer rounded-lg border border-[#D5CBB4] bg-[#FCF9F0] px-3 py-1 text-[12px] font-medium hover:bg-[#EAE2CE]"
+                      style={{ fontFamily: F.body, color: C.ink }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeleteOpen(true)}
+                      className="cursor-pointer rounded-lg border border-[#D5CBB4] bg-[#FCF9F0] px-3 py-1 text-[12px] font-medium hover:bg-[#F9E3E3]"
+                      style={{ fontFamily: F.body, color: C.red }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
 
-                    <div className="mt-5 flex flex-wrap items-center justify-between gap-2">
+                {/* Clean Hero Card */}
+                <Pop className="overflow-hidden">
+                  <Cover destination={destination} className="h-56 w-full sm:h-72" />
+                  <div className="p-5 sm:p-6">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <span
-                        className="text-[11px] font-bold uppercase tracking-[0.16em]"
-                        style={{ fontFamily: F.mono, color: cat.deep }}
+                        className="text-[13px] font-semibold"
+                        style={{ fontFamily: F.body, color: cat.deep }}
                       >
-                        SEAL CLASSIFICATION: {cat.code} · {destination.category}
+                        {destination.province} · {cat.fil} ({destination.category})
                       </span>
-
-                      <div className="flex flex-wrap gap-1.5">
-                        {pr?.toured === 1 ? (
+                      <div className="flex items-center gap-2">
+                        {isStamped ? (
                           <span
-                            className="rounded-xs border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em]"
+                            className="rounded-full px-2.5 py-0.5 text-[12px] font-semibold"
                             style={{
-                              fontFamily: F.mono,
                               backgroundColor: "rgba(35, 99, 67, 0.12)",
-                              borderColor: C.green,
                               color: C.green,
                             }}
                           >
-                            ★ Entry Stamped
+                            ✓ Stamped
                           </span>
-                        ) : (
-                          <span
-                            className="rounded-xs border border-dashed px-2.5 py-0.5 text-[11px] uppercase tracking-[0.1em]"
-                            style={{
-                              fontFamily: F.mono,
-                              borderColor: "#B8AC93",
-                              color: C.mute,
-                            }}
-                          >
-                            Unstamped Visa
-                          </span>
-                        )}
+                        ) : null}
                         {pr && pr.attempts > 0 && pr.total > 0 ? (
                           <span
-                            className="rounded-xs border px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-[0.1em]"
+                            className="rounded-full px-2.5 py-0.5 text-[12px] font-medium"
                             style={{
-                              fontFamily: F.mono,
-                              backgroundColor: "rgba(212, 168, 67, 0.2)",
-                              borderColor: "#9A701E",
+                              backgroundColor: C.sand,
                               color: C.ink,
                             }}
                           >
-                            Examiner {pr.best}/{pr.total}
+                            Quiz {pr.best}/{pr.total}
                           </span>
                         ) : null}
                       </div>
                     </div>
 
                     <h1
-                      className="mt-2 text-[32px] font-bold leading-tight sm:text-[40px]"
+                      className="mt-1 text-[28px] font-bold leading-tight sm:text-[36px]"
                       style={{ fontFamily: F.display, color: C.ink }}
                     >
                       {destination.name}
                     </h1>
+                    <p className="mt-1 text-[14px]" style={{ fontFamily: F.body, color: C.mute }}>
+                      {destination.address}, {destination.province}
+                    </p>
 
-                    {/* Metadata Rows */}
-                    <div className="mt-4 rounded-md border border-[#D5CBB4] bg-[#FCF9F0]/80 px-4 py-1">
-                      <Row k="VISA SERIAL" v={visaSerial} />
-                      <Row k="MUNICIPALITY" v={destination.address} />
-                      <Row k="PROVINCE" v={`${destination.province} (Sector ${provCode})`} />
-                      <Row k="CLASSIFICATION" v={`${cat.fil} (${destination.category})`} />
-                      {destination.latitude != null && destination.longitude != null ? (
-                        <Row
-                          k="COORDINATES"
-                          v={`${destination.latitude.toFixed(4)}° N, ${destination.longitude.toFixed(4)}° E`}
-                        />
-                      ) : null}
-                    </div>
-
-                    {/* Description */}
-                    <div className="mt-5">
-                      <Label className="mb-1.5">CURATORIAL BRIEFING / PAGLALARAWAN</Label>
-                      <p
-                        className="whitespace-pre-line text-[15px] leading-relaxed sm:text-[16px]"
-                        style={{ fontFamily: F.body, color: C.ink }}
-                      >
-                        {destination.description || "No description has been added yet."}
-                      </p>
-                    </div>
-
-                    {/* Mga Sanggunian (Sources) */}
-                    {enrichment.sources ? (
-                      <div
-                        className="mt-5 rounded-md border border-dashed p-3.5"
-                        style={{
-                          backgroundColor: "#EFE9D8",
-                          borderColor: "#B8AC93",
-                        }}
-                      >
-                        <Label>MGA SANGGUNIAN · VERIFIED ARCHIVAL SOURCES</Label>
-                        <p
-                          className="mt-1 text-[13px] leading-relaxed"
-                          style={{ fontFamily: F.body, color: C.ink }}
-                        >
-                          {enrichment.sources}
-                        </p>
-                      </div>
-                    ) : null}
-
-                    {/* Primary Learning Actions: Tour + 360 Art Map + Quiz + Maps */}
-                    <Sec
-                      fil="Inspeksyon at Tatak sa Pasaporte"
-                      en="COMPLETE THE 3-STOP VIRTUAL TOUR OR INSPECT THE 360° ART & RELIC MAP"
-                    />
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                      <Btn
-                        label="Start 3-Stop Tour"
-                        sub="Earn Visa Stamp"
+                    {/* Purposeful 4-Tab Bar */}
+                    <div className="mt-5 flex flex-wrap gap-2 border-t border-[#E5DEC9] pt-4">
+                      <Chip
+                        label="Overview"
+                        on={tab === "overview"}
                         color={C.cover}
-                        onClick={() => setMode("tour")}
+                        onClick={() => setTab("overview")}
                       />
-                      <Btn
-                        label="360° Art & Relic Map"
-                        sub="Inspect 4 Site Masterworks"
-                        color={C.blue}
-                        onClick={() => setMode("art360")}
+                      <Chip
+                        label="Virtual Tour"
+                        on={tab === "tour"}
+                        color={C.cover}
+                        onClick={() => setTab("tour")}
                       />
-                      <Btn
-                        label="Examiner's Quiz"
-                        sub="4-Item Verification"
-                        color={C.foil}
-                        onClick={() => setMode("quiz")}
+                      <Chip
+                        label="360° Art & Highlights"
+                        on={tab === "art360"}
+                        color={C.cover}
+                        onClick={() => setTab("art360")}
                       />
-                      <Btn
-                        label="Open in Maps"
-                        sub="Satellite Coordinates"
-                        color={C.green}
-                        onClick={() => window.open(mapsUrl, "_blank", "noopener,noreferrer")}
+                      <Chip
+                        label="Quiz"
+                        on={tab === "quiz"}
+                        color={C.cover}
+                        onClick={() => setTab("quiz")}
                       />
-                    </div>
-
-                    {/* CRUD Edit / Delete Actions */}
-                    <div className="mt-6 flex items-center justify-between border-t border-dashed border-[#D5CBB4] pt-4">
-                      <Label>REGISTRY RECORD CONTROLS</Label>
-                      <div className="flex gap-2.5">
-                        <button
-                          type="button"
-                          onClick={() => setEditOpen(true)}
-                          className="cursor-pointer rounded-xs border border-[#B8AC93] bg-[#FCF9F0] px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] hover:bg-[#EAE2CE]"
-                          style={{ fontFamily: F.mono, color: C.ink }}
-                        >
-                          ✎ Edit Dossier
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeleteOpen(true)}
-                          className="cursor-pointer rounded-xs border px-3 py-1.5 text-[11px] font-bold uppercase tracking-[0.12em] hover:opacity-90"
-                          style={{
-                            fontFamily: F.mono,
-                            borderColor: C.red,
-                            color: C.red,
-                            backgroundColor: "rgba(158, 42, 43, 0.06)",
-                          }}
-                        >
-                          ✕ Delete
-                        </button>
-                      </div>
                     </div>
                   </div>
+                </Pop>
 
-                  {/* Right Sidebar: Official Visa Stamp Box + Cartography Map */}
-                  <aside className="space-y-5">
-                    <Pop className="passport-page-surface flex flex-col items-center p-5 text-center">
-                      <div className="mb-3 flex w-full items-center justify-between border-b border-dashed border-[#D5CBB4] pb-2">
-                        <span
-                          className="text-[10px] font-bold uppercase tracking-[0.14em]"
-                          style={{ fontFamily: F.mono, color: C.mute }}
+                {/* Tab 1: Overview */}
+                {tab === "overview" && (
+                  <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-[1fr_280px]">
+                    <div className="space-y-5">
+                      <Pop className="p-5 sm:p-6">
+                        <h2
+                          className="mb-2 text-[20px] font-bold"
+                          style={{ fontFamily: F.display, color: C.ink }}
                         >
-                          OFFICIAL VISA STAMP BOX
-                        </span>
-                        <span
-                          className="text-[10px] font-bold uppercase"
-                          style={{
-                            fontFamily: F.mono,
-                            color: pr?.toured === 1 ? cat.deep : C.mute,
-                          }}
+                          About this place
+                        </h2>
+                        <p
+                          className="whitespace-pre-line text-[15px] leading-relaxed"
+                          style={{ fontFamily: F.body, color: C.ink }}
                         >
-                          {pr?.toured === 1 ? "★ STAMPED" : "AWAITING VISIT"}
-                        </span>
-                      </div>
+                          {destination.description}
+                        </p>
 
-                      {pr?.toured === 1 ? (
-                        <>
-                          <div className="my-2">
+                        {enrichment.sources ? (
+                          <p
+                            className="mt-4 border-t border-[#E5DEC9] pt-3 text-[12px]"
+                            style={{ fontFamily: F.body, color: C.mute }}
+                          >
+                            Source: {enrichment.sources}
+                          </p>
+                        ) : null}
+
+                        <div className="mt-5 flex flex-wrap gap-2.5">
+                          <Btn
+                            label={isStamped ? "Revisit Virtual Tour" : "Start Virtual Tour"}
+                            color={C.cover}
+                            onClick={() => setTab("tour")}
+                          />
+                          <Btn
+                            label="Explore 360° Art"
+                            color={C.foil}
+                            onClick={() => setTab("art360")}
+                          />
+                          <Btn
+                            label="Open in Google Maps ↗"
+                            color={C.card}
+                            onClick={() => window.open(mapsUrl, "_blank", "noopener,noreferrer")}
+                          />
+                        </div>
+                      </Pop>
+
+                      <Pop className="overflow-hidden p-1">
+                        <MapView
+                          destinations={[destination]}
+                          center={
+                            destination.latitude != null && destination.longitude != null
+                              ? [destination.latitude, destination.longitude]
+                              : undefined
+                          }
+                          zoom={destination.latitude != null ? 13 : 9}
+                          className="h-60 w-full rounded-lg"
+                        />
+                      </Pop>
+                    </div>
+
+                    {/* Minimal Stamp Box Sidebar */}
+                    <aside>
+                      <Pop className="flex flex-col items-center p-5 text-center">
+                        <Label className="mb-3">PASSPORT STAMP</Label>
+                        {isStamped ? (
+                          <>
                             <Stamp
                               destination={destination}
-                              size={148}
-                              tilt={-6}
+                              size={132}
+                              tilt={-5}
                               label={
-                                pr.attempts > 0 && pr.total > 0 ? `${pr.best}/${pr.total}` : "✓"
+                                pr && pr.attempts > 0 && pr.total > 0
+                                  ? `${pr.best}/${pr.total}`
+                                  : "✓"
                               }
                             />
-                          </div>
-                          <span
-                            className="mt-2 text-[20px] font-bold"
-                            style={{ fontFamily: F.display, color: C.ink }}
-                          >
-                            Tatak ng Pagbisita
-                          </span>
-                          <Label className="mt-0.5">
-                            STAMPED IN YOUR PASAPORTE ·{" "}
-                            {pr.attempts > 0 ? `QUIZ ${pr.best}/${pr.total}` : "TOUR VERIFIED"}
-                          </Label>
-                          <div className="mt-4 w-full">
-                            <Btn
-                              label="Open Stamp Booklet"
-                              sub="View All Visas"
-                              color={C.foil}
-                              onClick={() =>
-                                navigate({
-                                  to: "/destinations",
-                                  search: { view: "passport" },
-                                })
-                              }
-                            />
-                          </div>
-                        </>
-                      ) : (
-                        <>
-                          <div className="my-3 flex size-36 flex-col items-center justify-center rounded-full border-2 border-dashed border-[#BFB399] p-4 text-center">
-                            <span
-                              className="text-[10px] font-bold uppercase tracking-[0.14em]"
-                              style={{ fontFamily: F.mono, color: C.mute }}
+                            <p
+                              className="mt-3 text-[13px] font-medium"
+                              style={{ fontFamily: F.body, color: C.green }}
                             >
-                              {cat.code}
-                            </span>
-                            <span
-                              className="mt-1 text-[13px] font-bold leading-tight"
-                              style={{ fontFamily: F.display, color: C.mute }}
-                            >
-                              STAMP HERE UPON COMPLETION OF VIRTUAL TOUR
-                            </span>
-                          </div>
-                          <div className="mt-2 w-full">
-                            <Btn
-                              label="Begin 3-Stop Tour"
-                              sub="Earn This Stamp Now"
-                              color={C.cover}
-                              onClick={() => setMode("tour")}
-                            />
-                          </div>
-                        </>
-                      )}
-                    </Pop>
+                              Stamped in your passport
+                            </p>
+                            <div className="mt-4 w-full">
+                              <Btn
+                                label="View Passport"
+                                color={C.card}
+                                onClick={() =>
+                                  navigate({
+                                    to: "/destinations",
+                                    search: { view: "passport" },
+                                  })
+                                }
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="my-2 flex size-28 items-center justify-center rounded-full border border-dashed border-[#C7BCA4] p-3 text-center">
+                              <span
+                                className="text-[12px]"
+                                style={{ fontFamily: F.body, color: C.mute }}
+                              >
+                                Complete the tour to earn this stamp
+                              </span>
+                            </div>
+                            <div className="mt-4 w-full">
+                              <Btn
+                                label="Start Tour"
+                                color={C.cover}
+                                onClick={() => setTab("tour")}
+                              />
+                            </div>
+                          </>
+                        )}
+                      </Pop>
+                    </aside>
+                  </div>
+                )}
 
-                    <Pop className="overflow-hidden p-1.5">
-                      <div className="px-2.5 py-1.5">
-                        <Label>CARTOGRAPHIC LOCATION · {provCode}</Label>
-                      </div>
-                      <MapView
-                        destinations={[destination]}
-                        center={
-                          destination.latitude != null && destination.longitude != null
-                            ? [destination.latitude, destination.longitude]
-                            : undefined
-                        }
-                        zoom={destination.latitude != null ? 13 : 9}
-                        className="h-64 w-full rounded-xs"
-                      />
-                    </Pop>
-                  </aside>
-                </div>
+                {/* Tab 2: Virtual Tour */}
+                {tab === "tour" && (
+                  <div className="mt-6">
+                    <SulyapTour
+                      destination={destination}
+                      onBack={() => setTab("overview")}
+                      onStartQuiz={() => setTab("quiz")}
+                    />
+                  </div>
+                )}
 
-                {/* Embedded 360° Art & Relic Panorama Map Section */}
-                <div className="mt-10 border-t border-[#D6CCB5] pt-8">
-                  <SulyapArt360Map destination={destination} />
-                </div>
+                {/* Tab 3: 360° Art & Highlights */}
+                {tab === "art360" && (
+                  <div className="mt-6">
+                    <SulyapArt360Map destination={destination} onBack={() => setTab("overview")} />
+                  </div>
+                )}
+
+                {/* Tab 4: Quiz */}
+                {tab === "quiz" && (
+                  <div className="mt-6">
+                    <SulyapQuiz
+                      destination={destination}
+                      onBack={() => setTab("overview")}
+                      onReviewTour={() => setTab("tour")}
+                      onOpenPassport={() =>
+                        navigate({ to: "/destinations", search: { view: "passport" } })
+                      }
+                    />
+                  </div>
+                )}
               </article>
             );
           })()}
@@ -494,20 +395,18 @@ function DestinationDetail() {
       {destination ? (
         <Dialog open={editOpen} onOpenChange={setEditOpen}>
           <DialogContent
-            className="max-h-[90vh] overflow-y-auto sm:max-w-2xl"
+            className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
             style={{
               backgroundColor: C.card,
-              borderWidth: 1.5,
-              borderStyle: "solid",
-              borderColor: "#B8AC93",
+              borderColor: "#DED5C0",
             }}
           >
             <DialogHeader>
               <DialogTitle
-                className="text-[26px] font-bold"
+                className="text-[24px] font-bold"
                 style={{ fontFamily: F.display, color: C.ink }}
               >
-                Edit Visa Dossier: {destination.name}
+                Edit {destination.name}
               </DialogTitle>
             </DialogHeader>
             <DestinationForm destination={destination} onDone={() => setEditOpen(false)} />
@@ -520,32 +419,29 @@ function DestinationDetail() {
         <AlertDialogContent
           style={{
             backgroundColor: C.card,
-            borderWidth: 1.5,
-            borderStyle: "solid",
-            borderColor: "#B8AC93",
+            borderColor: "#DED5C0",
           }}
         >
           <AlertDialogHeader>
             <AlertDialogTitle
-              className="text-[24px] font-bold"
+              className="text-[22px] font-bold"
               style={{ fontFamily: F.display, color: C.ink }}
             >
-              Remove this heritage site from the registry?
+              Delete {destination?.name}?
             </AlertDialogTitle>
             <AlertDialogDescription
               className="text-[14px]"
               style={{ fontFamily: F.body, color: C.mute }}
             >
-              "{destination?.name}" and its associated visa stamp progress will be deleted.
+              This place and its stamp progress will be removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
               style={{
-                borderColor: "#B8AC93",
+                borderColor: "#D5CBB4",
                 backgroundColor: C.paper,
                 color: C.ink,
-                fontFamily: F.mono,
               }}
             >
               Cancel
@@ -555,10 +451,9 @@ function DestinationDetail() {
               style={{
                 backgroundColor: C.red,
                 color: "#FFFFFF",
-                fontFamily: F.mono,
               }}
             >
-              Delete Dossier
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
