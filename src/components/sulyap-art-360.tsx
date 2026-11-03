@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, ExternalLink, RotateCw, Sparkles } from "lucide-react";
 import { imageUrl, type Destination } from "@/lib/destinations";
 import { getArtPieces360, type ArtPiece360 } from "@/lib/sulyap-art-360";
 import { getEnrichment } from "@/lib/sulyap-data";
-import { C, F, getCategoryMeta } from "@/lib/sulyap-theme";
-import { Btn, Label, Pop } from "./sulyap-ui";
+import { C, F, conciseText, getCategoryMeta } from "@/lib/sulyap-theme";
+import { Banig, Pop } from "./sulyap-ui";
 
 function normalizeAngle(deg: number): number {
   return ((deg % 360) + 360) % 360;
@@ -33,6 +34,7 @@ export function SulyapArt360Map({
   const [yaw, setYaw] = useState<number>(pieces[0]?.bearing ?? 20);
   const [autoRotate, setAutoRotate] = useState<boolean>(false);
   const [isDragging, setIsDragging] = useState<boolean>(false);
+  const [expanded, setExpanded] = useState<boolean>(false);
   const dragStartRef = useRef<{ x: number; startYaw: number } | null>(null);
 
   const cat = getCategoryMeta(destination.category);
@@ -43,6 +45,7 @@ export function SulyapArt360Map({
     if (pieces[0]) {
       setSelectedId(pieces[0].id);
       setYaw(pieces[0].bearing);
+      setExpanded(false);
     }
   }, [destination.id, pieces]);
 
@@ -64,6 +67,7 @@ export function SulyapArt360Map({
     setAutoRotate(false);
     setSelectedId(piece.id);
     setYaw(normalizeAngle(piece.bearing));
+    setExpanded(false);
   };
 
   const stepPiece = (dir: -1 | 1) => {
@@ -97,44 +101,46 @@ export function SulyapArt360Map({
       : null;
 
   const FOV = 140;
+  const { short, hasMore } = conciseText(selectedPiece.details, 1);
 
   return (
     <section aria-label={`360-degree Art Map for ${destination.name}`} className="w-full">
-      {/* Minimal Header */}
+      {/* Clean Header */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3
-            className="text-[20px] font-bold leading-tight"
-            style={{ fontFamily: F.display, color: C.ink }}
+        <div className="flex items-center gap-2">
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold text-white"
+            style={{ backgroundColor: C.cover }}
           >
-            360° Art &amp; Highlights
-          </h3>
-          <Label>Drag to look around or tap a numbered pin</Label>
+            <RotateCw className="size-3.5" /> 360° Art &amp; Relics
+          </span>
+          <span className="text-[13px]" style={{ color: C.mute }}>
+            Drag to look around or tap 1–4
+          </span>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setAutoRotate((v) => !v)}
-            className="cursor-pointer rounded-full border px-3 py-1 text-[12px] font-medium transition-colors"
+            className="cursor-pointer rounded-full border px-3 py-1 text-[12px] font-semibold transition-colors"
             style={{
-              fontFamily: F.body,
-              backgroundColor: autoRotate ? C.cover : C.card,
-              borderColor: autoRotate ? C.cover : "#D5CBB4",
-              color: autoRotate ? "#FFFFFF" : C.ink,
+              backgroundColor: autoRotate ? C.foil : "#FFFFFF",
+              borderColor: autoRotate ? C.foil : "#DED5C0",
+              color: C.ink,
             }}
           >
-            {autoRotate ? "Pause 360°" : "Auto-Rotate"}
+            {autoRotate ? "Pause 360°" : "Auto-Spin"}
           </button>
 
           {streetViewUrl ? (
             <button
               type="button"
               onClick={() => window.open(streetViewUrl, "_blank", "noopener,noreferrer")}
-              className="cursor-pointer rounded-full border border-[#D5CBB4] bg-[#FCF9F0] px-3 py-1 text-[12px] font-medium hover:bg-[#EAE2CE]"
-              style={{ fontFamily: F.body, color: C.ink }}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#DED5C0] bg-white px-3 py-1 text-[12px] font-semibold hover:bg-[#F6F1E3]"
+              style={{ color: C.ink }}
             >
-              Street View ↗
+              Google 360° <ExternalLink className="size-3" />
             </button>
           ) : null}
 
@@ -142,20 +148,20 @@ export function SulyapArt360Map({
             <button
               type="button"
               onClick={onBack}
-              className="cursor-pointer rounded-full border border-[#D5CBB4] bg-[#FCF9F0] px-3 py-1 text-[12px] font-medium hover:bg-[#EAE2CE]"
-              style={{ fontFamily: F.body, color: C.ink }}
+              className="cursor-pointer rounded-full border border-[#DED5C0] bg-white px-3 py-1 text-[12px] font-semibold hover:bg-[#F6F1E3]"
+              style={{ color: C.ink }}
             >
-              Close
+              Done
             </button>
           ) : null}
         </div>
       </div>
 
-      {/* Clean 360° Stage */}
+      {/* 360° Stage */}
       <div
-        className="overflow-hidden rounded-xl border shadow-sm"
+        className="overflow-hidden rounded-2xl border shadow-md"
         style={{
-          borderColor: "#D5CBB4",
+          borderColor: "#DED5C0",
           backgroundColor: "#1B1614",
         }}
       >
@@ -165,50 +171,49 @@ export function SulyapArt360Map({
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
           className={`relative w-full overflow-hidden select-none ${
-            compact ? "h-[240px] sm:h-[280px]" : "h-[280px] sm:h-[340px]"
+            compact ? "h-[240px] sm:h-[270px]" : "h-[270px] sm:h-[330px]"
           } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
           style={{
             touchAction: "pan-y",
-            background: "radial-gradient(circle at 50% 50%, #382521 0%, #171210 100%)",
           }}
         >
-          {/* Seamless Backdrop */}
-          {backdropUrl ? (
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 opacity-40"
-              style={{
-                backgroundImage: `url(${backdropUrl})`,
-                backgroundRepeat: "repeat-x",
-                backgroundSize: "880px 100%",
-                backgroundPosition: `${-yaw * 4}px center`,
-              }}
-            />
-          ) : null}
-
-          {/* Subtle Horizon Line */}
+          {/* Illustrated / Photo Panoramic Backdrop */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-x-0 top-1/2 h-px opacity-25"
-            style={{ backgroundColor: C.foil }}
+            className="pointer-events-none absolute inset-0 opacity-65"
+            style={{
+              transform: `translateX(${((yaw % 90) - 45) * -1.2}px) scale(1.15)`,
+              transition: isDragging ? "none" : "transform 150ms ease-out",
+            }}
+          >
+            {backdropUrl ? (
+              <img src={backdropUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <Banig color={cat.deep} seed={selectedIndex + 2} />
+            )}
+          </div>
+
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/50"
           />
 
           {/* Compass Pill at Top Center */}
           <div className="pointer-events-none absolute top-3 left-1/2 z-20 -translate-x-1/2">
             <span
-              className="rounded-full px-3 py-1 text-[11px] font-semibold"
+              className="rounded-full px-3 py-1 text-[11px] font-bold"
               style={{
                 fontFamily: F.mono,
-                backgroundColor: "rgba(23, 18, 16, 0.8)",
+                backgroundColor: "rgba(0, 0, 0, 0.65)",
                 color: C.foil,
-                border: "1px solid rgba(212, 175, 55, 0.4)",
+                border: "1px solid rgba(212, 175, 55, 0.45)",
               }}
             >
               {Math.round(normalizeAngle(yaw))}° {cardinalLabel(yaw)}
             </span>
           </div>
 
-          {/* Compact Art Piece Pins */}
+          {/* Floating Art Pins */}
           {pieces.map((piece, idx) => {
             const delta = shortestDelta(piece.bearing, yaw);
             if (Math.abs(delta) > FOV / 2) return null;
@@ -226,14 +231,14 @@ export function SulyapArt360Map({
                 className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform hover:scale-105"
                 style={{
                   left: `${leftPct}%`,
-                  top: `${Math.max(20, Math.min(80, topPct))}%`,
+                  top: `${Math.max(22, Math.min(78, topPct))}%`,
                   zIndex: isSelected ? 30 : 20,
                 }}
               >
                 <div
-                  className="flex items-center gap-2 rounded-full border px-3 py-1.5 shadow-md"
+                  className="flex items-center gap-2 rounded-full border-2 px-3 py-1.5 shadow-lg"
                   style={{
-                    backgroundColor: isSelected ? C.foil : "rgba(252, 249, 240, 0.92)",
+                    backgroundColor: isSelected ? C.foil : "rgba(255, 255, 255, 0.95)",
                     borderColor: isSelected ? "#FFFFFF" : C.foil,
                     color: C.ink,
                   }}
@@ -241,7 +246,6 @@ export function SulyapArt360Map({
                   <span
                     className="flex size-5 items-center justify-center rounded-full text-[11px] font-bold"
                     style={{
-                      fontFamily: F.mono,
                       backgroundColor: C.cover,
                       color: "#FFFFFF",
                     }}
@@ -249,7 +253,7 @@ export function SulyapArt360Map({
                     {idx + 1}
                   </span>
                   <span
-                    className="max-w-[140px] truncate text-[12px] font-semibold sm:max-w-[180px]"
+                    className="max-w-[130px] truncate text-[12px] font-bold sm:max-w-[170px]"
                     style={{ fontFamily: F.body }}
                   >
                     {piece.title}
@@ -259,39 +263,33 @@ export function SulyapArt360Map({
             );
           })}
 
-          {/* Left / Right Pan Controls */}
+          {/* Left / Right Pan Arrows */}
           <button
             type="button"
             onClick={() => {
               setAutoRotate(false);
-              setYaw((y) => normalizeAngle(y - 35));
+              setYaw((y) => normalizeAngle(y - 45));
             }}
-            aria-label="Pan left"
-            className="absolute top-1/2 left-2.5 z-20 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-white/25 bg-black/50 text-white hover:bg-black/70"
+            aria-label="Rotate left"
+            className="absolute top-1/2 left-3 z-20 flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/80"
           >
-            ‹
+            <ChevronLeft className="size-5" />
           </button>
           <button
             type="button"
             onClick={() => {
               setAutoRotate(false);
-              setYaw((y) => normalizeAngle(y + 35));
+              setYaw((y) => normalizeAngle(y + 45));
             }}
-            aria-label="Pan right"
-            className="absolute top-1/2 right-2.5 z-20 flex size-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-white/25 bg-black/50 text-white hover:bg-black/70"
+            aria-label="Rotate right"
+            className="absolute top-1/2 right-3 z-20 flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/80"
           >
-            ›
+            <ChevronRight className="size-5" />
           </button>
         </div>
 
-        {/* 4 Numbered Tabs Below Stage */}
-        <div
-          className="grid grid-cols-2 gap-1 border-t p-1.5 sm:grid-cols-4"
-          style={{
-            backgroundColor: "#241C19",
-            borderColor: "rgba(255,255,255,0.1)",
-          }}
-        >
+        {/* 4 Quick Numbered Buttons */}
+        <div className="grid grid-cols-2 gap-1.5 bg-[#221B18] p-2 sm:grid-cols-4">
           {pieces.map((p, idx) => {
             const active = p.id === selectedPiece.id;
             return (
@@ -299,23 +297,22 @@ export function SulyapArt360Map({
                 key={p.id}
                 type="button"
                 onClick={() => focusPiece(p)}
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors"
+                className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left transition-all"
                 style={{
-                  backgroundColor: active ? C.cover : "transparent",
-                  color: active ? "#FFFFFF" : "rgba(252, 249, 240, 0.75)",
+                  backgroundColor: active ? C.foil : "rgba(255,255,255,0.06)",
+                  color: active ? C.ink : "#FFFFFF",
                 }}
               >
                 <span
-                  className="flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold"
+                  className="flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
                   style={{
-                    fontFamily: F.mono,
-                    backgroundColor: active ? C.foil : "rgba(255,255,255,0.15)",
-                    color: active ? C.ink : "#FFFFFF",
+                    backgroundColor: active ? C.cover : "rgba(255,255,255,0.18)",
+                    color: "#FFFFFF",
                   }}
                 >
                   {idx + 1}
                 </span>
-                <span className="truncate text-[12px] font-medium" style={{ fontFamily: F.body }}>
+                <span className="truncate text-[12px] font-semibold" style={{ fontFamily: F.body }}>
                   {p.title}
                 </span>
               </button>
@@ -324,54 +321,65 @@ export function SulyapArt360Map({
         </div>
       </div>
 
-      {/* Concise Selected Art Piece Card */}
+      {/* Bite-Sized Art Piece Detail Card */}
       <Pop className="mt-3 p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <span
-            className="text-[12px] font-semibold"
-            style={{ fontFamily: F.body, color: cat.deep }}
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold"
+            style={{ backgroundColor: `${cat.color}18`, color: cat.deep }}
           >
-            Piece {selectedIndex + 1} of {pieces.length} · {selectedPiece.period}
+            <Sparkles className="size-3" /> Highlight {selectedIndex + 1} of {pieces.length}
           </span>
-          <span className="text-[12px]" style={{ fontFamily: F.mono, color: C.mute }}>
-            {selectedPiece.bearing}° {cardinalLabel(selectedPiece.bearing)} · {selectedPiece.zone}
+          <span className="text-[12px] font-medium" style={{ color: C.mute }}>
+            {selectedPiece.period}
           </span>
         </div>
 
         <h4
-          className="mt-1 text-[22px] font-bold leading-snug"
+          className="mt-2 text-[22px] font-bold leading-snug"
           style={{ fontFamily: F.display, color: C.ink }}
         >
           {selectedPiece.title}
         </h4>
 
-        <p className="mt-1 text-[13px] font-medium" style={{ fontFamily: F.body, color: C.mute }}>
-          {selectedPiece.artistOrMaker} · {selectedPiece.medium}
+        <p className="mt-0.5 text-[13px] font-medium" style={{ color: C.mute }}>
+          {selectedPiece.medium} · {selectedPiece.zone}
         </p>
 
         <p
-          className="mt-3 text-[14px] leading-relaxed sm:text-[15px]"
+          className="mt-3 text-[15px] leading-relaxed"
           style={{ fontFamily: F.body, color: C.ink }}
         >
-          {selectedPiece.details}
+          {expanded ? selectedPiece.details : short}
         </p>
 
-        <div className="mt-4 flex items-center justify-between border-t border-[#E5DEC9] pt-3">
+        {hasMore ? (
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="mt-1.5 cursor-pointer text-[13px] font-semibold underline"
+            style={{ color: C.cover }}
+          >
+            {expanded ? "Show less" : "Read more"}
+          </button>
+        ) : null}
+
+        <div className="mt-4 flex items-center justify-between border-t border-[#F0EAE0] pt-3">
           <button
             type="button"
             onClick={() => stepPiece(-1)}
-            className="cursor-pointer text-[13px] font-semibold hover:underline"
-            style={{ fontFamily: F.body, color: C.cover }}
+            className="inline-flex cursor-pointer items-center gap-1 text-[13px] font-bold hover:underline"
+            style={{ color: C.cover }}
           >
-            ← Previous piece
+            <ChevronLeft className="size-4" /> Previous
           </button>
           <button
             type="button"
             onClick={() => stepPiece(1)}
-            className="cursor-pointer text-[13px] font-semibold hover:underline"
-            style={{ fontFamily: F.body, color: C.cover }}
+            className="inline-flex cursor-pointer items-center gap-1 text-[13px] font-bold hover:underline"
+            style={{ color: C.cover }}
           >
-            Next piece →
+            Next <ChevronRight className="size-4" />
           </button>
         </div>
       </Pop>

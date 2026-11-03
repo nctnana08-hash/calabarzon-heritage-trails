@@ -1,4 +1,16 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import {
+  Award,
+  BookOpen,
+  Check,
+  Compass,
+  Edit3,
+  ExternalLink,
+  HelpCircle,
+  MapPin,
+  RotateCw,
+  Trash2,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
@@ -7,7 +19,7 @@ import { DestinationForm } from "@/components/destination-form";
 import { MapView } from "@/components/map-view";
 import { SulyapArt360Map } from "@/components/sulyap-art-360";
 import { SulyapQuiz, SulyapTour } from "@/components/sulyap-tour-quiz";
-import { Btn, Chip, Cover, Label, Pop, Stamp } from "@/components/sulyap-ui";
+import { Btn, Cover, Label, Pop, Stamp } from "@/components/sulyap-ui";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,10 +32,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useDeleteDestination, useDestination } from "@/hooks/use-destinations";
-import { getDestinationProgress, getEnrichment, useSulyapProgress } from "@/lib/sulyap-data";
-import { C, F, getCategoryMeta } from "@/lib/sulyap-theme";
+import { getDestinationProgress, markToured, useSulyapProgress } from "@/lib/sulyap-data";
+import { C, F, conciseText, getCategoryMeta } from "@/lib/sulyap-theme";
 
-type DetailTab = "overview" | "tour" | "art360" | "quiz";
+type DetailTab = "overview" | "art360" | "tour" | "quiz";
 
 export const Route = createFileRoute("/destinations/$slug")({
   head: () => ({
@@ -31,7 +43,7 @@ export const Route = createFileRoute("/destinations/$slug")({
       { title: "Place Details | Sulyap" },
       {
         name: "description",
-        content: "Explore this CALABARZON heritage site, take the virtual tour, and earn a stamp.",
+        content: "Explore this CALABARZON heritage site in 360° and collect your travel stamp.",
       },
     ],
   }),
@@ -46,11 +58,13 @@ function DestinationDetail() {
   const deleteMutation = useDeleteDestination();
 
   const [tab, setTab] = useState<DetailTab>("overview");
+  const [expanded, setExpanded] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
     setTab("overview");
+    setExpanded(false);
   }, [slug]);
 
   useEffect(() => {
@@ -75,7 +89,7 @@ function DestinationDetail() {
     <div className="flex min-h-screen flex-col" style={{ backgroundColor: C.paper }}>
       <SiteHeader />
 
-      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6 sm:py-8">
+      <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-6">
         {isPending && (
           <div className="space-y-4">
             <div className="h-64 animate-pulse rounded-2xl" style={{ backgroundColor: C.sand }} />
@@ -91,7 +105,7 @@ function DestinationDetail() {
             <p className="text-[15px]" style={{ color: C.red }}>
               Could not load this place: {error.message}
             </p>
-            <div className="mt-4 w-40">
+            <div className="mt-4">
               <Btn label="Back to Places" color={C.card} onClick={goBackToList} />
             </div>
           </Pop>
@@ -115,8 +129,8 @@ function DestinationDetail() {
           (() => {
             const cat = getCategoryMeta(destination.category);
             const pr = getDestinationProgress(destination, progress);
-            const enrichment = getEnrichment(destination);
             const isStamped = pr?.toured === 1;
+            const { short, hasMore } = conciseText(destination.description, 2);
 
             const mapsQuery =
               destination.latitude != null && destination.longitude != null
@@ -126,163 +140,220 @@ function DestinationDetail() {
               mapsQuery,
             )}`;
 
+            const handleQuickStamp = () => {
+              markToured(destination.id, destination.slug);
+              toast.success(`Stamped "${destination.name}" in your passport!`);
+            };
+
+            const TABS: {
+              id: DetailTab;
+              label: string;
+              icon: React.ComponentType<{ className?: string }>;
+            }[] = [
+              { id: "overview", label: "Overview", icon: BookOpen },
+              { id: "art360", label: "360° Art View", icon: RotateCw },
+              { id: "tour", label: "3-Step Tour", icon: Compass },
+              { id: "quiz", label: "Quick Quiz", icon: HelpCircle },
+            ];
+
             return (
               <article className="pb-12">
-                {/* Minimal Top Action Row */}
+                {/* Top Navigation & Edit Bar */}
                 <div className="mb-4 flex items-center justify-between">
                   <button
                     type="button"
                     onClick={goBackToList}
-                    className="inline-flex cursor-pointer items-center gap-1.5 text-[14px] font-medium hover:underline"
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#DED5C0] bg-white px-3.5 py-1.5 text-[13px] font-semibold hover:bg-[#F6F1E3]"
                     style={{ fontFamily: F.body, color: C.ink }}
                   >
-                    ← Back to Places
+                    ← All Places
                   </button>
 
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
                       onClick={() => setEditOpen(true)}
-                      className="cursor-pointer rounded-lg border border-[#D5CBB4] bg-[#FCF9F0] px-3 py-1 text-[12px] font-medium hover:bg-[#EAE2CE]"
-                      style={{ fontFamily: F.body, color: C.ink }}
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#DED5C0] bg-white px-3 py-1.5 text-[12px] font-semibold hover:bg-[#F6F1E3]"
+                      style={{ color: C.ink }}
                     >
-                      Edit
+                      <Edit3 className="size-3.5" /> Edit
                     </button>
                     <button
                       type="button"
                       onClick={() => setDeleteOpen(true)}
-                      className="cursor-pointer rounded-lg border border-[#D5CBB4] bg-[#FCF9F0] px-3 py-1 text-[12px] font-medium hover:bg-[#F9E3E3]"
-                      style={{ fontFamily: F.body, color: C.red }}
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#DED5C0] bg-white px-3 py-1.5 text-[12px] font-semibold hover:bg-[#FEE2E2]"
+                      style={{ color: C.red }}
                     >
-                      Delete
+                      <Trash2 className="size-3.5" /> Delete
                     </button>
                   </div>
                 </div>
 
-                {/* Clean Hero Card */}
+                {/* Hero Banner Card */}
                 <Pop className="overflow-hidden">
-                  <Cover destination={destination} className="h-56 w-full sm:h-72" />
-                  <div className="p-5 sm:p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span
-                        className="text-[13px] font-semibold"
-                        style={{ fontFamily: F.body, color: cat.deep }}
-                      >
-                        {destination.province} · {cat.fil} ({destination.category})
-                      </span>
-                      <div className="flex items-center gap-2">
-                        {isStamped ? (
-                          <span
-                            className="rounded-full px-2.5 py-0.5 text-[12px] font-semibold"
-                            style={{
-                              backgroundColor: "rgba(35, 99, 67, 0.12)",
-                              color: C.green,
-                            }}
-                          >
-                            ✓ Stamped
-                          </span>
-                        ) : null}
-                        {pr && pr.attempts > 0 && pr.total > 0 ? (
-                          <span
-                            className="rounded-full px-2.5 py-0.5 text-[12px] font-medium"
-                            style={{
-                              backgroundColor: C.sand,
-                              color: C.ink,
-                            }}
-                          >
-                            Quiz {pr.best}/{pr.total}
-                          </span>
-                        ) : null}
-                      </div>
-                    </div>
+                  <div className="relative h-56 w-full sm:h-72">
+                    <Cover destination={destination} className="h-full w-full" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
 
-                    <h1
-                      className="mt-1 text-[28px] font-bold leading-tight sm:text-[36px]"
-                      style={{ fontFamily: F.display, color: C.ink }}
+                    {/* Top-Left Category Badge */}
+                    <span
+                      className="absolute top-3.5 left-3.5 rounded-full px-3 py-1 text-[12px] font-bold text-white backdrop-blur-xs"
+                      style={{ backgroundColor: "rgba(30, 35, 42, 0.75)" }}
                     >
-                      {destination.name}
-                    </h1>
-                    <p className="mt-1 text-[14px]" style={{ fontFamily: F.body, color: C.mute }}>
-                      {destination.address}, {destination.province}
-                    </p>
+                      {cat.en}
+                    </span>
 
-                    {/* Purposeful 4-Tab Bar */}
-                    <div className="mt-5 flex flex-wrap gap-2 border-t border-[#E5DEC9] pt-4">
-                      <Chip
-                        label="Overview"
-                        on={tab === "overview"}
-                        color={C.cover}
-                        onClick={() => setTab("overview")}
-                      />
-                      <Chip
-                        label="Virtual Tour"
-                        on={tab === "tour"}
-                        color={C.cover}
-                        onClick={() => setTab("tour")}
-                      />
-                      <Chip
-                        label="360° Art & Highlights"
-                        on={tab === "art360"}
-                        color={C.cover}
-                        onClick={() => setTab("art360")}
-                      />
-                      <Chip
-                        label="Quiz"
-                        on={tab === "quiz"}
-                        color={C.cover}
-                        onClick={() => setTab("quiz")}
-                      />
+                    {/* Top-Right One-Tap Stamp Action */}
+                    <div className="absolute top-3.5 right-3.5">
+                      {isStamped ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            navigate({ to: "/destinations", search: { view: "passport" } })
+                          }
+                          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-bold text-white shadow-md"
+                          style={{ backgroundColor: C.green }}
+                        >
+                          <Check className="size-4" /> Stamped in Passport
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleQuickStamp}
+                          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-bold shadow-md transition-transform hover:scale-105"
+                          style={{ backgroundColor: C.foil, color: C.ink }}
+                        >
+                          <Award className="size-4" /> Stamp My Passport
+                        </button>
+                      )}
                     </div>
+
+                    {/* Bottom Title Overlay */}
+                    <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6">
+                      <h1
+                        className="text-[28px] font-bold leading-tight sm:text-[36px]"
+                        style={{ fontFamily: F.display }}
+                      >
+                        {destination.name}
+                      </h1>
+                      <p className="mt-1 inline-flex items-center gap-1.5 text-[14px] text-white/90">
+                        <MapPin className="size-4 shrink-0" /> {destination.address},{" "}
+                        {destination.province}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Clear 4-Button Icon Navigation Bar */}
+                  <div className="grid grid-cols-2 gap-2 bg-[#FAF7F0] p-2.5 sm:grid-cols-4">
+                    {TABS.map((item) => {
+                      const active = tab === item.id;
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setTab(item.id)}
+                          className="flex cursor-pointer items-center justify-center gap-2 rounded-xl py-2.5 text-[13px] font-bold transition-all"
+                          style={{
+                            fontFamily: F.body,
+                            backgroundColor: active ? C.cover : "#FFFFFF",
+                            color: active ? "#FFFFFF" : C.ink,
+                            border: active ? `1px solid ${C.cover}` : "1px solid #E6DFCE",
+                            boxShadow: active ? "0 2px 6px rgba(74, 24, 27, 0.2)" : "none",
+                          }}
+                        >
+                          <Icon className="size-4" />
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </Pop>
 
                 {/* Tab 1: Overview */}
                 {tab === "overview" && (
-                  <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-[1fr_280px]">
+                  <div className="mt-5 grid grid-cols-1 gap-5 md:grid-cols-[1fr_270px]">
                     <div className="space-y-5">
+                      {/* Concise Description Card */}
                       <Pop className="p-5 sm:p-6">
-                        <h2
-                          className="mb-2 text-[20px] font-bold"
-                          style={{ fontFamily: F.display, color: C.ink }}
-                        >
-                          About this place
-                        </h2>
+                        <Label className="mb-1.5">QUICK OVERVIEW</Label>
                         <p
-                          className="whitespace-pre-line text-[15px] leading-relaxed"
+                          className="text-[16px] leading-relaxed"
                           style={{ fontFamily: F.body, color: C.ink }}
                         >
-                          {destination.description}
+                          {expanded ? destination.description : short}
                         </p>
-
-                        {enrichment.sources ? (
-                          <p
-                            className="mt-4 border-t border-[#E5DEC9] pt-3 text-[12px]"
-                            style={{ fontFamily: F.body, color: C.mute }}
+                        {hasMore ? (
+                          <button
+                            type="button"
+                            onClick={() => setExpanded((v) => !v)}
+                            className="mt-2 cursor-pointer text-[13px] font-bold underline"
+                            style={{ color: C.cover }}
                           >
-                            Source: {enrichment.sources}
-                          </p>
+                            {expanded ? "Show less" : "Read more"}
+                          </button>
                         ) : null}
 
-                        <div className="mt-5 flex flex-wrap gap-2.5">
-                          <Btn
-                            label={isStamped ? "Revisit Virtual Tour" : "Start Virtual Tour"}
-                            color={C.cover}
-                            onClick={() => setTab("tour")}
-                          />
-                          <Btn
-                            label="Explore 360° Art"
-                            color={C.foil}
+                        {/* 2 Big Visual Feature Launchers */}
+                        <div className="mt-5 grid grid-cols-1 gap-3 border-t border-[#F0EAE0] pt-4 sm:grid-cols-2">
+                          <button
+                            type="button"
                             onClick={() => setTab("art360")}
-                          />
-                          <Btn
-                            label="Open in Google Maps ↗"
-                            color={C.card}
-                            onClick={() => window.open(mapsUrl, "_blank", "noopener,noreferrer")}
-                          />
+                            className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E6DFCE] bg-[#FAF7F0] p-3.5 text-left transition-colors hover:bg-[#F3ECE0]"
+                          >
+                            <div
+                              className="flex size-10 shrink-0 items-center justify-center rounded-xl text-white"
+                              style={{ backgroundColor: C.blue }}
+                            >
+                              <RotateCw className="size-5" />
+                            </div>
+                            <div>
+                              <div className="text-[14px] font-bold" style={{ color: C.ink }}>
+                                360° Art &amp; Relics
+                              </div>
+                              <div className="text-[12px]" style={{ color: C.mute }}>
+                                Pan around 4 artworks →
+                              </div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setTab("tour")}
+                            className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E6DFCE] bg-[#FAF7F0] p-3.5 text-left transition-colors hover:bg-[#F3ECE0]"
+                          >
+                            <div
+                              className="flex size-10 shrink-0 items-center justify-center rounded-xl text-white"
+                              style={{ backgroundColor: C.cover }}
+                            >
+                              <Compass className="size-5" />
+                            </div>
+                            <div>
+                              <div className="text-[14px] font-bold" style={{ color: C.ink }}>
+                                3-Step Virtual Tour
+                              </div>
+                              <div className="text-[12px]" style={{ color: C.mute }}>
+                                Quick story &amp; stamp →
+                              </div>
+                            </div>
+                          </button>
                         </div>
                       </Pop>
 
-                      <Pop className="overflow-hidden p-1">
+                      {/* Map Card */}
+                      <Pop className="overflow-hidden p-2">
+                        <div className="mb-2 flex items-center justify-between px-2 pt-1">
+                          <Label>LOCATION MAP</Label>
+                          <a
+                            href={mapsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[12px] font-bold hover:underline"
+                            style={{ color: C.cover }}
+                          >
+                            Open in Google Maps <ExternalLink className="size-3" />
+                          </a>
+                        </div>
                         <MapView
                           destinations={[destination]}
                           center={
@@ -291,15 +362,15 @@ function DestinationDetail() {
                               : undefined
                           }
                           zoom={destination.latitude != null ? 13 : 9}
-                          className="h-60 w-full rounded-lg"
+                          className="h-56 w-full rounded-xl"
                         />
                       </Pop>
                     </div>
 
-                    {/* Minimal Stamp Box Sidebar */}
+                    {/* Right Passport Stamp Card */}
                     <aside>
                       <Pop className="flex flex-col items-center p-5 text-center">
-                        <Label className="mb-3">PASSPORT STAMP</Label>
+                        <Label className="mb-2">YOUR STAMP</Label>
                         {isStamped ? (
                           <>
                             <Stamp
@@ -312,15 +383,21 @@ function DestinationDetail() {
                                   : "✓"
                               }
                             />
-                            <p
-                              className="mt-3 text-[13px] font-medium"
-                              style={{ fontFamily: F.body, color: C.green }}
+                            <span
+                              className="mt-2 inline-flex items-center gap-1 text-[13px] font-bold"
+                              style={{ color: C.green }}
                             >
-                              Stamped in your passport
-                            </p>
-                            <div className="mt-4 w-full">
+                              <Check className="size-4" /> Collected!
+                            </span>
+                            <div className="mt-4 w-full space-y-2">
                               <Btn
-                                label="View Passport"
+                                label="Take Quick Quiz"
+                                color={C.foil}
+                                onClick={() => setTab("quiz")}
+                                className="w-full"
+                              />
+                              <Btn
+                                label="Open Stamp Book"
                                 color={C.card}
                                 onClick={() =>
                                   navigate({
@@ -328,24 +405,30 @@ function DestinationDetail() {
                                     search: { view: "passport" },
                                   })
                                 }
+                                className="w-full"
                               />
                             </div>
                           </>
                         ) : (
                           <>
-                            <div className="my-2 flex size-28 items-center justify-center rounded-full border border-dashed border-[#C7BCA4] p-3 text-center">
-                              <span
-                                className="text-[12px]"
-                                style={{ fontFamily: F.body, color: C.mute }}
-                              >
-                                Complete the tour to earn this stamp
+                            <div className="my-2 flex size-28 flex-col items-center justify-center rounded-full border-2 border-dashed border-[#D5CBB4] p-3 text-center">
+                              <Award className="mb-1 size-6 text-[#8C7A5B]" />
+                              <span className="text-[11px] font-medium" style={{ color: C.mute }}>
+                                Not stamped yet
                               </span>
                             </div>
-                            <div className="mt-4 w-full">
+                            <div className="mt-4 w-full space-y-2">
                               <Btn
-                                label="Start Tour"
+                                label="★ Stamp Now"
+                                color={C.foil}
+                                onClick={handleQuickStamp}
+                                className="w-full"
+                              />
+                              <Btn
+                                label="Take 3-Step Tour"
                                 color={C.cover}
                                 onClick={() => setTab("tour")}
+                                className="w-full"
                               />
                             </div>
                           </>
@@ -355,9 +438,16 @@ function DestinationDetail() {
                   </div>
                 )}
 
-                {/* Tab 2: Virtual Tour */}
+                {/* Tab 2: 360° Art & Relics */}
+                {tab === "art360" && (
+                  <div className="mt-5">
+                    <SulyapArt360Map destination={destination} onBack={() => setTab("overview")} />
+                  </div>
+                )}
+
+                {/* Tab 3: Virtual Tour */}
                 {tab === "tour" && (
-                  <div className="mt-6">
+                  <div className="mt-5">
                     <SulyapTour
                       destination={destination}
                       onBack={() => setTab("overview")}
@@ -366,16 +456,9 @@ function DestinationDetail() {
                   </div>
                 )}
 
-                {/* Tab 3: 360° Art & Highlights */}
-                {tab === "art360" && (
-                  <div className="mt-6">
-                    <SulyapArt360Map destination={destination} onBack={() => setTab("overview")} />
-                  </div>
-                )}
-
                 {/* Tab 4: Quiz */}
                 {tab === "quiz" && (
-                  <div className="mt-6">
+                  <div className="mt-5">
                     <SulyapQuiz
                       destination={destination}
                       onBack={() => setTab("overview")}
@@ -397,8 +480,8 @@ function DestinationDetail() {
           <DialogContent
             className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
             style={{
-              backgroundColor: C.card,
-              borderColor: "#DED5C0",
+              backgroundColor: "#FFFFFF",
+              borderColor: "#E6DFCE",
             }}
           >
             <DialogHeader>
@@ -418,8 +501,8 @@ function DestinationDetail() {
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent
           style={{
-            backgroundColor: C.card,
-            borderColor: "#DED5C0",
+            backgroundColor: "#FFFFFF",
+            borderColor: "#E6DFCE",
           }}
         >
           <AlertDialogHeader>

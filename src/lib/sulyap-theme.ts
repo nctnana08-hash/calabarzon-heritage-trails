@@ -137,3 +137,19 @@ export function seedFromId(id: string | number | undefined | null): number {
   }
   return (Math.abs(hash) % 97) + 1;
 }
+
+/**
+ * Extracts a concise 1–2 sentence summary so users aren't hit with a wall of text.
+ */
+export function conciseText(text: string, maxSentences = 2): { short: string; hasMore: boolean } {
+  const clean = text.trim();
+  if (!clean) return { short: "", hasMore: false };
+  const sentences = clean.match(/[^.!?]+[.!?]+/g) ?? [clean];
+  if (sentences.length <= maxSentences) {
+    return { short: clean, hasMore: false };
+  }
+  return {
+    short: sentences.slice(0, maxSentences).join(" ").trim(),
+    hasMore: true,
+  };
+}

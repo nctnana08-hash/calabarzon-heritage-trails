@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import { Check, MapPin } from "lucide-react";
 import type { Destination } from "@/lib/destinations";
 import { isDestinationToured, useSulyapProgress } from "@/lib/sulyap-data";
 import { C, F, getCategoryMeta } from "@/lib/sulyap-theme";
@@ -19,40 +20,52 @@ export function DestinationCard({ destination }: { destination: Destination }) {
         })
       }
       ariaLabel={`${destination.name}, ${destination.province}`}
-      className="flex h-full flex-col"
+      className="group flex h-full flex-col"
     >
       <div className="relative h-44 w-full overflow-hidden">
         <Cover destination={destination} className="h-full w-full" />
+        <span
+          className="absolute top-3 left-3 rounded-full px-2.5 py-1 text-[11px] font-bold text-white shadow-xs backdrop-blur-xs"
+          style={{
+            fontFamily: F.body,
+            backgroundColor: "rgba(30, 35, 42, 0.72)",
+          }}
+        >
+          {cat.en}
+        </span>
         {toured ? (
           <span
-            className="absolute top-2.5 right-2.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold shadow-xs"
+            className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-bold text-white shadow-xs"
             style={{
               fontFamily: F.body,
-              backgroundColor: C.card,
-              color: C.green,
+              backgroundColor: C.green,
             }}
           >
-            ✓ Stamped
+            <Check className="size-3" /> Stamped
           </span>
         ) : null}
       </div>
 
       <div className="flex flex-1 flex-col justify-between p-4">
         <div>
-          <span className="text-[12px] font-medium" style={{ fontFamily: F.body, color: cat.deep }}>
-            {destination.province} · {cat.fil}
-          </span>
           <h3
-            className="mt-1 text-[20px] font-bold leading-snug"
+            className="text-[20px] font-bold leading-snug group-hover:text-[#4A181B]"
             style={{ fontFamily: F.display, color: C.ink }}
           >
             {destination.name}
           </h3>
+          <p
+            className="mt-1 inline-flex items-center gap-1 text-[13px]"
+            style={{ fontFamily: F.body, color: C.mute }}
+          >
+            <MapPin className="size-3.5 shrink-0" /> {destination.address}, {destination.province}
+          </p>
         </div>
 
-        <p className="mt-2 truncate text-[12px]" style={{ fontFamily: F.body, color: C.mute }}>
-          {destination.address}
-        </p>
+        <div className="mt-3 flex items-center justify-between border-t border-[#F0EAE0] pt-2.5 text-[12px] font-semibold">
+          <span style={{ color: cat.deep }}>{destination.province}</span>
+          <span style={{ color: C.cover }}>Explore →</span>
+        </div>
       </div>
     </Pop>
   );
