@@ -39,7 +39,7 @@ const NAV_ITEMS: NavItem[] = [
       path.startsWith("/destinations") && searchStr.includes("view=map"),
   },
   {
-    label: "Passport",
+    label: "e-Passport",
     icon: BookOpenCheck,
     to: "/destinations",
     search: { view: "passport" },
@@ -47,7 +47,7 @@ const NAV_ITEMS: NavItem[] = [
       path.startsWith("/destinations") && searchStr.includes("view=passport"),
   },
   {
-    label: "Add / Edit",
+    label: "Manage",
     icon: PlusCircle,
     to: "/manage",
     isActive: (path) => path.startsWith("/manage"),
@@ -65,22 +65,36 @@ export function SiteHeader() {
     <header
       className="sticky top-0 z-40 border-b backdrop-blur-md"
       style={{
-        backgroundColor: "rgba(255, 255, 255, 0.92)",
-        borderColor: "#E6DFCE",
+        backgroundColor: "rgba(255, 255, 255, 0.94)",
+        borderColor: "#E2E8F0",
       }}
     >
+      {/* Official Philippine Flag Tri-Color Accent Strip */}
+      <div className="egov-tricolor-bar h-1 w-full" />
+
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link to="/" aria-label="Sulyap Home" className="flex items-center gap-2.5">
-          <Mark size={36} />
+        <Link to="/" aria-label="Sulyap Home" className="flex items-center gap-3">
+          <Mark size={38} />
           <div>
+            <div className="flex items-center gap-1.5">
+              <span
+                className="text-[20px] font-extrabold tracking-tight leading-none"
+                style={{ fontFamily: F.display, color: C.cover }}
+              >
+                Sulyap
+              </span>
+              <span
+                className="rounded-md px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white"
+                style={{ backgroundColor: C.red }}
+              >
+                PH
+              </span>
+            </div>
             <span
-              className="block text-[22px] font-bold leading-none"
-              style={{ fontFamily: F.display, color: C.ink }}
+              className="mt-0.5 block text-[11px] font-semibold"
+              style={{ fontFamily: F.body, color: C.mute }}
             >
-              Sulyap
-            </span>
-            <span className="text-[11px] font-medium" style={{ fontFamily: F.body, color: C.mute }}>
-              CALABARZON Travel Passport
+              CALABARZON Heritage Portal
             </span>
           </div>
         </Link>
@@ -88,7 +102,7 @@ export function SiteHeader() {
         <nav className="hidden items-center gap-1.5 md:flex" aria-label="Primary navigation">
           {NAV_ITEMS.map((item) => {
             const on = item.isActive(pathname, searchStr);
-            const isPassport = item.label === "Passport";
+            const isPassport = item.label === "e-Passport";
             const Icon = item.icon;
             return (
               <Link
@@ -96,7 +110,7 @@ export function SiteHeader() {
                 to={item.to}
                 {...(item.search ? { search: item.search } : {})}
                 aria-current={on ? "page" : undefined}
-                className="flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-semibold transition-all hover:bg-[#F6F1E3]"
+                className="flex items-center gap-2 rounded-full px-4 py-2 text-[13.5px] font-bold transition-all hover:bg-[#EFF6FF] hover:text-[#0038A8]"
                 style={{
                   fontFamily: F.body,
                   backgroundColor: on ? C.cover : "transparent",
@@ -107,10 +121,10 @@ export function SiteHeader() {
                 <span>{item.label}</span>
                 {isPassport ? (
                   <span
-                    className="rounded-full px-2 py-0.5 text-[11px] font-bold leading-none"
+                    className="rounded-full px-2 py-0.5 text-[11px] font-extrabold leading-none"
                     style={{
-                      backgroundColor: on ? C.foil : "#F3E8C8",
-                      color: C.ink,
+                      backgroundColor: on ? C.foil : "#EFF6FF",
+                      color: on ? C.ink : C.cover,
                     }}
                   >
                     {stampedCount}/19
@@ -135,15 +149,12 @@ export function MobileBottomNav() {
   return (
     <nav
       aria-label="Mobile bottom navigation"
-      className="fixed inset-x-0 bottom-0 z-40 border-t bg-white/95 backdrop-blur-md md:hidden"
-      style={{
-        borderColor: "#E6DFCE",
-      }}
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E2E8F0] bg-white/95 backdrop-blur-md md:hidden"
     >
       <div className="mx-auto grid max-w-lg grid-cols-5">
         {NAV_ITEMS.map((item) => {
           const on = item.isActive(pathname, searchStr);
-          const isPassport = item.label === "Passport";
+          const isPassport = item.label === "e-Passport";
           const Icon = item.icon;
           return (
             <Link
@@ -151,17 +162,23 @@ export function MobileBottomNav() {
               to={item.to}
               {...(item.search ? { search: item.search } : {})}
               aria-current={on ? "page" : undefined}
-              className="relative flex min-h-[58px] flex-col items-center justify-center gap-1 py-1.5 text-[11px] font-semibold"
+              className="relative flex min-h-[58px] flex-col items-center justify-center gap-1 py-1.5 text-[11px] font-bold"
               style={{
                 fontFamily: F.body,
                 color: on ? C.cover : C.mute,
               }}
             >
+              {on ? (
+                <span
+                  className="absolute top-0 h-0.5 w-8 rounded-full"
+                  style={{ backgroundColor: C.cover }}
+                />
+              ) : null}
               <div className="relative">
                 <Icon className="size-5" />
                 {isPassport && stampedCount > 0 ? (
                   <span
-                    className="absolute -top-1.5 -right-3 rounded-full px-1 text-[9px] font-bold"
+                    className="absolute -top-1.5 -right-3 rounded-full px-1 text-[9px] font-extrabold"
                     style={{
                       backgroundColor: C.foil,
                       color: C.ink,

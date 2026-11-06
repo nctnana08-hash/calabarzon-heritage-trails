@@ -1,25 +1,26 @@
-// Philippine Cultural Heritage Passport & Archival Field Dossier Theme
-// Deep passport cover burgundy, embossed gold foil, watermarked cream visa paper,
-// and authentic rubber stamp inks (vermilion, Prussian blue, ochre sepia, botanical green).
+// eGovPH-Inspired Philippine Cultural & Tourism Portal Theme
+// Crisp civic royal blue (#0038A8), Philippine sun gold (#FCD116),
+// crimson red (#CE1126), emerald verification green (#059669),
+// and ultra-clean cool slate-white surfaces (#F4F7FB / #FFFFFF).
 export const C = {
-  paper: "#F6F1E3", // Warm watermarked visa page cream
-  card: "#FCF9F0", // Crisp archival ivory page
-  sand: "#E6DEC8", // Aged parchment border & divider tone
-  ink: "#1E232A", // Deep archival carbon ink
-  mute: "#635E54", // Faded registry slate
-  cover: "#4A181B", // Official passport cover burgundy
-  coverDeep: "#320F11", // Dark leather spine
-  foil: "#D4AF37", // Embossed gold foil
-  blue: "#1D4E89", // Prussian blue rubber stamp ink
-  red: "#9E2A2B", // Vermilion cinnabar rubber stamp ink
-  gold: "#D4A843", // Imperial gold/ochre stamp accent
-  green: "#236343", // Botanical forest rubber stamp ink
+  paper: "#F4F7FB", // Crisp eGovPH cool slate-white page background
+  card: "#FFFFFF", // Pure white card surface
+  sand: "#E2E8F0", // Clean slate-200 border & skeleton divider tone
+  ink: "#0F172A", // Deep slate-900 ink for sharp modern typography
+  mute: "#475569", // Slate-600 muted label & secondary copy
+  cover: "#0038A8", // Official eGovPH / Philippine Flag Royal Blue
+  coverDeep: "#002366", // Deep civic navy
+  foil: "#FCD116", // Official Philippine Sun Gold
+  blue: "#0038A8", // Royal Blue accent
+  red: "#CE1126", // Official Philippine Crimson Red
+  gold: "#D97706", // Rich amber gold for readable badges/icons on white
+  green: "#059669", // eGov verified emerald green
 } as const;
 
 export const F = {
-  display: '"Cormorant Garamond", Georgia, serif',
-  body: '"Work Sans", ui-sans-serif, system-ui, sans-serif',
-  bold: '"Work Sans", ui-sans-serif, system-ui, sans-serif',
+  display: '"Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif',
+  body: '"Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif',
+  bold: '"Plus Jakarta Sans", "Inter", ui-sans-serif, system-ui, sans-serif',
   mono: '"JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace',
 } as const;
 
@@ -42,7 +43,7 @@ export const CATS: Record<SulyapCategoryKey, CategoryMeta> = {
     key: "Heritage",
     dbCategory: "Historical Shrines",
     color: C.red,
-    deep: "#801F20",
+    deep: "#B91C1C",
     fil: "Pamana",
     en: "Historical Shrines",
     stampShape: "octagon",
@@ -53,7 +54,7 @@ export const CATS: Record<SulyapCategoryKey, CategoryMeta> = {
     key: "Church",
     dbCategory: "Religious Landmarks",
     color: C.blue,
-    deep: "#163B68",
+    deep: "#0038A8",
     fil: "Simbahan",
     en: "Religious Landmarks",
     stampShape: "arch",
@@ -64,7 +65,7 @@ export const CATS: Record<SulyapCategoryKey, CategoryMeta> = {
     key: "Museum",
     dbCategory: "Museums",
     color: C.gold,
-    deep: "#8F6200",
+    deep: "#B45309",
     fil: "Museo",
     en: "Museums",
     stampShape: "rect",
@@ -75,7 +76,7 @@ export const CATS: Record<SulyapCategoryKey, CategoryMeta> = {
     key: "Nature",
     dbCategory: "Natural Heritage",
     color: C.green,
-    deep: "#1A4D33",
+    deep: "#047857",
     fil: "Kalikasan",
     en: "Natural Heritage",
     stampShape: "circle",
@@ -91,7 +92,7 @@ export const PROVINCE_TONES: Record<string, string> = {
   Laguna: C.blue,
   Batangas: C.gold,
   Rizal: C.green,
-  Quezon: C.red,
+  Quezon: "#1D4ED8",
 };
 
 export const PROVINCE_CODES: Record<string, string> = {
@@ -103,10 +104,10 @@ export const PROVINCE_CODES: Record<string, string> = {
 };
 
 /**
- * Contrast rule: Gold backgrounds use deep ink text; dark ink stamps use white text.
+ * Contrast rule: Sun yellow/white backgrounds use deep slate ink; dark colors use white text.
  */
 export const onColor = (c: string): string =>
-  c === C.gold || c === C.foil || c === C.card || c === C.paper ? C.ink : "#FFFFFF";
+  c === C.foil || c === C.card || c === C.paper || c === "#FFFFFF" ? C.ink : "#FFFFFF";
 
 export function getCategoryMeta(category: string | undefined | null): CategoryMeta {
   switch (category) {

@@ -210,10 +210,10 @@ export function DestinationForm({
     fontSize: 15,
     color: C.ink,
     backgroundColor: C.card,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderStyle: "solid",
-    borderColor: "#BFB399",
-    borderRadius: 6,
+    borderColor: "#CBD5E1",
+    borderRadius: 10,
     padding: "9px 12px",
     width: "100%",
   };
@@ -237,7 +237,7 @@ export function DestinationForm({
           placeholder="e.g. Taal Basilica"
           style={{
             ...inputStyle,
-            borderColor: errors.name ? C.red : "#BFB399",
+            borderColor: errors.name ? C.red : "#CBD5E1",
           }}
         />
         {errors.name ? (
@@ -258,7 +258,7 @@ export function DestinationForm({
           placeholder="Street, town, province"
           style={{
             ...inputStyle,
-            borderColor: errors.address ? C.red : "#BFB399",
+            borderColor: errors.address ? C.red : "#CBD5E1",
           }}
         />
         {errors.address ? (
@@ -368,7 +368,7 @@ export function DestinationForm({
             placeholder="14.2115"
             style={{
               ...inputStyle,
-              borderColor: errors.latitude ? C.red : "#BFB399",
+              borderColor: errors.latitude ? C.red : "#CBD5E1",
             }}
           />
           {errors.latitude ? (
@@ -388,7 +388,7 @@ export function DestinationForm({
             placeholder="121.1614"
             style={{
               ...inputStyle,
-              borderColor: errors.longitude ? C.red : "#BFB399",
+              borderColor: errors.longitude ? C.red : "#CBD5E1",
             }}
           />
           {errors.longitude ? (
@@ -409,7 +409,7 @@ export function DestinationForm({
                 <img
                   src={preview}
                   alt="Cover preview"
-                  className="size-20 rounded-xs border border-[#B8AC93] object-cover"
+                  className="size-20 rounded-xs border border-[#CBD5E1] object-cover"
                 />
                 {file && (
                   <button
@@ -435,7 +435,7 @@ export function DestinationForm({
                 <img
                   src={u}
                   alt={`Gallery ${idx + 1}`}
-                  className="size-20 rounded-xs border border-[#B8AC93] object-cover"
+                  className="size-20 rounded-xs border border-[#CBD5E1] object-cover"
                 />
                 <button
                   type="button"
@@ -492,7 +492,7 @@ export function DestinationForm({
               placeholder="https://..."
               style={{
                 ...inputStyle,
-                borderColor: errors.urlInput ? C.red : "#BFB399",
+                borderColor: errors.urlInput ? C.red : "#CBD5E1",
               }}
             />
             <div className="shrink-0 sm:w-36">
@@ -513,10 +513,10 @@ export function DestinationForm({
           type="checkbox"
           checked={values.featured}
           onChange={(e) => set("featured", e.target.checked)}
-          className="size-4 accent-[#4A181B]"
+          className="size-4 accent-[#0038A8]"
         />
         <span className="text-[13px] font-semibold" style={{ fontFamily: F.body, color: C.ink }}>
-          Feature as Priority Dossier on Port of Entry (Home screen)
+          Feature on Home screen
         </span>
       </label>
 
@@ -525,7 +525,7 @@ export function DestinationForm({
         <Btn label="Cancel" color={C.card} onClick={onDone} />
         <Btn
           type="submit"
-          label={saving ? "Recording Dossier..." : "Save Visa Dossier"}
+          label={saving ? "Saving..." : "Save Place"}
           color={C.cover}
           disabled={saving}
         />

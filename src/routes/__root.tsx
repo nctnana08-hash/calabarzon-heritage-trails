@@ -120,7 +120,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Official Cultural Heritage Passport & Virtual Field Trip across Region IV-A (Cavite, Laguna, Batangas, Rizal, Quezon). Collect arrival stamps and complete field quizzes.",
       },
-      { name: "theme-color", content: "#4A181B" },
+      { name: "theme-color", content: "#0038A8" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -138,7 +138,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600&family=JetBrains+Mono:wght@500;700&family=Work+Sans:wght@400;500;600;700&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap",
       },
     ],
   }),

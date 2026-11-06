@@ -15,7 +15,7 @@ export const Label = ({
   style?: React.CSSProperties;
 }) => (
   <span
-    className={cn("block text-[12px] font-semibold tracking-wide uppercase", className)}
+    className={cn("block text-[11px] font-bold tracking-wider uppercase", className)}
     style={{ fontFamily: F.body, color: C.mute, ...style }}
   >
     {children}
@@ -35,14 +35,19 @@ export const Sec = ({
 }) => (
   <div className={cn("mt-9 mb-4 flex items-end justify-between gap-4", className)}>
     <div>
+      <div className="mb-1 flex items-center gap-1.5">
+        <span className="h-1.5 w-5 rounded-full" style={{ backgroundColor: C.cover }} />
+        <span className="h-1.5 w-2 rounded-full" style={{ backgroundColor: C.foil }} />
+        <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: C.red }} />
+      </div>
       <h2
-        className="text-[24px] font-bold tracking-tight leading-tight sm:text-[28px]"
+        className="text-[22px] font-extrabold tracking-tight leading-tight sm:text-[26px]"
         style={{ fontFamily: F.display, color: C.ink }}
       >
         {fil}
       </h2>
       {en ? (
-        <p className="mt-0.5 text-[13px]" style={{ fontFamily: F.body, color: C.mute }}>
+        <p className="mt-0.5 text-[13px] font-medium" style={{ fontFamily: F.body, color: C.mute }}>
           {en}
         </p>
       ) : null}
@@ -68,15 +73,14 @@ export const Banig = React.memo(function Banig({
   const variant = cleanSeed % 4;
   const sunX = 70 + ((cleanSeed * 37) % 220);
 
-  // Rich tropical sunset/heritage sky palettes based on category color
-  const isRed = color === C.red || color === "#801F20";
-  const isBlue = color === C.blue || color === "#163B68";
-  const isGold = color === C.gold || color === "#8F6200";
+  const isRed = color === C.red || color === "#B91C1C";
+  const isBlue = color === C.blue || color === "#0038A8" || color === "#1D4ED8";
+  const isGold = color === C.gold || color === "#B45309";
 
-  const skyTop = isRed ? "#7C1D24" : isBlue ? "#143A66" : isGold ? "#6E4B0A" : "#134B36";
-  const skyBottom = isRed ? "#D96B43" : isBlue ? "#3B7EA1" : isGold ? "#D49B35" : "#429E6D";
-  const hillBack = isRed ? "#59151B" : isBlue ? "#102E52" : isGold ? "#523707" : "#0E3828";
-  const hillFront = "#1B1F26";
+  const skyTop = isRed ? "#881337" : isBlue ? "#002366" : isGold ? "#78350F" : "#064E3B";
+  const skyBottom = isRed ? "#E11D48" : isBlue ? "#2563EB" : isGold ? "#D97706" : "#059669";
+  const hillBack = isRed ? "#4C0519" : isBlue ? "#001A4D" : isGold ? "#451A03" : "#022C22";
+  const hillFront = "#0F172A";
 
   return (
     <svg
@@ -95,11 +99,11 @@ export const Banig = React.memo(function Banig({
       {/* Sky */}
       <rect width="360" height="220" fill={`url(#sky-${cleanSeed})`} />
 
-      {/* Glowing Sun / Moon */}
-      <circle cx={sunX} cy="62" r="28" fill="#FCE79C" opacity="0.9" />
-      <circle cx={sunX} cy="62" r="42" fill="#FCE79C" opacity="0.2" />
+      {/* Philippine Sun Glow */}
+      <circle cx={sunX} cy="60" r="26" fill="#FCD116" opacity="0.92" />
+      <circle cx={sunX} cy="60" r="42" fill="#FCD116" opacity="0.22" />
 
-      {/* Distant Clouds / Rays */}
+      {/* Distant Hills */}
       <path
         d="M 0,145 Q 90,110 180,140 T 360,130 L 360,220 L 0,220 Z"
         fill={hillBack}
@@ -114,11 +118,10 @@ export const Banig = React.memo(function Banig({
           <rect x="14" y="48" width="102" height="58" />
           <rect x="52" y="18" width="26" height="32" />
           <polygon points="48,18 65,2 82,18" />
-          {/* Glowing Capiz windows */}
-          <rect x="24" y="58" width="16" height="20" rx="2" fill="#FCE79C" opacity="0.85" />
-          <rect x="46" y="58" width="16" height="20" rx="2" fill="#FCE79C" opacity="0.85" />
-          <rect x="68" y="58" width="16" height="20" rx="2" fill="#FCE79C" opacity="0.85" />
-          <rect x="90" y="58" width="16" height="20" rx="2" fill="#FCE79C" opacity="0.85" />
+          <rect x="24" y="58" width="16" height="20" rx="2" fill="#FCD116" opacity="0.9" />
+          <rect x="46" y="58" width="16" height="20" rx="2" fill="#FCD116" opacity="0.9" />
+          <rect x="68" y="58" width="16" height="20" rx="2" fill="#FCD116" opacity="0.9" />
+          <rect x="90" y="58" width="16" height="20" rx="2" fill="#FCD116" opacity="0.9" />
         </g>
       )}
 
@@ -129,10 +132,10 @@ export const Banig = React.memo(function Banig({
           <rect x="26" y="56" width="78" height="64" />
           <rect x="108" y="32" width="26" height="88" />
           <polygon points="105,32 121,12 137,32" />
-          <line x1="65" y1="10" x2="65" y2="24" stroke="#FCE79C" strokeWidth="2.5" />
-          <line x1="59" y1="16" x2="71" y2="16" stroke="#FCE79C" strokeWidth="2.5" />
-          <circle cx="65" cy="46" r="8" fill="#FCE79C" opacity="0.85" />
-          <path d="M55,120 L55,88 A10,10 0 0,1 75,88 L75,120 Z" fill="#FCE79C" opacity="0.8" />
+          <line x1="65" y1="10" x2="65" y2="24" stroke="#FCD116" strokeWidth="2.5" />
+          <line x1="59" y1="16" x2="71" y2="16" stroke="#FCD116" strokeWidth="2.5" />
+          <circle cx="65" cy="46" r="8" fill="#FCD116" opacity="0.9" />
+          <path d="M55,120 L55,88 A10,10 0 0,1 75,88 L75,120 Z" fill="#FCD116" opacity="0.85" />
         </g>
       )}
 
@@ -142,9 +145,9 @@ export const Banig = React.memo(function Banig({
           <polygon points="0,38 80,6 160,38" />
           <rect x="8" y="38" width="144" height="8" />
           <rect x="16" y="46" width="128" height="58" />
-          <rect x="30" y="56" width="18" height="36" rx="9" fill="#FCE79C" opacity="0.85" />
-          <rect x="71" y="56" width="18" height="36" rx="9" fill="#FCE79C" opacity="0.85" />
-          <rect x="112" y="56" width="18" height="36" rx="9" fill="#FCE79C" opacity="0.85" />
+          <rect x="30" y="56" width="18" height="36" rx="9" fill="#FCD116" opacity="0.9" />
+          <rect x="71" y="56" width="18" height="36" rx="9" fill="#FCD116" opacity="0.9" />
+          <rect x="112" y="56" width="18" height="36" rx="9" fill="#FCD116" opacity="0.9" />
         </g>
       )}
 
@@ -153,11 +156,9 @@ export const Banig = React.memo(function Banig({
         <g>
           <polygon points="65,185 165,72 205,72 295,185" fill={hillBack} />
           {variant % 2 === 0 ? (
-            /* Waterfall cascade */
-            <path d="M 178,72 L 192,72 L 204,185 L 168,185 Z" fill="#E2F7EE" opacity="0.75" />
+            <path d="M 178,72 L 192,72 L 204,185 L 168,185 Z" fill="#A7F3D0" opacity="0.8" />
           ) : (
-            /* Crater plume */
-            <circle cx="185" cy="56" r="16" fill="#FFFFFF" opacity="0.35" />
+            <circle cx="185" cy="56" r="16" fill="#FFFFFF" opacity="0.4" />
           )}
         </g>
       )}
@@ -169,9 +170,9 @@ export const Banig = React.memo(function Banig({
 });
 
 /**
- * Vibrant Compass & Stamp Emblem.
+ * eGovPH-Inspired Philippine Sun & Heritage Emblem.
  */
-export const Mark = React.memo(function Mark({ size = 34 }: { size?: number }) {
+export const Mark = React.memo(function Mark({ size = 36 }: { size?: number }) {
   return (
     <svg
       width={size}
@@ -181,27 +182,34 @@ export const Mark = React.memo(function Mark({ size = 34 }: { size?: number }) {
       role="img"
       className="shrink-0"
     >
-      <rect
-        x="2"
-        y="2"
-        width="40"
-        height="40"
-        rx="12"
-        fill={C.cover}
-        stroke={C.foil}
-        strokeWidth="2"
+      <defs>
+        <linearGradient id="egov-mark-bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#002366" />
+          <stop offset="65%" stopColor="#0038A8" />
+          <stop offset="100%" stopColor="#1D4ED8" />
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="40" height="40" rx="12" fill="url(#egov-mark-bg)" />
+      {/* Bottom crimson accent ribbon */}
+      <path d="M 6,36 L 38,36 A 6,6 0 0,1 32,42 L 12,42 A 6,6 0 0,1 6,36 Z" fill="#CE1126" />
+      {/* 8-Ray Philippine Sun Starburst */}
+      <polygon
+        points="22,7 24.8,17.2 35,20 24.8,22.8 22,33 19.2,22.8 9,20 19.2,17.2"
+        fill="#FCD116"
       />
       <polygon
-        points="22,7 25.5,18.5 37,22 25.5,25.5 22,37 18.5,25.5 7,22 18.5,18.5"
-        fill={C.foil}
+        points="13,11 20,18 27,11 24,20 31,27 22,24 13,27 18,20"
+        fill="#FCD116"
+        opacity="0.85"
       />
-      <circle cx="22" cy="22" r="3.5" fill={C.cover} />
+      <circle cx="22" cy="20" r="4.5" fill="#FFFFFF" />
+      <circle cx="22" cy="20" r="2.5" fill="#0038A8" />
     </svg>
   );
 });
 
 /**
- * Modern Interactive Surface Card.
+ * Clean eGovPH-style Elevated Surface Card.
  */
 export function Pop({
   children,
@@ -238,7 +246,8 @@ export function Pop({
     <div
       className={cn(
         "relative overflow-hidden transition-all duration-200",
-        interactive && "hover:-translate-y-1 hover:shadow-lg active:translate-y-0",
+        interactive &&
+          "hover:-translate-y-0.5 hover:border-[#93C5FD] hover:shadow-lg active:translate-y-0",
         className,
       )}
       style={{
@@ -246,8 +255,8 @@ export function Pop({
         borderRadius: radius,
         borderWidth: 1,
         borderStyle: "solid",
-        borderColor: isDarkBg ? "rgba(212, 175, 55, 0.35)" : "#E6DFCE",
-        boxShadow: "0 4px 14px rgba(30, 35, 42, 0.06)",
+        borderColor: isDarkBg ? "rgba(255, 255, 255, 0.22)" : "#E2E8F0",
+        boxShadow: "0 4px 18px -2px rgba(15, 23, 42, 0.05)",
         ...style,
       }}
     >
@@ -305,12 +314,12 @@ export const Btn = ({
       radius={12}
       ariaLabel={ariaLabel ?? (sub ? `${label} (${sub})` : label)}
       className={cn(
-        "inline-flex min-h-[44px] items-center justify-center px-5 py-2.5 text-center",
+        "inline-flex min-h-[42px] items-center justify-center px-4 py-2 text-center",
         className,
       )}
     >
       <span
-        className="text-[14px] font-semibold leading-tight"
+        className="text-[13px] font-bold leading-tight sm:text-[14px]"
         style={{ fontFamily: F.bold, color: textColor }}
       >
         {label}
@@ -338,15 +347,15 @@ export const Chip = ({
     aria-pressed={on}
     aria-label={ariaLabel ?? label}
     onClick={onClick}
-    className="inline-flex min-h-[38px] shrink-0 cursor-pointer items-center justify-center rounded-full px-4 py-1.5 text-[13px] font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-2"
+    className="inline-flex min-h-[36px] shrink-0 cursor-pointer items-center justify-center rounded-full px-4 py-1.5 text-[13px] font-semibold transition-all focus-visible:outline-2 focus-visible:outline-offset-2"
     style={{
       fontFamily: F.body,
       borderWidth: 1,
       borderStyle: "solid",
-      borderColor: on ? color : "#DED5C0",
+      borderColor: on ? color : "#CBD5E1",
       backgroundColor: on ? color : "#FFFFFF",
       color: on ? onColor(color) : C.ink,
-      boxShadow: on ? "0 2px 6px rgba(30,35,42,0.12)" : "none",
+      boxShadow: on ? "0 2px 8px rgba(0, 56, 168, 0.18)" : "none",
     }}
   >
     {label}
@@ -396,13 +405,13 @@ export function Cover({
 }
 
 /**
- * Collectible Rubber Ink Stamp Badge.
+ * Collectible Official Travel Stamp Seal.
  */
 export function Stamp({
   destination,
   label,
   size = 120,
-  tilt = -5,
+  tilt = -4,
   animateIn = false,
 }: {
   destination: Pick<Destination, "name" | "province" | "category">;
@@ -460,7 +469,7 @@ export function Stamp({
               fill={inkColor}
               fillOpacity="0.08"
               stroke={inkColor}
-              strokeWidth="3"
+              strokeWidth="2.8"
             />
             <polygon
               points="38,11 82,11 109,38 109,82 82,109 38,109 11,82 11,38"
@@ -479,7 +488,7 @@ export function Stamp({
               fill={inkColor}
               fillOpacity="0.08"
               stroke={inkColor}
-              strokeWidth="3"
+              strokeWidth="2.8"
             />
             <path
               d="M 19,107 L 19,50 A 41,41 0 0,1 101,50 L 101,107 Z"
@@ -498,18 +507,18 @@ export function Stamp({
               y="14"
               width="104"
               height="92"
-              rx="10"
+              rx="12"
               fill={inkColor}
               fillOpacity="0.08"
               stroke={inkColor}
-              strokeWidth="3"
+              strokeWidth="2.8"
             />
             <rect
               x="13"
               y="19"
               width="94"
               height="82"
-              rx="6"
+              rx="8"
               fill="none"
               stroke={inkColor}
               strokeWidth="1.2"
@@ -527,7 +536,7 @@ export function Stamp({
               fill={inkColor}
               fillOpacity="0.08"
               stroke={inkColor}
-              strokeWidth="3"
+              strokeWidth="2.8"
             />
             <circle
               cx="60"
@@ -548,17 +557,17 @@ export function Stamp({
       >
         <span
           className="font-bold uppercase tracking-[0.14em] leading-none"
-          style={{ fontFamily: F.mono, fontSize: Math.max(8, t * 0.78) }}
+          style={{ fontFamily: F.mono, fontSize: Math.max(8, t * 0.76) }}
         >
           ★ {destination.province} ★
         </span>
 
         <span
-          className="my-1.5 line-clamp-2 font-bold leading-tight"
+          className="my-1.5 line-clamp-2 font-extrabold leading-tight"
           style={{
             fontFamily: F.display,
-            fontSize: t * 1.16,
-            lineHeight: `${t * 1.12}px`,
+            fontSize: t * 1.05,
+            lineHeight: `${t * 1.1}px`,
           }}
         >
           {destination.name}
@@ -572,7 +581,7 @@ export function Stamp({
             backgroundColor: inkColor,
           }}
         >
-          {label === "✓" ? "VISITED" : `QUIZ ${label}`}
+          {label === "✓" ? "VERIFIED" : `QUIZ ${label}`}
         </span>
       </div>
     </div>
@@ -580,7 +589,7 @@ export function Stamp({
 }
 
 /**
- * Visual Place Card for the Places list.
+ * Clean eGovPH-Style Place Card for the Places list.
  */
 export function Ticket({
   destination,
@@ -616,10 +625,10 @@ export function Ticket({
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span
-            className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold"
+            className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold"
             style={{
               fontFamily: F.body,
-              backgroundColor: `${cat.color}18`,
+              backgroundColor: `${cat.color}14`,
               color: cat.deep,
             }}
           >
@@ -627,10 +636,10 @@ export function Ticket({
           </span>
           {quizBest && quizBest.total > 0 ? (
             <span
-              className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] font-semibold"
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold"
               style={{
                 backgroundColor: "#FEF3C7",
-                color: "#92400E",
+                color: "#B45309",
               }}
             >
               <Sparkles className="size-3" /> Quiz {quizBest.best}/{quizBest.total}
@@ -639,7 +648,7 @@ export function Ticket({
         </div>
 
         <h3
-          className="mt-1.5 truncate text-[19px] font-bold leading-snug sm:text-[22px]"
+          className="mt-1.5 truncate text-[17px] font-bold leading-snug group-hover:text-[#0038A8] sm:text-[19px]"
           style={{ fontFamily: F.display, color: C.ink }}
         >
           {destination.name}
@@ -649,17 +658,14 @@ export function Ticket({
           className="mt-1 inline-flex items-center gap-1 truncate text-[13px]"
           style={{ fontFamily: F.body, color: C.mute }}
         >
-          <MapPin className="size-3.5 shrink-0" /> {destination.address}, {destination.province}
+          <MapPin className="size-3.5 shrink-0 text-[#0038A8]" /> {destination.address},{" "}
+          {destination.province}
         </p>
       </div>
 
       <div
-        className="hidden shrink-0 items-center gap-1 rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors group-hover:bg-[#4A181B] group-hover:text-white sm:inline-flex"
-        style={{
-          fontFamily: F.body,
-          backgroundColor: C.paper,
-          color: C.cover,
-        }}
+        className="hidden shrink-0 items-center gap-1 rounded-full bg-[#EFF6FF] px-4 py-2 text-[13px] font-bold text-[#0038A8] transition-colors group-hover:bg-[#0038A8] group-hover:text-white sm:inline-flex"
+        style={{ fontFamily: F.body }}
       >
         Explore →
       </div>
@@ -684,9 +690,8 @@ export const Top = ({
         type="button"
         onClick={onBack}
         aria-label="Go back"
-        className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border bg-white transition-colors hover:bg-[#F6F1E3]"
+        className="flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-[#E2E8F0] bg-white transition-colors hover:bg-[#EFF6FF]"
         style={{
-          borderColor: "#E0D7C3",
           fontFamily: F.body,
           fontSize: 18,
           color: C.ink,
@@ -699,7 +704,7 @@ export const Top = ({
       {kicker ? <Label>{kicker}</Label> : null}
       {title ? (
         <h1
-          className="truncate text-[24px] font-bold leading-tight sm:text-[28px]"
+          className="truncate text-[22px] font-extrabold leading-tight sm:text-[26px]"
           style={{ fontFamily: F.display, color: C.ink }}
         >
           {title}

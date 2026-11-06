@@ -28,7 +28,7 @@ export const Route = createFileRoute("/destinations/")({
   }),
   head: () => ({
     meta: [
-      { title: "Places & Passport | Sulyap" },
+      { title: "Places & e-Passport | SulyapPH" },
       {
         name: "description",
         content: "Explore heritage destinations across CALABARZON.",
@@ -66,13 +66,14 @@ function ExplorePage() {
             <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h1
-                  className="text-[30px] font-bold leading-tight sm:text-[36px]"
+                  className="text-[28px] font-extrabold leading-tight sm:text-[34px]"
                   style={{ fontFamily: F.display, color: C.ink }}
                 >
-                  Places
+                  Places Directory
                 </h1>
                 <Label>
-                  {filtered.length} {filtered.length === 1 ? "destination" : "destinations"}
+                  {filtered.length} {filtered.length === 1 ? "destination" : "destinations"} in
+                  Region IV-A
                 </Label>
               </div>
 
@@ -90,7 +91,7 @@ function ExplorePage() {
                   onClick={() => setSearch({ view: "map" })}
                 />
                 <Chip
-                  label="Passport"
+                  label="e-Passport"
                   on={false}
                   color={C.cover}
                   onClick={() => setSearch({ view: "passport" })}
@@ -107,12 +108,12 @@ function ExplorePage() {
                 onChange={(e) => setSearch({ q: e.target.value || undefined })}
                 placeholder="Search by name, town, or province..."
                 aria-label="Search by name, town, or province"
-                className="w-full rounded-xl border px-4 py-2.5 text-[15px] focus-visible:outline-2"
+                className="w-full rounded-xl border px-4 py-2.5 text-[15px] shadow-2xs focus-visible:outline-2"
                 style={{
                   fontFamily: F.body,
                   color: C.ink,
                   backgroundColor: C.card,
-                  borderColor: "#DED5C0",
+                  borderColor: "#CBD5E1",
                   outlineColor: C.cover,
                 }}
               />
@@ -137,7 +138,7 @@ function ExplorePage() {
                     }
                   />
                 ))}
-                <span className="mx-1 text-[#C8BDA4]">|</span>
+                <span className="mx-1 text-[#CBD5E1]">|</span>
                 {CATEGORIES.map((c) => {
                   const meta = getCategoryMeta(c);
                   return (
@@ -164,8 +165,8 @@ function ExplorePage() {
                         province: undefined,
                       })
                     }
-                    className="ml-2 cursor-pointer text-[12px] font-medium underline"
-                    style={{ fontFamily: F.body, color: C.mute }}
+                    className="ml-2 cursor-pointer text-[12px] font-bold underline"
+                    style={{ fontFamily: F.body, color: C.cover }}
                   >
                     Clear
                   </button>
@@ -195,13 +196,13 @@ function ExplorePage() {
 
             {!isError && !isPending ? (
               view === "map" ? (
-                <Pop className="overflow-hidden p-1">
-                  <MapView destinations={filtered} className="h-[520px] w-full rounded-lg" />
+                <Pop className="overflow-hidden p-1.5">
+                  <MapView destinations={filtered} className="h-[520px] w-full rounded-xl" />
                 </Pop>
               ) : filtered.length === 0 ? (
                 <Pop className="p-6 text-center">
                   <h2
-                    className="text-[22px] font-bold"
+                    className="text-[20px] font-extrabold"
                     style={{ fontFamily: F.display, color: C.ink }}
                   >
                     No places found
@@ -245,12 +246,12 @@ function ExplorePage() {
           className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
           style={{
             backgroundColor: C.card,
-            borderColor: "#DED5C0",
+            borderColor: "#E2E8F0",
           }}
         >
           <DialogHeader>
             <DialogTitle
-              className="text-[24px] font-bold"
+              className="text-[22px] font-extrabold"
               style={{ fontFamily: F.display, color: C.ink }}
             >
               Add a Place

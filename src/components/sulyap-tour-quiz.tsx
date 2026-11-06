@@ -88,13 +88,13 @@ export function SulyapTour({
               onClick={() => setStep(idx)}
               className="flex cursor-pointer items-center gap-2.5 rounded-xl border p-3 text-left transition-all"
               style={{
-                backgroundColor: active ? C.cover : completed ? "#F0FDF4" : "#FFFFFF",
-                borderColor: active ? C.cover : completed ? "#86EFAC" : "#E6DFCE",
+                backgroundColor: active ? C.cover : completed ? "#ECFDF5" : "#FFFFFF",
+                borderColor: active ? C.cover : completed ? "#6EE7B7" : "#E2E8F0",
                 color: active ? "#FFFFFF" : C.ink,
               }}
             >
               <span
-                className="flex size-7 shrink-0 items-center justify-center rounded-full text-[12px] font-bold"
+                className="flex size-7 shrink-0 items-center justify-center rounded-full text-[12px] font-extrabold"
                 style={{
                   backgroundColor: active ? C.foil : completed ? C.green : C.paper,
                   color: active ? C.ink : completed ? "#FFFFFF" : C.ink,
@@ -108,7 +108,7 @@ export function SulyapTour({
                 </div>
                 <div
                   className="hidden truncate text-[11px] sm:block"
-                  style={{ color: active ? "rgba(255,255,255,0.75)" : C.mute }}
+                  style={{ color: active ? "rgba(255,255,255,0.8)" : C.mute }}
                 >
                   {s.subtitle}
                 </div>
@@ -152,12 +152,12 @@ export function SulyapTour({
           </div>
         )}
 
-        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[#F6F1E3] px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-[#4A181B]">
+        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[#EFF6FF] px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-[#0038A8]">
           <Sparkles className="size-3.5" /> Step {step + 1} of 3 · {STOPS[step].title}
         </div>
 
         <p
-          className="mt-2 text-[17px] leading-relaxed font-medium sm:text-[18px]"
+          className="mt-2 text-[16.5px] leading-relaxed font-medium sm:text-[17.5px]"
           style={{ fontFamily: F.body, color: C.ink }}
         >
           {expanded ? activeText : short}
@@ -167,7 +167,7 @@ export function SulyapTour({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="mt-2 cursor-pointer text-[13px] font-semibold underline"
+            className="mt-2 cursor-pointer text-[13px] font-bold underline"
             style={{ color: C.cover }}
           >
             {expanded ? "Show less" : "Read more"}
@@ -176,16 +176,16 @@ export function SulyapTour({
 
         {/* Stamp Celebration Box on Step 3 */}
         {step === 2 && done ? (
-          <div className="mt-6 flex flex-col items-center rounded-2xl border border-[#86EFAC] bg-[#F0FDF4] p-6 text-center">
-            <Stamp destination={destination} label="✓" size={132} tilt={-6} animateIn={true} />
+          <div className="mt-6 flex flex-col items-center rounded-2xl border border-[#6EE7B7] bg-[#ECFDF5] p-6 text-center">
+            <Stamp destination={destination} label="✓" size={132} tilt={-5} animateIn={true} />
             <h4
-              className="mt-3 text-[24px] font-bold"
+              className="mt-3 text-[22px] font-extrabold"
               style={{ fontFamily: F.display, color: C.ink }}
             >
-              Stamp Collected!
+              Stamp Verified!
             </h4>
             <p className="mt-1 mb-5 text-[14px]" style={{ fontFamily: F.body, color: C.mute }}>
-              Added to your CALABARZON Passport.
+              Added to your CALABARZON e-Passport.
             </p>
             <div className="flex flex-wrap justify-center gap-3">
               <Btn label="Take 4-Question Quiz →" color={C.foil} onClick={onStartQuiz} />
@@ -193,12 +193,12 @@ export function SulyapTour({
             </div>
           </div>
         ) : (
-          <div className="mt-6 flex items-center justify-between border-t border-[#F0EAE0] pt-4">
+          <div className="mt-6 flex items-center justify-between border-t border-[#E2E8F0] pt-4">
             {step > 0 ? (
               <button
                 type="button"
                 onClick={() => setStep((s) => (s - 1) as 0 | 1 | 2)}
-                className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-[#DED5C0] bg-white px-4 py-2.5 text-[14px] font-semibold hover:bg-[#F6F1E3]"
+                className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-[#CBD5E1] bg-white px-4 py-2.5 text-[14px] font-bold hover:bg-[#EFF6FF]"
                 style={{ color: C.ink }}
               >
                 <ChevronLeft className="size-4" /> Previous
@@ -220,7 +220,7 @@ export function SulyapTour({
               <button
                 type="button"
                 onClick={finishTour}
-                className="inline-flex cursor-pointer items-center gap-2 rounded-xl px-5 py-2.5 text-[14px] font-bold text-white shadow-md transition-transform hover:-translate-y-0.5"
+                className="inline-flex cursor-pointer items-center gap-2 rounded-xl px-5 py-2.5 text-[14px] font-extrabold text-white shadow-md transition-transform hover:-translate-y-0.5"
                 style={{ backgroundColor: C.green }}
               >
                 <Award className="size-4" /> Collect My Stamp
@@ -303,21 +303,24 @@ export function SulyapQuiz({
             destination={destination}
             label={`${score}/${qs.length}`}
             size={132}
-            tilt={-5}
+            tilt={-4}
             animateIn={true}
           />
           <div
-            className="mt-3 text-[48px] font-bold leading-none"
+            className="mt-3 text-[44px] font-extrabold leading-none"
             style={{ fontFamily: F.display, color: C.cover }}
           >
             {score} / {qs.length}
           </div>
-          <p className="mt-2 text-[15px] font-medium" style={{ fontFamily: F.body, color: C.ink }}>
+          <p
+            className="mt-2 text-[15px] font-semibold"
+            style={{ fontFamily: F.body, color: C.ink }}
+          >
             {pct === 1 ? "Perfect score!" : pct >= 0.5 ? "Nice job!" : "Keep exploring!"}
           </p>
 
           <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-            <Btn label="View My Passport" color={C.cover} onClick={onOpenPassport} />
+            <Btn label="View My e-Passport" color={C.cover} onClick={onOpenPassport} />
             <Btn label="Try Again" color={C.foil} onClick={retry} />
             <Btn label="Review Tour" color={C.card} onClick={onReviewTour} />
             <Btn label="Back" color={C.card} onClick={onBack} />
@@ -334,7 +337,7 @@ export function SulyapQuiz({
           <Label>
             Question {i + 1} of {qs.length}
           </Label>
-          <span className="text-[12px] font-semibold" style={{ color: cat.deep }}>
+          <span className="text-[12px] font-bold" style={{ color: cat.deep }}>
             {cat.en}
           </span>
         </div>
@@ -345,13 +348,13 @@ export function SulyapQuiz({
             <div
               key={idx}
               className="h-1.5 rounded-full"
-              style={{ backgroundColor: idx <= i ? C.cover : "#E6DFCE" }}
+              style={{ backgroundColor: idx <= i ? C.cover : "#E2E8F0" }}
             />
           ))}
         </div>
 
         <h2
-          className="mb-5 text-[21px] font-bold leading-snug sm:text-[24px]"
+          className="mb-5 text-[19px] font-extrabold leading-snug sm:text-[22px]"
           style={{ fontFamily: F.display, color: C.ink }}
         >
           {q.q}
@@ -380,8 +383,8 @@ export function SulyapQuiz({
                     className="mr-3 flex size-7 shrink-0 items-center justify-center rounded-full text-[12px] font-bold"
                     style={{
                       fontFamily: F.mono,
-                      backgroundColor: highlighted ? "rgba(255,255,255,0.2)" : C.paper,
-                      color: highlighted ? "#FFFFFF" : C.ink,
+                      backgroundColor: highlighted ? "rgba(255,255,255,0.22)" : "#EFF6FF",
+                      color: highlighted ? "#FFFFFF" : C.cover,
                     }}
                   >
                     {"ABCD"[n]}
@@ -405,7 +408,7 @@ export function SulyapQuiz({
         {pick !== null ? (
           <div className="mt-5">
             <div
-              className="mb-4 rounded-xl border-l-4 bg-[#FAF6EC] p-3.5"
+              className="mb-4 rounded-xl border-l-4 bg-[#F8FAFC] p-3.5"
               style={{
                 borderLeftColor: pick === q.answer ? C.green : C.red,
               }}

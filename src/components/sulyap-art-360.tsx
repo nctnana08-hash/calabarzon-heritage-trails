@@ -114,7 +114,7 @@ export function SulyapArt360Map({
           >
             <RotateCw className="size-3.5" /> 360° Art &amp; Relics
           </span>
-          <span className="text-[13px]" style={{ color: C.mute }}>
+          <span className="text-[13px] font-medium" style={{ color: C.mute }}>
             Drag to look around or tap 1–4
           </span>
         </div>
@@ -123,10 +123,10 @@ export function SulyapArt360Map({
           <button
             type="button"
             onClick={() => setAutoRotate((v) => !v)}
-            className="cursor-pointer rounded-full border px-3 py-1 text-[12px] font-semibold transition-colors"
+            className="cursor-pointer rounded-full border px-3 py-1 text-[12px] font-bold transition-colors"
             style={{
               backgroundColor: autoRotate ? C.foil : "#FFFFFF",
-              borderColor: autoRotate ? C.foil : "#DED5C0",
+              borderColor: autoRotate ? C.foil : "#CBD5E1",
               color: C.ink,
             }}
           >
@@ -137,7 +137,7 @@ export function SulyapArt360Map({
             <button
               type="button"
               onClick={() => window.open(streetViewUrl, "_blank", "noopener,noreferrer")}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#DED5C0] bg-white px-3 py-1 text-[12px] font-semibold hover:bg-[#F6F1E3]"
+              className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#CBD5E1] bg-white px-3 py-1 text-[12px] font-bold hover:bg-[#EFF6FF]"
               style={{ color: C.ink }}
             >
               Google 360° <ExternalLink className="size-3" />
@@ -148,7 +148,7 @@ export function SulyapArt360Map({
             <button
               type="button"
               onClick={onBack}
-              className="cursor-pointer rounded-full border border-[#DED5C0] bg-white px-3 py-1 text-[12px] font-semibold hover:bg-[#F6F1E3]"
+              className="cursor-pointer rounded-full border border-[#CBD5E1] bg-white px-3 py-1 text-[12px] font-bold hover:bg-[#EFF6FF]"
               style={{ color: C.ink }}
             >
               Done
@@ -161,8 +161,8 @@ export function SulyapArt360Map({
       <div
         className="overflow-hidden rounded-2xl border shadow-md"
         style={{
-          borderColor: "#DED5C0",
-          backgroundColor: "#1B1614",
+          borderColor: "#CBD5E1",
+          backgroundColor: "#0F172A",
         }}
       >
         <div
@@ -180,7 +180,7 @@ export function SulyapArt360Map({
           {/* Illustrated / Photo Panoramic Backdrop */}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-65"
+            className="pointer-events-none absolute inset-0 opacity-70"
             style={{
               transform: `translateX(${((yaw % 90) - 45) * -1.2}px) scale(1.15)`,
               transition: isDragging ? "none" : "transform 150ms ease-out",
@@ -195,7 +195,7 @@ export function SulyapArt360Map({
 
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-black/50"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/25 to-slate-950/50"
           />
 
           {/* Compass Pill at Top Center */}
@@ -204,9 +204,9 @@ export function SulyapArt360Map({
               className="rounded-full px-3 py-1 text-[11px] font-bold"
               style={{
                 fontFamily: F.mono,
-                backgroundColor: "rgba(0, 0, 0, 0.65)",
+                backgroundColor: "rgba(15, 23, 42, 0.78)",
                 color: C.foil,
-                border: "1px solid rgba(212, 175, 55, 0.45)",
+                border: "1px solid rgba(252, 209, 22, 0.45)",
               }}
             >
               {Math.round(normalizeAngle(yaw))}° {cardinalLabel(yaw)}
@@ -238,8 +238,8 @@ export function SulyapArt360Map({
                 <div
                   className="flex items-center gap-2 rounded-full border-2 px-3 py-1.5 shadow-lg"
                   style={{
-                    backgroundColor: isSelected ? C.foil : "rgba(255, 255, 255, 0.95)",
-                    borderColor: isSelected ? "#FFFFFF" : C.foil,
+                    backgroundColor: isSelected ? C.foil : "rgba(255, 255, 255, 0.96)",
+                    borderColor: isSelected ? "#FFFFFF" : C.cover,
                     color: C.ink,
                   }}
                 >
@@ -271,7 +271,7 @@ export function SulyapArt360Map({
               setYaw((y) => normalizeAngle(y - 45));
             }}
             aria-label="Rotate left"
-            className="absolute top-1/2 left-3 z-20 flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/80"
+            className="absolute top-1/2 left-3 z-20 flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-slate-900/65 text-white hover:bg-slate-900/90"
           >
             <ChevronLeft className="size-5" />
           </button>
@@ -282,14 +282,14 @@ export function SulyapArt360Map({
               setYaw((y) => normalizeAngle(y + 45));
             }}
             aria-label="Rotate right"
-            className="absolute top-1/2 right-3 z-20 flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-black/55 text-white hover:bg-black/80"
+            className="absolute top-1/2 right-3 z-20 flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-slate-900/65 text-white hover:bg-slate-900/90"
           >
             <ChevronRight className="size-5" />
           </button>
         </div>
 
         {/* 4 Quick Numbered Buttons */}
-        <div className="grid grid-cols-2 gap-1.5 bg-[#221B18] p-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-1.5 bg-[#0F172A] p-2 sm:grid-cols-4">
           {pieces.map((p, idx) => {
             const active = p.id === selectedPiece.id;
             return (
@@ -299,20 +299,20 @@ export function SulyapArt360Map({
                 onClick={() => focusPiece(p)}
                 className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left transition-all"
                 style={{
-                  backgroundColor: active ? C.foil : "rgba(255,255,255,0.06)",
+                  backgroundColor: active ? C.foil : "rgba(255,255,255,0.08)",
                   color: active ? C.ink : "#FFFFFF",
                 }}
               >
                 <span
                   className="flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
                   style={{
-                    backgroundColor: active ? C.cover : "rgba(255,255,255,0.18)",
+                    backgroundColor: active ? C.cover : "rgba(255,255,255,0.2)",
                     color: "#FFFFFF",
                   }}
                 >
                   {idx + 1}
                 </span>
-                <span className="truncate text-[12px] font-semibold" style={{ fontFamily: F.body }}>
+                <span className="truncate text-[12px] font-bold" style={{ fontFamily: F.body }}>
                   {p.title}
                 </span>
               </button>
@@ -326,17 +326,17 @@ export function SulyapArt360Map({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span
             className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold"
-            style={{ backgroundColor: `${cat.color}18`, color: cat.deep }}
+            style={{ backgroundColor: `${cat.color}14`, color: cat.deep }}
           >
             <Sparkles className="size-3" /> Highlight {selectedIndex + 1} of {pieces.length}
           </span>
-          <span className="text-[12px] font-medium" style={{ color: C.mute }}>
+          <span className="text-[12px] font-semibold" style={{ color: C.mute }}>
             {selectedPiece.period}
           </span>
         </div>
 
         <h4
-          className="mt-2 text-[22px] font-bold leading-snug"
+          className="mt-2 text-[20px] font-extrabold leading-snug"
           style={{ fontFamily: F.display, color: C.ink }}
         >
           {selectedPiece.title}
@@ -357,14 +357,14 @@ export function SulyapArt360Map({
           <button
             type="button"
             onClick={() => setExpanded((v) => !v)}
-            className="mt-1.5 cursor-pointer text-[13px] font-semibold underline"
+            className="mt-1.5 cursor-pointer text-[13px] font-bold underline"
             style={{ color: C.cover }}
           >
             {expanded ? "Show less" : "Read more"}
           </button>
         ) : null}
 
-        <div className="mt-4 flex items-center justify-between border-t border-[#F0EAE0] pt-3">
+        <div className="mt-4 flex items-center justify-between border-t border-[#E2E8F0] pt-3">
           <button
             type="button"
             onClick={() => stepPiece(-1)}

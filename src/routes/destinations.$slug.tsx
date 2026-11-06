@@ -40,7 +40,7 @@ type DetailTab = "overview" | "art360" | "tour" | "quiz";
 export const Route = createFileRoute("/destinations/$slug")({
   head: () => ({
     meta: [
-      { title: "Place Details | Sulyap" },
+      { title: "Place Details | SulyapPH" },
       {
         name: "description",
         content: "Explore this CALABARZON heritage site in 360° and collect your travel stamp.",
@@ -68,7 +68,7 @@ function DestinationDetail() {
   }, [slug]);
 
   useEffect(() => {
-    if (destination) document.title = `${destination.name} | Sulyap`;
+    if (destination) document.title = `${destination.name} | SulyapPH`;
   }, [destination]);
 
   const goBackToList = () => navigate({ to: "/destinations", search: { view: "list" } });
@@ -114,7 +114,10 @@ function DestinationDetail() {
         {!isPending && !isError && !destination && (
           <div className="mx-auto max-w-md py-12 text-center">
             <Pop className="p-6">
-              <h1 className="text-[24px] font-bold" style={{ fontFamily: F.display, color: C.ink }}>
+              <h1
+                className="text-[22px] font-extrabold"
+                style={{ fontFamily: F.display, color: C.ink }}
+              >
                 Place not found
               </h1>
               <p className="my-2 text-[14px]" style={{ fontFamily: F.body, color: C.mute }}>
@@ -142,7 +145,7 @@ function DestinationDetail() {
 
             const handleQuickStamp = () => {
               markToured(destination.id, destination.slug);
-              toast.success(`Stamped "${destination.name}" in your passport!`);
+              toast.success(`Stamped "${destination.name}" in your e-Passport!`);
             };
 
             const TABS: {
@@ -163,7 +166,7 @@ function DestinationDetail() {
                   <button
                     type="button"
                     onClick={goBackToList}
-                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#DED5C0] bg-white px-3.5 py-1.5 text-[13px] font-semibold hover:bg-[#F6F1E3]"
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-[#CBD5E1] bg-white px-3.5 py-1.5 text-[13px] font-bold transition-colors hover:border-[#0038A8] hover:bg-[#EFF6FF]"
                     style={{ fontFamily: F.body, color: C.ink }}
                   >
                     ← All Places
@@ -173,7 +176,7 @@ function DestinationDetail() {
                     <button
                       type="button"
                       onClick={() => setEditOpen(true)}
-                      className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#DED5C0] bg-white px-3 py-1.5 text-[12px] font-semibold hover:bg-[#F6F1E3]"
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5 text-[12px] font-bold transition-colors hover:bg-[#EFF6FF]"
                       style={{ color: C.ink }}
                     >
                       <Edit3 className="size-3.5" /> Edit
@@ -181,7 +184,7 @@ function DestinationDetail() {
                     <button
                       type="button"
                       onClick={() => setDeleteOpen(true)}
-                      className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#DED5C0] bg-white px-3 py-1.5 text-[12px] font-semibold hover:bg-[#FEE2E2]"
+                      className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#CBD5E1] bg-white px-3 py-1.5 text-[12px] font-bold transition-colors hover:bg-[#FEF2F2]"
                       style={{ color: C.red }}
                     >
                       <Trash2 className="size-3.5" /> Delete
@@ -191,14 +194,15 @@ function DestinationDetail() {
 
                 {/* Hero Banner Card */}
                 <Pop className="overflow-hidden">
+                  <div className="egov-tricolor-bar h-1 w-full" />
                   <div className="relative h-56 w-full sm:h-72">
                     <Cover destination={destination} className="h-full w-full" />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/25 to-transparent" />
 
                     {/* Top-Left Category Badge */}
                     <span
                       className="absolute top-3.5 left-3.5 rounded-full px-3 py-1 text-[12px] font-bold text-white backdrop-blur-xs"
-                      style={{ backgroundColor: "rgba(30, 35, 42, 0.75)" }}
+                      style={{ backgroundColor: "rgba(15, 23, 42, 0.78)" }}
                     >
                       {cat.en}
                     </span>
@@ -211,19 +215,19 @@ function DestinationDetail() {
                           onClick={() =>
                             navigate({ to: "/destinations", search: { view: "passport" } })
                           }
-                          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-bold text-white shadow-md"
+                          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-extrabold text-white shadow-md"
                           style={{ backgroundColor: C.green }}
                         >
-                          <Check className="size-4" /> Stamped in Passport
+                          <Check className="size-4" /> Stamped in e-Passport
                         </button>
                       ) : (
                         <button
                           type="button"
                           onClick={handleQuickStamp}
-                          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-bold shadow-md transition-transform hover:scale-105"
+                          className="inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[12px] font-extrabold shadow-md transition-transform hover:scale-105"
                           style={{ backgroundColor: C.foil, color: C.ink }}
                         >
-                          <Award className="size-4" /> Stamp My Passport
+                          <Award className="size-4" /> Stamp My e-Passport
                         </button>
                       )}
                     </div>
@@ -231,20 +235,20 @@ function DestinationDetail() {
                     {/* Bottom Title Overlay */}
                     <div className="absolute inset-x-0 bottom-0 p-5 text-white sm:p-6">
                       <h1
-                        className="text-[28px] font-bold leading-tight sm:text-[36px]"
+                        className="text-[26px] font-extrabold leading-tight sm:text-[34px]"
                         style={{ fontFamily: F.display }}
                       >
                         {destination.name}
                       </h1>
                       <p className="mt-1 inline-flex items-center gap-1.5 text-[14px] text-white/90">
-                        <MapPin className="size-4 shrink-0" /> {destination.address},{" "}
+                        <MapPin className="size-4 shrink-0 text-[#FCD116]" /> {destination.address},{" "}
                         {destination.province}
                       </p>
                     </div>
                   </div>
 
                   {/* Clear 4-Button Icon Navigation Bar */}
-                  <div className="grid grid-cols-2 gap-2 bg-[#FAF7F0] p-2.5 sm:grid-cols-4">
+                  <div className="grid grid-cols-2 gap-2 bg-[#F8FAFC] p-2.5 sm:grid-cols-4">
                     {TABS.map((item) => {
                       const active = tab === item.id;
                       const Icon = item.icon;
@@ -258,8 +262,8 @@ function DestinationDetail() {
                             fontFamily: F.body,
                             backgroundColor: active ? C.cover : "#FFFFFF",
                             color: active ? "#FFFFFF" : C.ink,
-                            border: active ? `1px solid ${C.cover}` : "1px solid #E6DFCE",
-                            boxShadow: active ? "0 2px 6px rgba(74, 24, 27, 0.2)" : "none",
+                            border: active ? `1px solid ${C.cover}` : "1px solid #E2E8F0",
+                            boxShadow: active ? "0 2px 8px rgba(0, 56, 168, 0.22)" : "none",
                           }}
                         >
                           <Icon className="size-4" />
@@ -278,7 +282,7 @@ function DestinationDetail() {
                       <Pop className="p-5 sm:p-6">
                         <Label className="mb-1.5">QUICK OVERVIEW</Label>
                         <p
-                          className="text-[16px] leading-relaxed"
+                          className="text-[15.5px] leading-relaxed"
                           style={{ fontFamily: F.body, color: C.ink }}
                         >
                           {expanded ? destination.description : short}
@@ -295,20 +299,20 @@ function DestinationDetail() {
                         ) : null}
 
                         {/* 2 Big Visual Feature Launchers */}
-                        <div className="mt-5 grid grid-cols-1 gap-3 border-t border-[#F0EAE0] pt-4 sm:grid-cols-2">
+                        <div className="mt-5 grid grid-cols-1 gap-3 border-t border-[#E2E8F0] pt-4 sm:grid-cols-2">
                           <button
                             type="button"
                             onClick={() => setTab("art360")}
-                            className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E6DFCE] bg-[#FAF7F0] p-3.5 text-left transition-colors hover:bg-[#F3ECE0]"
+                            className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 text-left transition-colors hover:border-[#93C5FD] hover:bg-[#EFF6FF]"
                           >
                             <div
                               className="flex size-10 shrink-0 items-center justify-center rounded-xl text-white"
-                              style={{ backgroundColor: C.blue }}
+                              style={{ backgroundColor: C.cover }}
                             >
                               <RotateCw className="size-5" />
                             </div>
                             <div>
-                              <div className="text-[14px] font-bold" style={{ color: C.ink }}>
+                              <div className="text-[14px] font-extrabold" style={{ color: C.ink }}>
                                 360° Art &amp; Relics
                               </div>
                               <div className="text-[12px]" style={{ color: C.mute }}>
@@ -320,16 +324,16 @@ function DestinationDetail() {
                           <button
                             type="button"
                             onClick={() => setTab("tour")}
-                            className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E6DFCE] bg-[#FAF7F0] p-3.5 text-left transition-colors hover:bg-[#F3ECE0]"
+                            className="flex cursor-pointer items-center gap-3 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3.5 text-left transition-colors hover:border-[#93C5FD] hover:bg-[#EFF6FF]"
                           >
                             <div
                               className="flex size-10 shrink-0 items-center justify-center rounded-xl text-white"
-                              style={{ backgroundColor: C.cover }}
+                              style={{ backgroundColor: C.red }}
                             >
                               <Compass className="size-5" />
                             </div>
                             <div>
-                              <div className="text-[14px] font-bold" style={{ color: C.ink }}>
+                              <div className="text-[14px] font-extrabold" style={{ color: C.ink }}>
                                 3-Step Virtual Tour
                               </div>
                               <div className="text-[12px]" style={{ color: C.mute }}>
@@ -370,13 +374,13 @@ function DestinationDetail() {
                     {/* Right Passport Stamp Card */}
                     <aside>
                       <Pop className="flex flex-col items-center p-5 text-center">
-                        <Label className="mb-2">YOUR STAMP</Label>
+                        <Label className="mb-2">DIGITAL STAMP</Label>
                         {isStamped ? (
                           <>
                             <Stamp
                               destination={destination}
                               size={132}
-                              tilt={-5}
+                              tilt={-4}
                               label={
                                 pr && pr.attempts > 0 && pr.total > 0
                                   ? `${pr.best}/${pr.total}`
@@ -384,10 +388,10 @@ function DestinationDetail() {
                               }
                             />
                             <span
-                              className="mt-2 inline-flex items-center gap-1 text-[13px] font-bold"
+                              className="mt-2 inline-flex items-center gap-1 rounded-full bg-[#ECFDF5] px-3 py-0.5 text-[12px] font-extrabold"
                               style={{ color: C.green }}
                             >
-                              <Check className="size-4" /> Collected!
+                              <Check className="size-3.5" /> Verified in e-Passport
                             </span>
                             <div className="mt-4 w-full space-y-2">
                               <Btn
@@ -397,7 +401,7 @@ function DestinationDetail() {
                                 className="w-full"
                               />
                               <Btn
-                                label="Open Stamp Book"
+                                label="Open e-Passport"
                                 color={C.card}
                                 onClick={() =>
                                   navigate({
@@ -411,9 +415,9 @@ function DestinationDetail() {
                           </>
                         ) : (
                           <>
-                            <div className="my-2 flex size-28 flex-col items-center justify-center rounded-full border-2 border-dashed border-[#D5CBB4] p-3 text-center">
-                              <Award className="mb-1 size-6 text-[#8C7A5B]" />
-                              <span className="text-[11px] font-medium" style={{ color: C.mute }}>
+                            <div className="my-2 flex size-28 flex-col items-center justify-center rounded-full border-2 border-dashed border-[#CBD5E1] bg-[#F8FAFC] p-3 text-center">
+                              <Award className="mb-1 size-6 text-[#0038A8]" />
+                              <span className="text-[11px] font-semibold" style={{ color: C.mute }}>
                                 Not stamped yet
                               </span>
                             </div>
@@ -481,12 +485,12 @@ function DestinationDetail() {
             className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
             style={{
               backgroundColor: "#FFFFFF",
-              borderColor: "#E6DFCE",
+              borderColor: "#E2E8F0",
             }}
           >
             <DialogHeader>
               <DialogTitle
-                className="text-[24px] font-bold"
+                className="text-[22px] font-extrabold"
                 style={{ fontFamily: F.display, color: C.ink }}
               >
                 Edit {destination.name}
@@ -502,12 +506,12 @@ function DestinationDetail() {
         <AlertDialogContent
           style={{
             backgroundColor: "#FFFFFF",
-            borderColor: "#E6DFCE",
+            borderColor: "#E2E8F0",
           }}
         >
           <AlertDialogHeader>
             <AlertDialogTitle
-              className="text-[22px] font-bold"
+              className="text-[20px] font-extrabold"
               style={{ fontFamily: F.display, color: C.ink }}
             >
               Delete {destination?.name}?
@@ -522,7 +526,7 @@ function DestinationDetail() {
           <AlertDialogFooter>
             <AlertDialogCancel
               style={{
-                borderColor: "#D5CBB4",
+                borderColor: "#CBD5E1",
                 backgroundColor: C.paper,
                 color: C.ink,
               }}

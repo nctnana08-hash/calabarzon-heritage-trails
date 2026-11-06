@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Award, BookOpenCheck, Compass, Eye, Map, MapPin } from "lucide-react";
+import { Award, BookOpenCheck, Compass, Eye, Map, MapPin, ShieldCheck } from "lucide-react";
 
 import { SiteHeader, MobileBottomNav } from "@/components/site-nav";
 import { DestinationCard } from "@/components/destination-card";
@@ -12,11 +12,11 @@ import { C, F, PROVINCE_TONES } from "@/lib/sulyap-theme";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Sulyap — CALABARZON Travel Passport" },
+      { title: "SulyapPH — CALABARZON Heritage Portal & e-Passport" },
       {
         name: "description",
         content:
-          "Explore 19 heritage sites across Cavite, Laguna, Batangas, Rizal, and Quezon, view 360° art highlights, and collect travel stamps.",
+          "Explore 19 heritage sites across Cavite, Laguna, Batangas, Rizal, and Quezon, view 360° art highlights, and collect digital travel stamps.",
       },
     ],
   }),
@@ -31,6 +31,7 @@ function Index() {
   const ds = destinations ?? [];
   const has = (d: (typeof ds)[number]) => isDestinationToured(d, progress);
   const toured = ds.filter(has).length;
+  const pct = ds.length > 0 ? Math.round((toured / ds.length) * 100) : 0;
   const featured = ds.filter((d) => d.featured).slice(0, 4);
   const samplePlace = ds[0] ?? {
     name: "Aguinaldo Shrine",
@@ -43,173 +44,195 @@ function Index() {
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:py-8">
-        {/* Engaging Visual Hero */}
+        {/* eGovPH-Style Royal Blue Hero Banner */}
         <div
-          className="passport-leather-cover relative overflow-hidden rounded-3xl border p-6 shadow-xl sm:p-10"
-          style={{ borderColor: "rgba(212, 175, 55, 0.45)" }}
+          className="passport-leather-cover relative overflow-hidden rounded-3xl border shadow-xl"
+          style={{ borderColor: "rgba(255, 255, 255, 0.18)" }}
         >
-          <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12">
-            <div className="lg:col-span-7">
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold uppercase tracking-wider"
-                style={{
-                  backgroundColor: "rgba(212, 175, 55, 0.2)",
-                  color: C.foil,
-                  border: "1px solid rgba(212, 175, 55, 0.4)",
-                }}
-              >
-                <Compass className="size-3.5" /> Region IV-A Interactive Travel Guide
-              </span>
-
-              <h1
-                className="mt-4 text-[34px] font-bold leading-[1.1] text-white sm:text-[46px]"
-                style={{ fontFamily: F.display }}
-              >
-                Explore CALABARZON. Collect every travel stamp.
-              </h1>
-
-              <p
-                className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/85 sm:text-[16px]"
-                style={{ fontFamily: F.body }}
-              >
-                Discover 19 historical shrines, churches, museums, and natural wonders across
-                Cavite, Laguna, Batangas, Rizal, and Quezon.
-              </p>
-
-              {/* Clear Icon CTAs */}
-              <div className="mt-6 flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={() => navigate({ to: "/destinations", search: { view: "list" } })}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl px-5 py-3 text-[15px] font-bold shadow-md transition-transform hover:-translate-y-0.5"
+          <div className="p-6 sm:p-10">
+            <div className="grid grid-cols-1 items-center gap-8 lg:grid-cols-12">
+              <div className="lg:col-span-7">
+                <span
+                  className="inline-flex items-center gap-1.5 rounded-full px-3.5 py-1 text-[11px] font-extrabold uppercase tracking-wider"
                   style={{
-                    fontFamily: F.body,
-                    backgroundColor: C.foil,
-                    color: C.ink,
+                    backgroundColor: "rgba(252, 209, 22, 0.18)",
+                    color: C.foil,
+                    border: "1px solid rgba(252, 209, 22, 0.45)",
                   }}
                 >
-                  <MapPin className="size-4" /> Browse All 19 Places
-                </button>
+                  <Compass className="size-3.5" /> Region IV-A · Official Heritage Guide
+                </span>
 
-                <button
-                  type="button"
-                  onClick={() => navigate({ to: "/destinations", search: { view: "passport" } })}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl border px-5 py-3 text-[15px] font-semibold text-white transition-colors hover:bg-white/10"
-                  style={{
-                    fontFamily: F.body,
-                    borderColor: "rgba(255,255,255,0.35)",
-                  }}
+                <h1
+                  className="mt-4 text-[32px] font-extrabold tracking-tight leading-[1.12] text-white sm:text-[44px]"
+                  style={{ fontFamily: F.display }}
                 >
-                  <BookOpenCheck className="size-4" /> My Stamp Book ({toured}/{ds.length})
-                </button>
+                  Explore CALABARZON.{" "}
+                  <span style={{ color: C.foil }}>Collect every digital stamp.</span>
+                </h1>
 
-                <button
-                  type="button"
-                  onClick={() => navigate({ to: "/destinations", search: { view: "map" } })}
-                  className="inline-flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-[14px] font-semibold text-white/90 transition-colors hover:bg-white/10"
-                  style={{
-                    fontFamily: F.body,
-                    borderColor: "rgba(255,255,255,0.25)",
-                  }}
+                <p
+                  className="mt-3 max-w-xl text-[15px] leading-relaxed text-white/90 sm:text-[16px]"
+                  style={{ fontFamily: F.body }}
                 >
-                  <Map className="size-4" /> Map View
-                </button>
-              </div>
-            </div>
+                  Discover 19 historical shrines, churches, museums, and natural wonders across
+                  Cavite, Laguna, Batangas, Rizal, and Quezon in one clean portal.
+                </p>
 
-            {/* Right Interactive Stamp Showcase Card */}
-            <div className="lg:col-span-5">
-              <div
-                onClick={() => navigate({ to: "/destinations", search: { view: "passport" } })}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    navigate({ to: "/destinations", search: { view: "passport" } });
-                  }
-                }}
-                className="passport-page-surface flex cursor-pointer items-center justify-between gap-4 rounded-2xl border-2 p-5 shadow-lg transition-transform hover:scale-[1.02]"
-                style={{ borderColor: C.foil }}
-              >
-                <div>
-                  <span
-                    className="text-[11px] font-bold uppercase tracking-wider"
-                    style={{ fontFamily: F.mono, color: C.cover }}
+                {/* Primary eGovPH Action Buttons */}
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate({ to: "/destinations", search: { view: "list" } })}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-extrabold shadow-md transition-transform hover:-translate-y-0.5"
+                    style={{
+                      fontFamily: F.body,
+                      backgroundColor: C.foil,
+                      color: C.ink,
+                    }}
                   >
-                    YOUR PASSPORT BOOK
-                  </span>
-                  <div
-                    className="mt-1 text-[34px] font-bold leading-none"
-                    style={{ fontFamily: F.display, color: C.ink }}
+                    <MapPin className="size-4" /> Browse All 19 Places
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate({ to: "/destinations", search: { view: "passport" } })}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl border bg-white/10 px-5 py-3 text-[14px] font-bold text-white backdrop-blur-xs transition-colors hover:bg-white/20"
+                    style={{
+                      fontFamily: F.body,
+                      borderColor: "rgba(255,255,255,0.3)",
+                    }}
                   >
-                    {toured} of {ds.length}
-                  </div>
-                  <p className="mt-1 text-[13px]" style={{ fontFamily: F.body, color: C.mute }}>
-                    Stamps collected so far
-                  </p>
-                  <span
-                    className="mt-3 inline-block rounded-lg px-3 py-1.5 text-[12px] font-bold text-white"
-                    style={{ backgroundColor: C.cover }}
+                    <BookOpenCheck className="size-4" /> My e-Passport ({toured}/{ds.length})
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate({ to: "/destinations", search: { view: "map" } })}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl border px-4 py-3 text-[14px] font-bold text-white/95 transition-colors hover:bg-white/15"
+                    style={{
+                      fontFamily: F.body,
+                      borderColor: "rgba(255,255,255,0.25)",
+                    }}
                   >
-                    View Stamp Book →
-                  </span>
+                    <Map className="size-4" /> Interactive Map
+                  </button>
                 </div>
+              </div>
 
-                <div className="shrink-0">
-                  <Stamp destination={samplePlace} label="✓" size={112} tilt={-6} />
+              {/* Right Digital e-Passport ID Card (eGovPH Digital ID style) */}
+              <div className="lg:col-span-5">
+                <div
+                  onClick={() => navigate({ to: "/destinations", search: { view: "passport" } })}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      navigate({ to: "/destinations", search: { view: "passport" } });
+                    }
+                  }}
+                  className="passport-page-surface overflow-hidden rounded-2xl border border-white/80 shadow-2xl transition-transform hover:scale-[1.015]"
+                >
+                  <div className="egov-tricolor-bar h-1.5 w-full" />
+                  <div className="flex items-center justify-between gap-4 p-5">
+                    <div className="min-w-0 flex-1">
+                      <div className="inline-flex items-center gap-1.5 rounded-full bg-[#ECFDF5] px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#059669]">
+                        <ShieldCheck className="size-3.5" /> Digital Travel Pass
+                      </div>
+                      <div
+                        className="mt-2 text-[32px] font-extrabold leading-none"
+                        style={{ fontFamily: F.display, color: C.ink }}
+                      >
+                        {toured} <span className="text-[18px] text-[#64748B]">/ {ds.length}</span>
+                      </div>
+                      <p
+                        className="mt-1 text-[12px] font-medium"
+                        style={{ fontFamily: F.body, color: C.mute }}
+                      >
+                        Official stamps collected ({pct}%)
+                      </p>
+
+                      {/* Progress Bar */}
+                      <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-[#E2E8F0]">
+                        <div
+                          className="h-full rounded-full transition-all duration-300"
+                          style={{
+                            width: `${Math.max(8, pct)}%`,
+                            backgroundColor: C.cover,
+                          }}
+                        />
+                      </div>
+
+                      <span
+                        className="mt-3.5 inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-[12px] font-bold text-white"
+                        style={{ backgroundColor: C.cover }}
+                      >
+                        Open e-Passport →
+                      </span>
+                    </div>
+
+                    <div className="shrink-0">
+                      <Stamp destination={samplePlace} label="✓" size={108} tilt={-5} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Bottom Philippine Flag Tri-Color Accent Strip */}
+          <div className="egov-tricolor-bar h-1.5 w-full" />
         </div>
 
-        {/* 3 Simple Steps: How It Works */}
-        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {/* 3 Quick Service Steps (eGovPH Service Cards style) */}
+        <div className="mt-6 grid grid-cols-1 gap-3.5 sm:grid-cols-3">
           {[
             {
               icon: MapPin,
-              step: "Step 1",
-              title: "Pick a Place",
-              desc: "Choose any landmark by province or category.",
-              color: C.red,
+              step: "01 · CHOOSE",
+              title: "Pick a Landmark",
+              desc: "Filter by province or category across Region IV-A.",
+              color: C.cover,
+              tint: "#EFF6FF",
             },
             {
               icon: Eye,
-              step: "Step 2",
-              title: "Explore in 360°",
-              desc: "Read quick highlights and pan around 360° artworks.",
-              color: C.blue,
+              step: "02 · EXPLORE",
+              title: "View in 360°",
+              desc: "Inspect 4 curated artworks and relics in 360° view.",
+              color: C.red,
+              tint: "#FEF2F2",
             },
             {
               icon: Award,
-              step: "Step 3",
-              title: "Get Your Stamp",
-              desc: "Stamp your passport and test yourself with a 4-item quiz.",
+              step: "03 · COLLECT",
+              title: "Claim Your Stamp",
+              desc: "Stamp your e-Passport and take the 4-item quick quiz.",
               color: C.green,
+              tint: "#ECFDF5",
             },
           ].map((item) => {
             const Icon = item.icon;
             return (
               <div
                 key={item.step}
-                className="flex items-start gap-3.5 rounded-2xl border bg-white p-4 shadow-2xs"
-                style={{ borderColor: "#E6DFCE" }}
+                className="flex items-start gap-3.5 rounded-2xl border border-[#E2E8F0] bg-white p-4 shadow-2xs"
               >
                 <div
-                  className="flex size-10 shrink-0 items-center justify-center rounded-xl text-white"
-                  style={{ backgroundColor: item.color }}
+                  className="flex size-11 shrink-0 items-center justify-center rounded-xl"
+                  style={{ backgroundColor: item.tint, color: item.color }}
                 >
                   <Icon className="size-5" />
                 </div>
                 <div>
                   <span
-                    className="text-[11px] font-bold uppercase tracking-wider"
+                    className="text-[10px] font-extrabold uppercase tracking-wider"
                     style={{ color: item.color }}
                   >
                     {item.step}
                   </span>
                   <h2
-                    className="text-[18px] font-bold leading-snug"
+                    className="text-[16px] font-extrabold leading-snug"
                     style={{ fontFamily: F.display, color: C.ink }}
                   >
                     {item.title}
@@ -224,7 +247,7 @@ function Index() {
         </div>
 
         {/* 5 Visual Province Cards */}
-        <Sec fil="Explore by Province" en="Tap a province to see its landmarks" />
+        <Sec fil="Explore by Province" en="Select any CALABARZON province to view its landmarks" />
         <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
           {PROVINCES.map((p, idx) => {
             const provSites = ds.filter((d) => d.province === p);
@@ -243,20 +266,20 @@ function Index() {
               >
                 <div className="relative h-24 w-full overflow-hidden">
                   <Banig color={tone} seed={idx + 3} />
-                  <span className="absolute right-2.5 bottom-2 rounded-full bg-black/65 px-2.5 py-0.5 text-[11px] font-bold text-white">
+                  <span className="absolute right-2.5 bottom-2 rounded-full bg-slate-900/75 px-2.5 py-0.5 text-[11px] font-bold text-white backdrop-blur-xs">
                     {provSites.length} places
                   </span>
                 </div>
                 <div className="p-3.5">
                   <div className="flex items-baseline justify-between">
                     <h3
-                      className="text-[20px] font-bold leading-tight"
+                      className="text-[17px] font-extrabold leading-tight group-hover:text-[#0038A8]"
                       style={{ fontFamily: F.display, color: C.ink }}
                     >
                       {p}
                     </h3>
                     <span
-                      className="text-[12px] font-bold"
+                      className="rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[11px] font-bold"
                       style={{ fontFamily: F.body, color: C.green }}
                     >
                       {stampedInProv}/{provSites.length} ★
@@ -271,13 +294,13 @@ function Index() {
         {/* Featured Places */}
         <Sec
           fil="Featured Landmarks"
-          en="Top heritage sites to start your trip"
+          en="Priority cultural sites across Region IV-A"
           right={
             <button
               type="button"
               onClick={() => navigate({ to: "/destinations", search: { view: "list" } })}
-              className="cursor-pointer rounded-full bg-white px-4 py-1.5 text-[13px] font-semibold shadow-2xs hover:bg-[#F6F1E3]"
-              style={{ fontFamily: F.body, color: C.cover, border: "1px solid #DED5C0" }}
+              className="cursor-pointer rounded-full border border-[#CBD5E1] bg-white px-4 py-1.5 text-[13px] font-bold shadow-2xs transition-colors hover:border-[#0038A8] hover:bg-[#EFF6FF]"
+              style={{ fontFamily: F.body, color: C.cover }}
             >
               See all {ds.length} places →
             </button>
@@ -299,7 +322,7 @@ function Index() {
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 py-8 text-center">
-        <Label>Sulyap · CALABARZON Interactive Travel Passport</Label>
+        <Label>SulyapPH · CALABARZON Digital Heritage Portal &amp; e-Passport</Label>
         {isError ? (
           <p className="mt-1 text-[12px]" style={{ color: C.red }}>
             {error.message}

@@ -23,7 +23,7 @@ import { C, F, getCategoryMeta } from "@/lib/sulyap-theme";
 
 export const Route = createFileRoute("/manage")({
   head: () => ({
-    meta: [{ title: "Manage Places | Sulyap" }],
+    meta: [{ title: "Manage Places | SulyapPH" }],
   }),
   component: ManagePage,
 });
@@ -64,12 +64,12 @@ function ManagePage() {
         <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1
-              className="text-[30px] font-bold leading-tight sm:text-[36px]"
+              className="text-[28px] font-extrabold leading-tight sm:text-[34px]"
               style={{ fontFamily: F.display, color: C.ink }}
             >
               Manage Places
             </h1>
-            <Label>Add, edit, or remove destinations</Label>
+            <Label>Add, edit, or remove CALABARZON destinations</Label>
           </div>
           <Btn label="+ Add Place" color={C.foil} onClick={openNew} />
         </div>
@@ -107,18 +107,15 @@ function ManagePage() {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span
-                          className="text-[12px] font-medium"
+                          className="text-[12px] font-bold"
                           style={{ fontFamily: F.body, color: cat.deep }}
                         >
                           {destination.province} · {cat.fil}
                         </span>
                         {toured ? (
                           <span
-                            className="rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                            style={{
-                              backgroundColor: "rgba(35, 99, 67, 0.12)",
-                              color: C.green,
-                            }}
+                            className="rounded-full bg-[#ECFDF5] px-2 py-0.5 text-[10px] font-extrabold"
+                            style={{ color: C.green }}
                           >
                             ✓ Stamped
                           </span>
@@ -133,7 +130,7 @@ function ManagePage() {
                             params: { slug: destination.slug },
                           })
                         }
-                        className="block cursor-pointer truncate text-left text-[18px] font-bold hover:underline"
+                        className="block cursor-pointer truncate text-left text-[17px] font-bold hover:text-[#0038A8] hover:underline"
                         style={{ fontFamily: F.display, color: C.ink }}
                       >
                         {destination.name}
@@ -145,7 +142,7 @@ function ManagePage() {
                     <button
                       type="button"
                       onClick={() => openEdit(destination)}
-                      className="cursor-pointer rounded-lg border border-[#D5CBB4] bg-[#FCF9F0] px-3 py-1.5 text-[12px] font-medium hover:bg-[#EAE2CE]"
+                      className="cursor-pointer rounded-lg border border-[#CBD5E1] bg-white px-3 py-1.5 text-[12px] font-bold hover:bg-[#EFF6FF]"
                       style={{ fontFamily: F.body, color: C.ink }}
                     >
                       Edit
@@ -153,7 +150,7 @@ function ManagePage() {
                     <button
                       type="button"
                       onClick={() => setDeleting(destination)}
-                      className="cursor-pointer rounded-lg border border-[#D5CBB4] bg-[#FCF9F0] px-3 py-1.5 text-[12px] font-medium hover:bg-[#F9E3E3]"
+                      className="cursor-pointer rounded-lg border border-[#CBD5E1] bg-white px-3 py-1.5 text-[12px] font-bold hover:bg-[#FEF2F2]"
                       style={{ fontFamily: F.body, color: C.red }}
                     >
                       Delete
@@ -171,12 +168,12 @@ function ManagePage() {
           className="max-h-[90vh] overflow-y-auto sm:max-w-xl"
           style={{
             backgroundColor: C.card,
-            borderColor: "#DED5C0",
+            borderColor: "#E2E8F0",
           }}
         >
           <DialogHeader>
             <DialogTitle
-              className="text-[24px] font-bold"
+              className="text-[22px] font-extrabold"
               style={{ fontFamily: F.display, color: C.ink }}
             >
               {editing ? `Edit ${editing.name}` : "Add Place"}
@@ -190,12 +187,12 @@ function ManagePage() {
         <AlertDialogContent
           style={{
             backgroundColor: C.card,
-            borderColor: "#DED5C0",
+            borderColor: "#E2E8F0",
           }}
         >
           <AlertDialogHeader>
             <AlertDialogTitle
-              className="text-[22px] font-bold"
+              className="text-[20px] font-extrabold"
               style={{ fontFamily: F.display, color: C.ink }}
             >
               Delete {deleting?.name}?
@@ -210,7 +207,7 @@ function ManagePage() {
           <AlertDialogFooter>
             <AlertDialogCancel
               style={{
-                borderColor: "#D5CBB4",
+                borderColor: "#CBD5E1",
                 backgroundColor: C.paper,
                 color: C.ink,
               }}

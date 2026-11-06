@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import { ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -16,7 +17,7 @@ import { getDestinationProgress, resetAllProgress, useSulyapProgress } from "@/l
 import { C, F } from "@/lib/sulyap-theme";
 import { Chip, Label, Mark, Stamp } from "./sulyap-ui";
 
-const TILT = [-6, 4, -3, 7, -5, 3];
+const TILT = [-5, 3, -3, 5, -4, 3];
 const BEARER_STORAGE_KEY = "sulyap.passport.bearer.v1";
 
 export function SulyapPassport({ destinations }: { destinations: Destination[] }) {
@@ -72,128 +73,128 @@ export function SulyapPassport({ destinations }: { destinations: Destination[] }
 
   return (
     <div className="mx-auto w-full max-w-4xl">
-      {/* Clean Passport Cover Header */}
+      {/* eGovPH Digital Travel Pass Header */}
       <div
-        className="passport-leather-cover overflow-hidden rounded-2xl border p-6 shadow-md sm:p-8"
-        style={{ borderColor: "rgba(212, 175, 55, 0.45)" }}
+        className="passport-leather-cover overflow-hidden rounded-3xl border shadow-lg"
+        style={{ borderColor: "rgba(255, 255, 255, 0.2)" }}
       >
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <Mark size={40} />
-            <div>
-              <span
-                className="text-[11px] font-semibold uppercase tracking-[0.16em]"
-                style={{ fontFamily: F.mono, color: C.foil }}
-              >
-                CALABARZON Heritage Passport
-              </span>
-              <div className="mt-0.5 flex items-center gap-2.5">
-                {editingName ? (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      saveBearerName(bearerName);
-                    }}
-                    className="flex items-center gap-2"
-                  >
-                    <input
-                      type="text"
-                      value={bearerName}
-                      onChange={(e) => setBearerName(e.target.value)}
-                      maxLength={28}
-                      autoFocus
-                      className="rounded-md border border-[#D4AF37] bg-white px-2.5 py-1 text-[16px] font-semibold"
-                      style={{ fontFamily: F.body, color: C.ink }}
-                    />
-                    <button
-                      type="submit"
-                      className="cursor-pointer rounded-md px-3 py-1 text-[12px] font-semibold"
-                      style={{ backgroundColor: C.foil, color: C.ink }}
+        <div className="egov-tricolor-bar h-1.5 w-full" />
+        <div className="p-6 sm:p-8">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <Mark size={44} />
+              <div>
+                <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#FCD116]">
+                  <ShieldCheck className="size-3.5" /> Region IV-A Digital Heritage Pass
+                </div>
+                <div className="mt-1 flex items-center gap-2.5">
+                  {editingName ? (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        saveBearerName(bearerName);
+                      }}
+                      className="flex items-center gap-2"
                     >
-                      Save
-                    </button>
-                  </form>
-                ) : (
-                  <>
-                    <h1
-                      className="text-[28px] font-bold leading-tight sm:text-[34px]"
-                      style={{ fontFamily: F.display, color: "#FCF9F0" }}
-                    >
-                      {bearerName}&rsquo;s Passport
-                    </h1>
-                    <button
-                      type="button"
-                      onClick={() => setEditingName(true)}
-                      className="cursor-pointer rounded-md border border-white/25 px-2 py-0.5 text-[11px] text-white/80 hover:bg-white/10 print:hidden"
-                      style={{ fontFamily: F.body }}
-                    >
-                      Edit name
-                    </button>
-                  </>
-                )}
+                      <input
+                        type="text"
+                        value={bearerName}
+                        onChange={(e) => setBearerName(e.target.value)}
+                        maxLength={28}
+                        autoFocus
+                        className="rounded-lg border border-[#FCD116] bg-white px-2.5 py-1 text-[16px] font-bold"
+                        style={{ fontFamily: F.body, color: C.ink }}
+                      />
+                      <button
+                        type="submit"
+                        className="cursor-pointer rounded-lg px-3 py-1 text-[12px] font-extrabold"
+                        style={{ backgroundColor: C.foil, color: C.ink }}
+                      >
+                        Save
+                      </button>
+                    </form>
+                  ) : (
+                    <>
+                      <h1
+                        className="text-[26px] font-extrabold leading-tight text-white sm:text-[32px]"
+                        style={{ fontFamily: F.display }}
+                      >
+                        {bearerName}&rsquo;s e-Passport
+                      </h1>
+                      <button
+                        type="button"
+                        onClick={() => setEditingName(true)}
+                        className="cursor-pointer rounded-lg border border-white/30 px-2.5 py-0.5 text-[11px] font-semibold text-white/90 hover:bg-white/15 print:hidden"
+                        style={{ fontFamily: F.body }}
+                      >
+                        Edit name
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-2 print:hidden">
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="cursor-pointer rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-opacity hover:opacity-90"
-              style={{
-                fontFamily: F.body,
-                backgroundColor: C.foil,
-                color: C.ink,
-              }}
-            >
-              Print
-            </button>
-            {stamped > 0 || tries > 0 ? (
+            <div className="flex items-center gap-2 print:hidden">
               <button
                 type="button"
-                onClick={() => setResetOpen(true)}
-                className="cursor-pointer rounded-lg border border-white/30 px-3.5 py-2 text-[13px] font-medium text-white hover:bg-white/10"
-                style={{ fontFamily: F.body }}
+                onClick={() => window.print()}
+                className="cursor-pointer rounded-xl px-4 py-2 text-[13px] font-extrabold shadow-xs transition-opacity hover:opacity-95"
+                style={{
+                  fontFamily: F.body,
+                  backgroundColor: C.foil,
+                  color: C.ink,
+                }}
               >
-                Reset
+                Print Pass
               </button>
-            ) : null}
+              {stamped > 0 || tries > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setResetOpen(true)}
+                  className="cursor-pointer rounded-xl border border-white/30 px-3.5 py-2 text-[13px] font-bold text-white hover:bg-white/15"
+                  style={{ fontFamily: F.body }}
+                >
+                  Reset
+                </button>
+              ) : null}
+            </div>
           </div>
-        </div>
 
-        {/* 3 Clean Summary Stats */}
-        <div className="mt-6 grid grid-cols-3 gap-4 border-t border-white/15 pt-5">
-          <div>
-            <div
-              className="text-[28px] font-bold leading-tight sm:text-[34px]"
-              style={{ fontFamily: F.display, color: "#FCF9F0" }}
-            >
-              {stamped}/{destinations.length}
+          {/* 3 Clean Summary Stats */}
+          <div className="mt-6 grid grid-cols-3 gap-4 border-t border-white/15 pt-5">
+            <div>
+              <div
+                className="text-[26px] font-extrabold leading-tight text-white sm:text-[32px]"
+                style={{ fontFamily: F.display }}
+              >
+                {stamped}/{destinations.length}
+              </div>
+              <div className="text-[12px] font-medium text-white/80" style={{ fontFamily: F.body }}>
+                Stamps verified
+              </div>
             </div>
-            <div className="text-[12px] text-white/75" style={{ fontFamily: F.body }}>
-              Stamps collected
+            <div>
+              <div
+                className="text-[26px] font-extrabold leading-tight sm:text-[32px]"
+                style={{ fontFamily: F.display, color: C.foil }}
+              >
+                {avg}%
+              </div>
+              <div className="text-[12px] font-medium text-white/80" style={{ fontFamily: F.body }}>
+                Average quiz score
+              </div>
             </div>
-          </div>
-          <div>
-            <div
-              className="text-[28px] font-bold leading-tight sm:text-[34px]"
-              style={{ fontFamily: F.display, color: C.foil }}
-            >
-              {avg}%
-            </div>
-            <div className="text-[12px] text-white/75" style={{ fontFamily: F.body }}>
-              Average quiz score
-            </div>
-          </div>
-          <div>
-            <div
-              className="text-[28px] font-bold leading-tight sm:text-[34px]"
-              style={{ fontFamily: F.display, color: "#FCF9F0" }}
-            >
-              {tries}
-            </div>
-            <div className="text-[12px] text-white/75" style={{ fontFamily: F.body }}>
-              Quizzes taken
+            <div>
+              <div
+                className="text-[26px] font-extrabold leading-tight text-white sm:text-[32px]"
+                style={{ fontFamily: F.display }}
+              >
+                {tries}
+              </div>
+              <div className="text-[12px] font-medium text-white/80" style={{ fontFamily: F.body }}>
+                Quizzes completed
+              </div>
             </div>
           </div>
         </div>
@@ -224,14 +225,11 @@ export function SulyapPassport({ destinations }: { destinations: Destination[] }
         })}
       </div>
 
-      {/* Clean Open Passport Stamp Pages */}
-      <div
-        className="passport-page-surface rounded-2xl border p-5 shadow-sm sm:p-7"
-        style={{ borderColor: "#DED5C0" }}
-      >
-        <div className="mb-4 flex items-center justify-between border-b border-[#E5DEC9] pb-3">
-          <Label>STAMP PAGES · TAP A PLACE TO VISIT</Label>
-          <Label>{activeProvince === "All" ? "All Provinces" : activeProvince}</Label>
+      {/* Clean White eGovPH Digital Stamp Grid */}
+      <div className="passport-page-surface rounded-2xl border border-[#E2E8F0] p-5 shadow-xs sm:p-7">
+        <div className="mb-4 flex items-center justify-between border-b border-[#E2E8F0] pb-3">
+          <Label>DIGITAL STAMP LEDGER · TAP ANY LANDMARK TO VISIT</Label>
+          <Label>{activeProvince === "All" ? "All 5 Provinces" : activeProvince}</Label>
         </div>
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
@@ -254,10 +252,10 @@ export function SulyapPassport({ destinations }: { destinations: Destination[] }
                     ? `Stamped: ${d.name} (${d.province})`
                     : `Not yet stamped: ${d.name} (${d.province})`
                 }
-                className="group flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border p-3 text-center transition-all hover:bg-[#FCF9F0] hover:shadow-sm"
+                className="group flex aspect-square cursor-pointer flex-col items-center justify-center rounded-2xl border p-3 text-center transition-all hover:-translate-y-0.5 hover:border-[#93C5FD] hover:bg-[#EFF6FF]/60 hover:shadow-md"
                 style={{
-                  borderColor: isToured ? "#C9BEA4" : "#E5DEC9",
-                  backgroundColor: isToured ? "#FCF9F0" : "rgba(246, 241, 227, 0.5)",
+                  borderColor: isToured ? "#93C5FD" : "#E2E8F0",
+                  backgroundColor: isToured ? "#FFFFFF" : "#F8FAFC",
                 }}
               >
                 {isToured ? (
@@ -268,15 +266,15 @@ export function SulyapPassport({ destinations }: { destinations: Destination[] }
                     label={p && p.attempts > 0 && p.total > 0 ? `${p.best}/${p.total}` : "✓"}
                   />
                 ) : (
-                  <div className="flex size-28 flex-col items-center justify-center rounded-full border border-dashed border-[#C7BCA4] p-3 transition-colors group-hover:border-[#8C7A5B]">
+                  <div className="flex size-28 flex-col items-center justify-center rounded-full border-2 border-dashed border-[#CBD5E1] bg-white p-3 transition-colors group-hover:border-[#0038A8]">
                     <span
-                      className="text-[10px] font-medium uppercase tracking-wider"
-                      style={{ fontFamily: F.mono, color: C.mute }}
+                      className="text-[10px] font-bold uppercase tracking-wider"
+                      style={{ fontFamily: F.mono, color: C.cover }}
                     >
                       {d.province}
                     </span>
                     <span
-                      className="mt-1 line-clamp-2 text-[14px] font-bold leading-tight"
+                      className="mt-1 line-clamp-2 text-[13px] font-bold leading-tight"
                       style={{ fontFamily: F.display, color: C.ink }}
                     >
                       {d.name}
@@ -294,15 +292,15 @@ export function SulyapPassport({ destinations }: { destinations: Destination[] }
         <AlertDialogContent
           style={{
             backgroundColor: C.card,
-            borderColor: "#D5CBB4",
+            borderColor: "#E2E8F0",
           }}
         >
           <AlertDialogHeader>
             <AlertDialogTitle
-              className="text-[22px] font-bold"
+              className="text-[20px] font-extrabold"
               style={{ fontFamily: F.display, color: C.ink }}
             >
-              Reset your passport stamps?
+              Reset your e-Passport stamps?
             </AlertDialogTitle>
             <AlertDialogDescription
               className="text-[14px]"
@@ -314,7 +312,7 @@ export function SulyapPassport({ destinations }: { destinations: Destination[] }
           <AlertDialogFooter>
             <AlertDialogCancel
               style={{
-                borderColor: "#D5CBB4",
+                borderColor: "#CBD5E1",
                 backgroundColor: C.paper,
                 color: C.ink,
               }}
@@ -328,7 +326,7 @@ export function SulyapPassport({ destinations }: { destinations: Destination[] }
                 color: "#FFFFFF",
               }}
             >
-              Reset Passport
+              Reset e-Passport
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
