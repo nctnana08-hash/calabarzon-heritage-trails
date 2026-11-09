@@ -107,7 +107,9 @@ export const PROVINCE_CODES: Record<string, string> = {
  * Contrast rule: Sun yellow/white backgrounds use deep slate ink; dark colors use white text.
  */
 export const onColor = (c: string): string =>
-  c === C.foil || c === C.card || c === C.paper || c === "#FFFFFF" ? C.ink : "#FFFFFF";
+  c === C.gold || c === C.foil || c === C.card || c === C.paper || c === "#FFFFFF"
+    ? C.ink
+    : "#FFFFFF";
 
 export function getCategoryMeta(category: string | undefined | null): CategoryMeta {
   switch (category) {
