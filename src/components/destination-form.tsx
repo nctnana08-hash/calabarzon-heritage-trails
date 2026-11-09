@@ -68,7 +68,7 @@ export function DestinationForm({
       name,
       slug: v.slugTouched ? v.slug : slugify(name),
     }));
-    if (errors.name) {
+    if (errors["name"]) {
       setErrors((e) => {
         const next = { ...e };
         delete next.name;
@@ -108,26 +108,26 @@ export function DestinationForm({
     const trimmedAddr = values.address.trim();
 
     if (!trimmedName) {
-      nextErrors.name = "Name is required. Enter the heritage site's name.";
+      nextErrors["name"] = "Name is required. Enter the heritage site's name.";
     } else if (trimmedName.length > 80) {
-      nextErrors.name = `Name must be 80 characters or fewer (currently ${trimmedName.length}).`;
+      nextErrors["name"] = `Name must be 80 characters or fewer (currently ${trimmedName.length}).`;
     }
 
     if (!trimmedAddr) {
-      nextErrors.address = "Address is required. Enter the street, barangay, or municipality.";
+      nextErrors["address"] = "Address is required. Enter the street, barangay, or municipality.";
     }
 
     if (values.latitude.trim()) {
       const lat = Number(values.latitude);
       if (Number.isNaN(lat) || lat < -90 || lat > 90) {
-        nextErrors.latitude = "Latitude must be a number between -90 and 90.";
+        nextErrors["latitude"] = "Latitude must be a number between -90 and 90.";
       }
     }
 
     if (values.longitude.trim()) {
       const lng = Number(values.longitude);
       if (Number.isNaN(lng) || lng < -180 || lng > 180) {
-        nextErrors.longitude = "Longitude must be a number between -180 and 180.";
+        nextErrors["longitude"] = "Longitude must be a number between -180 and 180.";
       }
     }
 
@@ -237,12 +237,12 @@ export function DestinationForm({
           placeholder="e.g. Taal Basilica"
           style={{
             ...inputStyle,
-            borderColor: errors.name ? C.red : "#CBD5E1",
+            borderColor: errors["name"] ? C.red : "#CBD5E1",
           }}
         />
-        {errors.name ? (
+        {errors["name"] ? (
           <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
-            {errors.name}
+            {errors["name"]}
           </p>
         ) : null}
       </div>
@@ -258,12 +258,12 @@ export function DestinationForm({
           placeholder="Street, town, province"
           style={{
             ...inputStyle,
-            borderColor: errors.address ? C.red : "#CBD5E1",
+            borderColor: errors["address"] ? C.red : "#CBD5E1",
           }}
         />
-        {errors.address ? (
+        {errors["address"] ? (
           <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
-            {errors.address}
+            {errors["address"]}
           </p>
         ) : null}
       </div>
@@ -368,12 +368,12 @@ export function DestinationForm({
             placeholder="14.2115"
             style={{
               ...inputStyle,
-              borderColor: errors.latitude ? C.red : "#CBD5E1",
+              borderColor: errors["latitude"] ? C.red : "#CBD5E1",
             }}
           />
-          {errors.latitude ? (
+          {errors["latitude"] ? (
             <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
-              {errors.latitude}
+              {errors["latitude"]}
             </p>
           ) : null}
         </div>
@@ -388,12 +388,12 @@ export function DestinationForm({
             placeholder="121.1614"
             style={{
               ...inputStyle,
-              borderColor: errors.longitude ? C.red : "#CBD5E1",
+              borderColor: errors["longitude"] ? C.red : "#CBD5E1",
             }}
           />
-          {errors.longitude ? (
+          {errors["longitude"] ? (
             <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
-              {errors.longitude}
+              {errors["longitude"]}
             </p>
           ) : null}
         </div>
@@ -475,7 +475,7 @@ export function DestinationForm({
               value={urlInput}
               onChange={(e) => {
                 setUrlInput(e.target.value);
-                if (errors.urlInput) {
+                if (errors["urlInput"]) {
                   setErrors((prev) => {
                     const next = { ...prev };
                     delete next.urlInput;
@@ -492,16 +492,16 @@ export function DestinationForm({
               placeholder="https://..."
               style={{
                 ...inputStyle,
-                borderColor: errors.urlInput ? C.red : "#CBD5E1",
+                borderColor: errors["urlInput"] ? C.red : "#CBD5E1",
               }}
             />
             <div className="shrink-0 sm:w-36">
               <Btn label="Add Image" color={C.card} onClick={addUrl} />
             </div>
           </div>
-          {errors.urlInput ? (
+          {errors["urlInput"] ? (
             <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
-              {errors.urlInput}
+              {errors["urlInput"]}
             </p>
           ) : null}
         </div>
