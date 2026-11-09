@@ -9,8 +9,8 @@ import {
   Copy,
   DoorOpen,
   Eye,
+  EyeOff,
   Footprints,
-  Info,
   Maximize2,
   Minimize2,
   MoveDown,
@@ -25,8 +25,8 @@ import {
   ZoomOut,
 } from "lucide-react";
 import {
-  CALABARZON_12K_PANO_URL,
   DEFAULT_MUSEUM_SCENES,
+  GRAND_16K_PANO_URL,
   buildKrpanoXml,
   type KrpanoHotspot,
   type KrpanoSceneConfig,
@@ -51,9 +51,12 @@ type LookToAnimation = {
 };
 
 type CachedRoomEntry = {
+  mode: 1 | 2;
   preview?: ImageBitmap;
-  tiles?: [ImageBitmap, ImageBitmap, ImageBitmap, ImageBitmap];
-  padFrac: number;
+  tiles: ImageBitmap[];
+  padFracX: number;
+  padFracY: number;
+  tilePixelSize: [number, number];
   w: number;
   h: number;
 };
@@ -186,8 +189,10 @@ void main() {
 `;
 
 /**
- * Progressive Instant-Preview + 4-Sector 12K Native GPU Tile Shader
- * + AMD FidelityFX Contrast-Adaptive Sharpening (CAS) for Zero Fullscreen Blur.
+ * True 16K (16,000 × 8,000) 8-Tile (4×2 Hemisphere Grid) + 4-Sector WebGL Spherical Shader:
+ * - Strictly 8 texture samplers (u_tex0..u_tex7) to satisfy 100% of WebGL1/2 hardware limits.
+ * - C2-continuous Quintic Hermite sub-texel spline filtering (eliminates bilinear boxiness on zoom).
+ * - Contrast-Adaptive Sharpening (CAS) for silky-smooth, zero-blur architectural clarity.
  */
 const FRAGMENT_SHADER_SRC = `
 precision highp float;
@@ -197,42 +202,74 @@ uniform sampler2D u_tex0;
 uniform sampler2D u_tex1;
 uniform sampler2D u_tex2;
 uniform sampler2D u_tex3;
-uniform sampler2D u_previewTex;
+uniform sampler2D u_tex4;
+uniform sampler2D u_tex5;
+uniform sampler2D u_tex6;
+uniform sampler2D u_tex7;
 
 uniform vec3 u_camF;
 uniform vec3 u_camR;
 uniform vec3 u_camU;
 uniform float u_tanHalfFov;
 uniform float u_aspect;
-uniform float u_padFrac;
+uniform float u_padFracX;
+uniform float u_padFracY;
+uniform vec2 u_tilePixelSize;
 uniform vec2 u_texelStep;
 uniform float u_sharpness;
-uniform float u_useTiles;
+uniform float u_tileMode;
 
 const float PI = 3.14159265358979323846;
 
+vec2 smoothSubTexel(vec2 tuv, vec2 dims) {
+  vec2 p = tuv * dims - 0.5;
+  vec2 i = floor(p);
+  vec2 f = p - i;
+  vec2 sf = f * f * f * (f * (f * 6.0 - 15.0) + 10.0);
+  return (i + sf + 0.5) / dims;
+}
+
 vec3 sampleSphere(vec2 uv) {
   float u = fract(uv.x);
-  float v = clamp(uv.y, 0.0005, 0.9995);
+  float v = clamp(uv.y, 0.0004, 0.9996);
 
-  if (u_useTiles < 0.5) {
-    return texture2D(u_previewTex, vec2(u, v)).rgb;
+  // Mode 0: Instant <35ms 2048x1024 Preview Sphere in u_tex0
+  if (u_tileMode < 0.5) {
+    vec2 puv = smoothSubTexel(vec2(u, v), vec2(2048.0, 1024.0));
+    return texture2D(u_tex0, vec2(fract(puv.x), clamp(puv.y, 0.0005, 0.9995))).rgb;
   }
 
-  float scaled = u * 4.0;
-  float sector = floor(scaled);
-  float localFrac = scaled - sector;
-  float tileU = u_padFrac + localFrac * (1.0 - 2.0 * u_padFrac);
-  vec2 tuv = vec2(tileU, v);
+  float scaledX = u * 4.0;
+  float col = min(3.0, floor(scaledX));
+  float fx = scaledX - col;
+  float tileU = u_padFracX + fx * (1.0 - 2.0 * u_padFracX);
 
-  if (sector < 0.5) {
-    return texture2D(u_tex0, tuv).rgb;
-  } else if (sector < 1.5) {
-    return texture2D(u_tex1, tuv).rgb;
-  } else if (sector < 2.5) {
-    return texture2D(u_tex2, tuv).rgb;
-  } else {
+  // Mode 1: 4-Sector (4x1) Grid
+  if (u_tileMode < 1.5) {
+    vec2 tuv = smoothSubTexel(vec2(tileU, v), u_tilePixelSize);
+    if (col < 0.5) return texture2D(u_tex0, tuv).rgb;
+    if (col < 1.5) return texture2D(u_tex1, tuv).rgb;
+    if (col < 2.5) return texture2D(u_tex2, tuv).rgb;
     return texture2D(u_tex3, tuv).rgb;
+  }
+
+  // Mode 2: 8-Tile (4x2 Hemisphere Grid) for True 16,000x8,000 (16K) & 12,000x6,000 (12K)
+  float scaledY = v * 2.0;
+  float row = (scaledY >= 1.0) ? 1.0 : 0.0;
+  float fy = scaledY - row;
+  float tileV = u_padFracY + fy * (1.0 - 2.0 * u_padFracY);
+  vec2 tuv = smoothSubTexel(vec2(tileU, tileV), u_tilePixelSize);
+
+  if (row < 0.5) {
+    if (col < 0.5) return texture2D(u_tex0, tuv).rgb;
+    if (col < 1.5) return texture2D(u_tex1, tuv).rgb;
+    if (col < 2.5) return texture2D(u_tex2, tuv).rgb;
+    return texture2D(u_tex3, tuv).rgb;
+  } else {
+    if (col < 0.5) return texture2D(u_tex4, tuv).rgb;
+    if (col < 1.5) return texture2D(u_tex5, tuv).rgb;
+    if (col < 2.5) return texture2D(u_tex6, tuv).rgb;
+    return texture2D(u_tex7, tuv).rgb;
   }
 }
 
@@ -246,11 +283,11 @@ void main() {
   float lon = atan(ray.x, ray.z);
   float lat = asin(clamp(ray.y, -1.0, 1.0));
 
-  vec2 uv = vec2(fract((lon / (2.0 * PI)) + 0.5), clamp(0.5 - (lat / PI), 0.0005, 0.9995));
+  vec2 uv = vec2(fract((lon / (2.0 * PI)) + 0.5), clamp(0.5 - (lat / PI), 0.0004, 0.9996));
   vec3 c = sampleSphere(uv);
 
-  if (u_sharpness > 0.01 && u_useTiles > 0.5) {
-    float cosLat = max(0.25, cos(lat));
+  if (u_sharpness > 0.01 && u_tileMode > 0.5) {
+    float cosLat = max(0.28, cos(lat));
     vec2 stepUV = vec2(u_texelStep.x / cosLat, u_texelStep.y);
 
     vec3 n = sampleSphere(uv + vec2(0.0, -stepUV.y));
@@ -261,7 +298,7 @@ void main() {
     vec3 minRGB = min(min(min(n, s), min(e, w)), c);
     vec3 maxRGB = max(max(max(n, s), max(e, w)), c);
     vec3 amp = sqrt(clamp(min(minRGB, 1.0 - maxRGB) / max(maxRGB, vec3(0.0001)), 0.0, 1.0));
-    vec3 weight = -amp / mix(8.5, 4.8, u_sharpness);
+    vec3 weight = -amp / mix(9.0, 5.2, u_sharpness);
 
     vec3 sharpened = clamp(
       (c + (n + s + e + w) * weight) / (1.0 + 4.0 * weight),
@@ -290,20 +327,21 @@ function createShader(gl: WebGLRenderingContext, type: number, source: string): 
 type GlHandle = {
   gl: WebGLRenderingContext;
   textures: (WebGLTexture | null)[];
-  previewTex: WebGLTexture | null;
   maxAniso: number;
   anisoExt: EXT_texture_filter_anisotropic | null;
   maxTexSize: number;
-  padFrac: number;
+  padFracX: number;
+  padFracY: number;
+  tilePixelSize: [number, number];
   texelStep: [number, number];
-  useTiles: number;
+  tileMode: number;
 };
 
 export function KrpanoViewer({
   panoramaUrl,
-  fallbackPanoramaUrl = CALABARZON_12K_PANO_URL,
-  sceneName = "scene_sulyap_calabarzon_12k",
-  sceneTitle = "SulyapPH 12K Ultra-HD Heritage Atrium",
+  fallbackPanoramaUrl = GRAND_16K_PANO_URL,
+  sceneName = "scene_sulyap_grand_pavilion_16k",
+  sceneTitle = "SulyapPH 16K Living Heritage Pavilion",
   scenes = DEFAULT_MUSEUM_SCENES,
   activeSceneId,
   onSceneChange,
@@ -311,7 +349,7 @@ export function KrpanoViewer({
   selectedHotspotId,
   onSelectHotspot,
   initialHlookat = 0,
-  initialVlookat = 2,
+  initialVlookat = 1,
   initialFov = 80,
   targetView,
   autoRotateDefault = false,
@@ -348,7 +386,7 @@ export function KrpanoViewer({
   const glHandleRef = useRef<GlHandle | null>(null);
 
   const [internalSceneId, setInternalSceneId] = useState<string>(
-    activeSceneId ?? scenes[0]?.id ?? "salon12k",
+    activeSceneId ?? scenes[0]?.id ?? "grand16k",
   );
   const currentSceneId = activeSceneId ?? internalSceneId;
   const activeScene = useMemo(
@@ -356,7 +394,7 @@ export function KrpanoViewer({
     [scenes, currentSceneId],
   );
 
-  const resolvedPanoUrl = panoramaUrl ?? activeScene?.panoramaUrl ?? CALABARZON_12K_PANO_URL;
+  const resolvedPanoUrl = panoramaUrl ?? activeScene?.panoramaUrl ?? GRAND_16K_PANO_URL;
   const resolvedHotspots = useMemo(
     () => hotspots ?? activeScene?.hotspots ?? [],
     [hotspots, activeScene],
@@ -368,7 +406,7 @@ export function KrpanoViewer({
   const [cam, setCam] = useState<CameraState>({
     hlookat: wrapDeg180(activeScene?.initialHlookat ?? initialHlookat),
     vlookat: clamp(activeScene?.initialVlookat ?? initialVlookat, -82, 82),
-    fov: clamp(activeScene?.initialFov ?? initialFov, 20, 115),
+    fov: clamp(activeScene?.initialFov ?? initialFov, 18, 115),
   });
   const camRef = useRef<CameraState>(cam);
   camRef.current = cam;
@@ -382,7 +420,12 @@ export function KrpanoViewer({
   const [hdCrisp, setHdCrisp] = useState(true);
   const [showPath, setShowPath] = useState(true);
   const [pathStepIdx, setPathStepIdx] = useState(0);
+
+  // Foreground unboxed artwork inspection + disappearing wall pin so name NEVER covers the art piece!
   const [activeArtCard, setActiveArtCard] = useState<KrpanoHotspot | null>(null);
+  const [hiddenArtPinId, setHiddenArtPinId] = useState<string | null>(null);
+  const hiddenArtAnchorRef = useRef<{ ath: number; atv: number } | null>(null);
+  const [showArtDetails, setShowArtDetails] = useState<boolean>(true);
   const [artZoom, setArtZoom] = useState<number>(1);
   const [artPan, setArtPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const artDragRef = useRef<{
@@ -391,6 +434,7 @@ export function KrpanoViewer({
     origX: number;
     origY: number;
   } | null>(null);
+
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [webglReady, setWebglReady] = useState(false);
   const [streamingTiles, setStreamingTiles] = useState(false);
@@ -414,7 +458,7 @@ export function KrpanoViewer({
   const hdCrispRef = useRef<boolean>(hdCrisp);
   hdCrispRef.current = hdCrisp;
 
-  // Smooth krpano lookto(ath, atv, fov) camera interpolation (supports deep 20° Macro UHD zoom!)
+  // Smooth krpano lookto(ath, atv, fov) camera interpolation (down to 18° Macro 16K zoom!)
   const lookTo = useCallback((ath: number, atv: number, fov = 46, duration = 640) => {
     velocityRef.current = { h: 0, v: 0 };
     const current = camRef.current;
@@ -425,7 +469,7 @@ export function KrpanoViewer({
       startFov: current.fov,
       targetH: current.hlookat + deltaH,
       targetV: clamp(atv, -82, 82),
-      targetFov: clamp(fov, 20, 115),
+      targetFov: clamp(fov, 18, 115),
       startTime: performance.now(),
       duration,
     };
@@ -442,6 +486,8 @@ export function KrpanoViewer({
       if (!nextScene) return;
 
       setActiveArtCard(null);
+      setHiddenArtPinId(null);
+      hiddenArtAnchorRef.current = null;
       setPathStepIdx(0);
 
       const performSwitch = () => {
@@ -450,13 +496,13 @@ export function KrpanoViewer({
         onSceneChange?.(nextSceneId);
 
         const arriveH = customLook?.ath ?? nextScene.initialHlookat ?? 0;
-        const arriveV = customLook?.atv ?? nextScene.initialVlookat ?? 2;
+        const arriveV = customLook?.atv ?? nextScene.initialVlookat ?? 1;
         const arriveFov = customLook?.fov ?? nextScene.initialFov ?? 80;
 
         const nextCam: CameraState = {
           hlookat: wrapDeg180(arriveH),
           vlookat: clamp(arriveV, -82, 82),
-          fov: clamp(arriveFov + 8, 20, 115),
+          fov: clamp(arriveFov + 8, 18, 115),
         };
         camRef.current = nextCam;
         setCam(nextCam);
@@ -465,14 +511,13 @@ export function KrpanoViewer({
           setIsTransitioning(false);
           setTransitionBanner(null);
           lookTo(arriveH, arriveV, arriveFov, 520);
-        }, 160);
+        }, 150);
       };
 
       if (viaPortal) {
-        // Walk toward the door / climb stairs smoothly first!
         setTransitionBanner(viaPortal.label);
-        lookTo(viaPortal.ath, viaPortal.atv, 44, 300);
-        window.setTimeout(performSwitch, 280);
+        lookTo(viaPortal.ath, viaPortal.atv, 44, 290);
+        window.setTimeout(performSwitch, 270);
       } else {
         performSwitch();
       }
@@ -480,7 +525,7 @@ export function KrpanoViewer({
     [scenes, onSceneChange, lookTo],
   );
 
-  // Trigger smooth lookto (and optional scene switch + foreground HD art showcase) whenever targetView changes
+  // Trigger smooth lookto (and optional scene switch + unboxed HD art spotlight) whenever targetView changes
   useEffect(() => {
     if (!targetView) return;
     const openId = targetView.openHotspotId;
@@ -494,6 +539,12 @@ export function KrpanoViewer({
       if (found) {
         setArtZoom(1);
         setArtPan({ x: 0, y: 0 });
+        setShowArtDetails(true);
+        setHiddenArtPinId(found.id);
+        hiddenArtAnchorRef.current = {
+          ath: found.lookAtAth ?? found.ath,
+          atv: found.lookAtAtv ?? found.atv,
+        };
         setActiveArtCard(found);
       }
     };
@@ -513,7 +564,7 @@ export function KrpanoViewer({
     }
   }, [targetView, currentSceneId, switchScene, lookTo, scenes, activeScene, hotspots]);
 
-  // Allow pressing Escape to close the Foreground Art Piece Showcase
+  // Allow pressing Escape to step back from the Floating Art Piece Spotlight
   useEffect(() => {
     if (!activeArtCard) return;
     const onKey = (e: KeyboardEvent) => {
@@ -612,18 +663,16 @@ export function KrpanoViewer({
     const uCamU = gl.getUniformLocation(program, "u_camU");
     const uTanHalfFov = gl.getUniformLocation(program, "u_tanHalfFov");
     const uAspect = gl.getUniformLocation(program, "u_aspect");
-    const uPadFrac = gl.getUniformLocation(program, "u_padFrac");
+    const uPadFracX = gl.getUniformLocation(program, "u_padFracX");
+    const uPadFracY = gl.getUniformLocation(program, "u_padFracY");
+    const uTilePixelSize = gl.getUniformLocation(program, "u_tilePixelSize");
     const uTexelStep = gl.getUniformLocation(program, "u_texelStep");
     const uSharpness = gl.getUniformLocation(program, "u_sharpness");
-    const uUseTiles = gl.getUniformLocation(program, "u_useTiles");
+    const uTileMode = gl.getUniformLocation(program, "u_tileMode");
 
-    const texLocs = [
-      gl.getUniformLocation(program, "u_tex0"),
-      gl.getUniformLocation(program, "u_tex1"),
-      gl.getUniformLocation(program, "u_tex2"),
-      gl.getUniformLocation(program, "u_tex3"),
-    ];
-    const previewLoc = gl.getUniformLocation(program, "u_previewTex");
+    const texLocs = [0, 1, 2, 3, 4, 5, 6, 7].map((i) =>
+      gl!.getUniformLocation(program, `u_tex${i}`),
+    );
 
     const anisoExt = (gl.getExtension("EXT_texture_filter_anisotropic") ||
       gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic") ||
@@ -658,19 +707,19 @@ export function KrpanoViewer({
       return t;
     };
 
-    const textures = [0, 1, 2, 3].map((u) => initPlaceholderTex(u, texLocs[u] ?? null));
-    const previewTex = initPlaceholderTex(4, previewLoc);
+    const textures = [0, 1, 2, 3, 4, 5, 6, 7].map((u) => initPlaceholderTex(u, texLocs[u] ?? null));
 
     const handle: GlHandle = {
       gl,
       textures,
-      previewTex,
       maxAniso,
       anisoExt,
       maxTexSize,
-      padFrac: 16 / 3032,
-      texelStep: [1 / 12000, 1 / 6000],
-      useTiles: 0,
+      padFracX: 16 / 4032,
+      padFracY: 16 / 4032,
+      tilePixelSize: [4032, 4032],
+      texelStep: [1 / 16000, 1 / 8000],
+      tileMode: 0,
     };
     glHandleRef.current = handle;
     setWebglReady(true);
@@ -690,11 +739,11 @@ export function KrpanoViewer({
         camRef.current = {
           hlookat: wrapDeg180(anim.startH + (anim.targetH - anim.startH) * ease),
           vlookat: clamp(anim.startV + (anim.targetV - anim.startV) * ease, -82, 82),
-          fov: clamp(anim.startFov + (anim.targetFov - anim.startFov) * ease, 20, 115),
+          fov: clamp(anim.startFov + (anim.targetFov - anim.startFov) * ease, 18, 115),
         };
         if (t >= 1) {
           lookToRef.current = null;
-          lastReactSync = 0; // Guarantee exact final sync
+          lastReactSync = 0;
         }
         moved = true;
       } else if (!dragRef.current) {
@@ -714,13 +763,12 @@ export function KrpanoViewer({
         } else if (autoRotateRef.current) {
           camRef.current = {
             ...camRef.current,
-            hlookat: wrapDeg180(camRef.current.hlookat + 0.15),
+            hlookat: wrapDeg180(camRef.current.hlookat + 0.14),
           };
           moved = true;
         }
       }
 
-      // Sync React HUD / Hotspot projections smoothly at ~30Hz during automated motion (zero main-thread lag!)
       if (moved && now - lastReactSync > 30) {
         lastReactSync = now;
         setCam({ ...camRef.current });
@@ -748,10 +796,12 @@ export function KrpanoViewer({
       gl.uniform3fv(uCamU, Uvec);
       gl.uniform1f(uTanHalfFov, tanHalfFov);
       gl.uniform1f(uAspect, aspect);
-      gl.uniform1f(uPadFrac, handle.padFrac);
+      gl.uniform1f(uPadFracX, handle.padFracX);
+      gl.uniform1f(uPadFracY, handle.padFracY);
+      gl.uniform2fv(uTilePixelSize, handle.tilePixelSize);
       gl.uniform2fv(uTexelStep, handle.texelStep);
-      gl.uniform1f(uSharpness, hdCrispRef.current ? 0.72 : 0.0);
-      gl.uniform1f(uUseTiles, handle.useTiles);
+      gl.uniform1f(uSharpness, hdCrispRef.current ? 0.65 : 0.0);
+      gl.uniform1f(uTileMode, handle.tileMode);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       rafId = window.requestAnimationFrame(renderLoop);
@@ -766,14 +816,16 @@ export function KrpanoViewer({
       textures.forEach((t) => {
         if (t) gl.deleteTexture(t);
       });
-      if (previewTex) gl.deleteTexture(previewTex);
     };
   }, []);
 
-  // 2. ZERO-LAG PROGRESSIVE TEXTURE STREAMER (Instant <35ms Preview + Staggered Off-Thread 12K Tiles!)
+  // 2. ZERO-LAG PROGRESSIVE 16K / 12K / 6K TEXTURE STREAMER (Instant <35ms Preview + Staggered Off-Thread Tiles!)
+  const activeGridTileUrls = activeScene?.gridTileUrls;
   const activeTileUrls = activeScene?.tileUrls;
   const activePreviewUrl = activeScene?.previewUrl;
-  const activeTilePadFrac = activeScene?.tilePadFrac ?? 16 / 3032;
+  const activeTilePadFracX = activeScene?.tilePadFrac ?? 16 / 4032;
+  const activeTilePadFracY = activeScene?.tilePadFracY ?? activeTilePadFracX;
+  const activeTilePixelSize = activeScene?.tilePixelSize;
   const activeNativeW = activeScene?.nativeWidth;
   const activeNativeH = activeScene?.nativeHeight;
   const useCustomSingleUrl = Boolean(panoramaUrl);
@@ -781,7 +833,7 @@ export function KrpanoViewer({
   useEffect(() => {
     const handle = glHandleRef.current;
     if (!handle) return;
-    const { gl, textures, previewTex, anisoExt, maxAniso, maxTexSize } = handle;
+    const { gl, textures, anisoExt, maxAniso, maxTexSize } = handle;
 
     const abortCtrl = new AbortController();
     let aborted = false;
@@ -810,54 +862,57 @@ export function KrpanoViewer({
     };
 
     const runStream = async () => {
-      const cacheKey =
-        !useCustomSingleUrl && activeTileUrls
-          ? `tiles:${currentSceneId}`
-          : `url:${resolvedPanoUrl}`;
+      const hasPreSliced = !useCustomSingleUrl && (activeGridTileUrls || activeTileUrls);
+      const cacheKey = hasPreSliced ? `tiles:${currentSceneId}` : `url:${resolvedPanoUrl}`;
 
-      // Fast path: already decoded in RAM cache -> upload across frames with 0ms decode!
+      // Fast path: already decoded in RAM cache -> flicker-free upload across frames!
       const cached = ROOM_BITMAP_CACHE.get(cacheKey);
-      if (cached?.tiles) {
+      if (cached) {
         if (cached.preview) {
-          uploadToUnit(4, previewTex, cached.preview, true);
-          handle.useTiles = 0;
+          uploadToUnit(0, textures[0] ?? null, cached.preview, true);
+          handle.tileMode = 0;
         }
         setPanoDimensions({ w: cached.w, h: cached.h });
-        handle.padFrac = cached.padFrac;
-        handle.texelStep = [1 / cached.w, 1 / cached.h];
-        for (let k = 0; k < 4; k++) {
+        for (let k = cached.tiles.length - 1; k >= 1; k--) {
           if (aborted) return;
           uploadToUnit(k, textures[k] ?? null, cached.tiles[k]!);
           await nextAnimationFrame();
         }
-        if (!aborted) {
-          handle.useTiles = 1;
-          setStreamingTiles(false);
-        }
+        if (aborted) return;
+        uploadToUnit(0, textures[0] ?? null, cached.tiles[0]!);
+        handle.padFracX = cached.padFracX;
+        handle.padFracY = cached.padFracY;
+        handle.tilePixelSize = cached.tilePixelSize;
+        handle.texelStep = [1 / cached.w, 1 / cached.h];
+        handle.tileMode = cached.mode;
+        setStreamingTiles(false);
         return;
       }
 
-      // Progressive Pre-Cut Tile Path (Zero Main-Thread Canvas Slicing!)
-      if (!useCustomSingleUrl && activeTileUrls && activePreviewUrl) {
+      // Progressive Pre-Cut 8-Tile (16K/12K) or 4-Tile (6K) Streamer
+      const urlsToLoad = !useCustomSingleUrl ? (activeGridTileUrls ?? activeTileUrls) : undefined;
+      const targetMode: 1 | 2 = activeGridTileUrls ? 2 : 1;
+
+      if (urlsToLoad && activePreviewUrl) {
         setStreamingTiles(true);
         try {
-          // Phase A: Instant <35ms 2048x1024 WebP preview sphere!
+          // Phase A: Instant <35ms 2048x1024 WebP preview sphere in u_tex0!
           const prevBmp = await fetchBitmap(activePreviewUrl, abortCtrl.signal);
           if (aborted) return;
-          uploadToUnit(4, previewTex, prevBmp, true);
-          handle.useTiles = 0;
-          const wEst = activeNativeW ?? 12000;
-          const hEst = activeNativeH ?? 6000;
+          uploadToUnit(0, textures[0] ?? null, prevBmp, true);
+          handle.tileMode = 0;
+          const wEst = activeNativeW ?? (targetMode === 2 ? 16000 : 6000);
+          const hEst = activeNativeH ?? Math.round(wEst / 2);
           setPanoDimensions({ w: wEst, h: hEst });
 
-          // Phase B: Off-main-thread parallel decode of all 4 pre-cut UHD GPU tiles!
+          // Phase B: Off-main-thread parallel decode of all 8 (or 4) pre-sliced GPU tiles!
           const decodedTiles = await Promise.all(
-            activeTileUrls.map((u) => fetchBitmap(u, abortCtrl.signal)),
+            urlsToLoad.map((u) => fetchBitmap(u, abortCtrl.signal)),
           );
           if (aborted) return;
 
-          // Upload ONE tile per animation frame so pan/drag never drops a single frame!
-          for (let k = 0; k < 4; k++) {
+          // Upload units N-1..1 first while u_tex0 keeps rendering preview.webp without any flicker!
+          for (let k = decodedTiles.length - 1; k >= 1; k--) {
             if (aborted) return;
             await nextAnimationFrame();
             if (aborted) return;
@@ -865,9 +920,20 @@ export function KrpanoViewer({
           }
 
           if (aborted) return;
-          handle.padFrac = activeTilePadFrac;
+          await nextAnimationFrame();
+          if (aborted) return;
+
+          // Final frame: upload tile 0 and atomically flip shader to full 16K/12K/6K native mode!
+          uploadToUnit(0, textures[0] ?? null, decodedTiles[0]!);
+          const inferredTileSize: [number, number] = activeTilePixelSize ?? [
+            decodedTiles[0]!.width,
+            decodedTiles[0]!.height,
+          ];
+          handle.padFracX = activeTilePadFracX;
+          handle.padFracY = activeTilePadFracY;
+          handle.tilePixelSize = inferredTileSize;
           handle.texelStep = [1 / wEst, 1 / hEst];
-          handle.useTiles = 1;
+          handle.tileMode = targetMode;
           setStreamingTiles(false);
 
           if (
@@ -875,14 +941,17 @@ export function KrpanoViewer({
             prevBmp instanceof ImageBitmap &&
             decodedTiles.every((b): b is ImageBitmap => b instanceof ImageBitmap)
           ) {
-            if (ROOM_BITMAP_CACHE.size >= 4) {
+            if (ROOM_BITMAP_CACHE.size >= 5) {
               const oldest = ROOM_BITMAP_CACHE.keys().next().value;
               if (oldest) ROOM_BITMAP_CACHE.delete(oldest);
             }
             ROOM_BITMAP_CACHE.set(cacheKey, {
+              mode: targetMode,
               preview: prevBmp,
-              tiles: decodedTiles as [ImageBitmap, ImageBitmap, ImageBitmap, ImageBitmap],
-              padFrac: activeTilePadFrac,
+              tiles: decodedTiles,
+              padFracX: activeTilePadFracX,
+              padFracY: activeTilePadFracY,
+              tilePixelSize: inferredTileSize,
               w: wEst,
               h: hEst,
             });
@@ -890,11 +959,10 @@ export function KrpanoViewer({
           return;
         } catch {
           if (aborted) return;
-          // Fall through to single-URL loader if tiles aren't reachable
         }
       }
 
-      // Fallback Single-Image Equirectangular Loader (still staggered per frame)
+      // Fallback Single-Image Equirectangular Loader
       setStreamingTiles(true);
       try {
         let src: ImageBitmap | HTMLImageElement;
@@ -921,7 +989,7 @@ export function KrpanoViewer({
         const ctx = tileCanvas.getContext("2d", { alpha: false });
         if (ctx) {
           const scaleX = dstTileW / srcTileW;
-          for (let k = 0; k < 4; k++) {
+          for (let k = 3; k >= 0; k--) {
             if (aborted) return;
             await nextAnimationFrame();
             if (aborted) return;
@@ -943,9 +1011,11 @@ export function KrpanoViewer({
           }
           tileCanvas.width = 1;
           tileCanvas.height = 1;
-          handle.padFrac = padPx / srcTileW;
+          handle.padFracX = padPx / srcTileW;
+          handle.padFracY = 0;
+          handle.tilePixelSize = [dstTileW, dstTileH];
           handle.texelStep = [1 / Math.max(1024, dstTileW * 4), 1 / Math.max(512, dstTileH)];
-          handle.useTiles = 1;
+          handle.tileMode = 1;
         }
       } catch {
         // Ignore aborted or headless test environment image load errors
@@ -965,9 +1035,12 @@ export function KrpanoViewer({
     resolvedPanoUrl,
     fallbackPanoramaUrl,
     useCustomSingleUrl,
+    activeGridTileUrls,
     activeTileUrls,
     activePreviewUrl,
-    activeTilePadFrac,
+    activeTilePadFracX,
+    activeTilePadFracY,
+    activeTilePixelSize,
     activeNativeW,
     activeNativeH,
   ]);
@@ -1008,6 +1081,18 @@ export function KrpanoViewer({
     };
     camRef.current = nextCam;
     setCam(nextCam);
+
+    // If user pans away (> 18°) from the clicked artwork, gently restore its wall pin for later discovery
+    if (hiddenArtAnchorRef.current) {
+      const dist = Math.hypot(
+        shortestAngleDelta(nextCam.hlookat, hiddenArtAnchorRef.current.ath),
+        nextCam.vlookat - hiddenArtAnchorRef.current.atv,
+      );
+      if (dist > 18) {
+        setHiddenArtPinId(null);
+        hiddenArtAnchorRef.current = null;
+      }
+    }
   };
 
   const handlePointerUp = () => {
@@ -1025,7 +1110,7 @@ export function KrpanoViewer({
     if ((e.target as HTMLElement).closest("[data-art-card='true']")) return;
     e.preventDefault();
     lookToRef.current = null;
-    const nextFov = clamp(camRef.current.fov + (e.deltaY > 0 ? 4.5 : -4.5), 20, 115);
+    const nextFov = clamp(camRef.current.fov + (e.deltaY > 0 ? 4.5 : -4.5), 18, 115);
     const nextCam = { ...camRef.current, fov: nextFov };
     camRef.current = nextCam;
     setCam(nextCam);
@@ -1034,7 +1119,7 @@ export function KrpanoViewer({
   const nudgeCamera = (dH: number, dV: number, dFov = 0) => {
     setAutoRotate(false);
     const cur = camRef.current;
-    lookTo(cur.hlookat + dH, clamp(cur.vlookat + dV, -82, 82), clamp(cur.fov + dFov, 20, 115), 300);
+    lookTo(cur.hlookat + dH, clamp(cur.vlookat + dV, -82, 82), clamp(cur.fov + dFov, 18, 115), 300);
   };
 
   const toggleFullscreen = () => {
@@ -1051,22 +1136,27 @@ export function KrpanoViewer({
     (hs: KrpanoHotspot) => {
       setAutoRotate(false);
       if (hs.targetSceneId) {
-        const isStairs = hs.kind === "stairs-up" || hs.kind === "stairs-down";
         const banner =
           hs.kind === "stairs-up"
             ? "Climbing Grand Staircase → 2nd Floor Mezzanine…"
             : hs.kind === "stairs-down"
-              ? "Descending Staircase → 1F Ground Atrium…"
-              : `Walking Through Doorway → ${hs.title.replace(/→|←/g, "").trim()}…`;
+              ? "Descending Grand Staircase → 1F Pavilion…"
+              : `Walking Through Archway → ${hs.title.replace(/→|←/g, "").trim()}…`;
         switchScene(hs.targetSceneId, hs.arrivalView, {
           ath: hs.ath,
-          atv: isStairs ? hs.atv : hs.atv,
+          atv: hs.atv,
           label: banner,
         });
       } else {
-        lookTo(hs.ath, hs.atv, hs.fov ?? 38, 620);
+        const targetAth = hs.lookAtAth ?? hs.ath;
+        const targetAtv = hs.lookAtAtv ?? hs.atv;
+        lookTo(targetAth, targetAtv, hs.fov ?? 38, 600);
         setArtZoom(1);
         setArtPan({ x: 0, y: 0 });
+        setShowArtDetails(true);
+        // Hide the wall hotspot badge/name immediately so it NEVER overlaps the art piece!
+        setHiddenArtPinId(hs.id);
+        hiddenArtAnchorRef.current = { ath: targetAth, atv: targetAtv };
         setActiveArtCard(hs);
         onSelectHotspot?.(hs);
       }
@@ -1093,7 +1183,6 @@ export function KrpanoViewer({
     }
   };
 
-  // Ordered interactive path items (artworks + stairs + doors in pathOrder)
   const orderedPathHotspots = useMemo(() => {
     const withOrder = resolvedHotspots.filter((h) => typeof h.pathOrder === "number");
     if (withOrder.length > 0) {
@@ -1112,7 +1201,6 @@ export function KrpanoViewer({
     }
   };
 
-  // Compute XML lazily ONLY when inspector modal is opened (0ms cost during normal viewing!)
   const generatedXml = useMemo(() => {
     if (!xmlModalOpen) return "";
     return buildKrpanoXml({
@@ -1130,9 +1218,9 @@ export function KrpanoViewer({
     window.setTimeout(() => setCopiedXml(false), 1800);
   };
 
+  const is16kActive = (panoDimensions?.w ?? 0) >= 15000 || activeScene?.isUltraHd16k;
   const is12kActive = (panoDimensions?.w ?? 0) >= 10000 || activeScene?.isUltraHd12k;
 
-  // Project 3D Floor Walking Path points for SVG trail & clickable floor discs
   const projectedFloorSteps = useMemo(() => {
     if (!showPath || resolvedFloorPath.length === 0) return [];
     return resolvedFloorPath.map((fp, i) => ({
@@ -1155,7 +1243,7 @@ export function KrpanoViewer({
       } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
       style={{ touchAction: "none" }}
     >
-      {/* Multi-Tile 12K WebGL Equirectangular Spherical Canvas */}
+      {/* 8-Tile 16K / 12K Smooth Quintic WebGL Equirectangular Spherical Canvas */}
       <canvas
         ref={canvasRef}
         className={`block h-full w-full transition-opacity duration-200 ${
@@ -1176,26 +1264,25 @@ export function KrpanoViewer({
         />
       )}
 
-      {/* Subtle Vignette for HUD Readability */}
+      {/* Subtle Ambient Vignette */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/25"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/55 via-transparent to-slate-950/20"
       />
 
-      {/* Walk-Through Door / Climb Stairs Transition Banner */}
+      {/* Walk-Through Door / Climb Stairs Transition Pill */}
       {transitionBanner && (
-        <div className="pointer-events-none absolute top-1/2 left-1/2 z-40 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[#FCD116] bg-slate-950/90 px-5 py-2.5 text-[13px] font-extrabold text-[#FCD116] shadow-2xl backdrop-blur-md">
+        <div className="pointer-events-none absolute top-1/2 left-1/2 z-40 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#FCD116]/70 bg-slate-950/85 px-5 py-2 text-[12.5px] font-bold text-[#FCD116] shadow-2xl backdrop-blur-md">
           {transitionBanner}
         </div>
       )}
 
       {/* 3D Projected SVG Guided Museum Floor Path */}
-      {showPath && projectedFloorSteps.length > 1 && (
+      {showPath && !activeArtCard && projectedFloorSteps.length > 1 && (
         <svg aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 h-full w-full">
           {projectedFloorSteps.map((curr, idx) => {
             const next = projectedFloorSteps[idx + 1];
             if (!next || !curr.proj.visible || !next.proj.visible) return null;
-            // Avoid drawing segments that wrap wildly across opposite screen edges
             const dist = Math.hypot(next.proj.x - curr.proj.x, next.proj.y - curr.proj.y);
             if (dist > viewport.width * 0.72) return null;
             return (
@@ -1206,9 +1293,9 @@ export function KrpanoViewer({
                 x2={next.proj.x}
                 y2={next.proj.y}
                 stroke="#FCD116"
-                strokeOpacity="0.65"
-                strokeWidth="3"
-                strokeDasharray="8 7"
+                strokeOpacity="0.52"
+                strokeWidth="2.5"
+                strokeDasharray="7 8"
                 strokeLinecap="round"
               />
             );
@@ -1218,6 +1305,7 @@ export function KrpanoViewer({
 
       {/* Clickable 3D Perspective Floor Footstep Discs */}
       {showPath &&
+        !activeArtCard &&
         projectedFloorSteps.map((fp) => {
           if (!fp.proj.visible) return null;
           return (
@@ -1239,9 +1327,10 @@ export function KrpanoViewer({
                 }
                 const targetAth = fp.lookAtAth ?? fp.ath;
                 const targetAtv = fp.lookAtAtv ?? 3;
-                // Find matching art piece near lookAtAth to pop open its details plaque too!
                 const nearbyArt = resolvedHotspots.find(
-                  (h) => !h.targetSceneId && Math.abs(shortestAngleDelta(h.ath, targetAth)) < 8,
+                  (h) =>
+                    !h.targetSceneId &&
+                    Math.abs(shortestAngleDelta(h.lookAtAth ?? h.ath, targetAth)) < 9,
                 );
                 if (nearbyArt) {
                   handleHotspotActivate(nearbyArt);
@@ -1259,16 +1348,16 @@ export function KrpanoViewer({
               }}
             >
               <div
-                className="flex size-10 items-center justify-center rounded-full border-2 border-[#FCD116] bg-slate-950/75 text-[#FCD116] shadow-lg transition-transform duration-150 group-hover:scale-125 group-hover:bg-[#FCD116] group-hover:text-slate-950"
+                className="flex size-9 items-center justify-center rounded-full border-2 border-[#FCD116]/90 bg-slate-950/70 text-[#FCD116] shadow-lg transition-transform duration-150 group-hover:scale-125 group-hover:bg-[#FCD116] group-hover:text-slate-950"
                 style={{
-                  transform: "perspective(240px) rotateX(48deg)",
-                  boxShadow: "0 0 18px rgba(252, 209, 22, 0.45)",
+                  transform: "perspective(240px) rotateX(50deg)",
+                  boxShadow: "0 0 14px rgba(252, 209, 22, 0.38)",
                 }}
               >
-                <Footprints className="size-4" />
+                <Footprints className="size-3.5" />
               </div>
               {fp.label ? (
-                <span className="pointer-events-none absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 rounded-full border border-white/25 bg-slate-950/90 px-2.5 py-0.5 text-[10.5px] font-bold whitespace-nowrap text-white shadow-md group-hover:block">
+                <span className="pointer-events-none absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 rounded-full border border-white/20 bg-slate-950/90 px-2.5 py-0.5 text-[10.5px] font-bold whitespace-nowrap text-white shadow-md group-hover:block">
                   {fp.label}
                 </span>
               ) : null}
@@ -1276,9 +1365,9 @@ export function KrpanoViewer({
           );
         })}
 
-      {/* Top Bar: Multi-Floor / Multi-Room Switcher + Live 12K UHD Resolution & Compass Telemetry */}
-      <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex flex-wrap items-center justify-between gap-2 px-3.5">
-        <div className="pointer-events-auto flex flex-wrap items-center gap-1 rounded-full border border-white/20 bg-slate-950/85 p-1 text-[11px] font-bold text-white backdrop-blur-md">
+      {/* Top Bar: Multi-Room Switcher (16K Grand Tour + Restored 12K Salon + 2F Upstairs + Rotunda + Fine Arts) */}
+      <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex flex-wrap items-center justify-between gap-2 px-3">
+        <div className="pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-white/20 bg-slate-950/80 p-1 text-[11px] font-bold text-white backdrop-blur-md">
           {scenes.map((sc) => {
             const on = sc.id === currentSceneId;
             const isUpstairsTab = sc.id.includes("upstairs") || sc.floorLabel?.includes("2F");
@@ -1287,7 +1376,7 @@ export function KrpanoViewer({
                 key={sc.id}
                 type="button"
                 onClick={() => switchScene(sc.id)}
-                className="flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold transition-all"
+                className="flex shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold transition-all"
                 style={{
                   backgroundColor: on ? C.foil : "transparent",
                   color: on ? C.ink : "#FFFFFF",
@@ -1309,18 +1398,26 @@ export function KrpanoViewer({
             <span
               className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md"
               style={{
-                backgroundColor: is12kActive ? "#059669" : "rgba(15, 23, 42, 0.82)",
-                border: is12kActive ? "1px solid #6EE7B7" : "1px solid rgba(255, 255, 255, 0.2)",
+                backgroundColor: is16kActive
+                  ? "#047857"
+                  : is12kActive
+                    ? "#0369A1"
+                    : "rgba(15, 23, 42, 0.80)",
+                border: is16kActive
+                  ? "1px solid #6EE7B7"
+                  : is12kActive
+                    ? "1px solid #7DD3FC"
+                    : "1px solid rgba(255, 255, 255, 0.2)",
               }}
             >
               {streamingTiles
                 ? "Instant Preview · Streaming UHD…"
-                : `${is12kActive ? "12K NATIVE · " : ""}${panoDimensions.w.toLocaleString()}×${panoDimensions.h.toLocaleString()}`}
+                : `${is16kActive ? "16K SMOOTH · " : is12kActive ? "12K UHD · " : ""}${panoDimensions.w.toLocaleString()}×${panoDimensions.h.toLocaleString()}`}
             </span>
           ) : null}
 
           <span
-            className="hidden items-center gap-1.5 rounded-full border border-[#FCD116]/45 bg-slate-950/80 px-3 py-1 text-[11px] font-bold text-[#FCD116] backdrop-blur-md lg:inline-flex"
+            className="hidden items-center gap-1.5 rounded-full border border-[#FCD116]/40 bg-slate-950/75 px-2.5 py-1 text-[10.5px] font-bold text-[#FCD116] backdrop-blur-md xl:inline-flex"
             style={{ fontFamily: F.mono }}
           >
             <Compass className="size-3.5" />
@@ -1331,7 +1428,7 @@ export function KrpanoViewer({
           <button
             type="button"
             onClick={() => setXmlModalOpen(true)}
-            className="pointer-events-auto inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/25 bg-slate-950/80 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md hover:bg-slate-900"
+            className="pointer-events-auto inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/25 bg-slate-950/75 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md hover:bg-slate-900"
             title="Inspect krpano XML configuration"
           >
             <Code2 className="size-3.5 text-[#FCD116]" /> XML
@@ -1339,91 +1436,88 @@ export function KrpanoViewer({
         </div>
       </div>
 
-      {/* 3D Spherical Hotspots: Art Pieces, Doors & Upstairs/Downstairs Stairs */}
-      {resolvedHotspots.map((hs, idx) => {
-        const proj = projectHotspotToScreen(hs.ath, hs.atv, cam, viewport.width, viewport.height);
-        if (!proj.visible) return null;
+      {/* 3D Spherical Hotspots: Art Pins (Compact & Disappear When Clicked!) + Doors & Stairs */}
+      {!activeArtCard &&
+        resolvedHotspots.map((hs, idx) => {
+          const proj = projectHotspotToScreen(hs.ath, hs.atv, cam, viewport.width, viewport.height);
+          if (!proj.visible) return null;
 
-        const isSelected = hs.id === selectedHotspotId || hs.id === activeArtCard?.id;
-        const isStairs = hs.kind === "stairs-up" || hs.kind === "stairs-down";
-        const isDoor = Boolean(hs.targetSceneId) && !isStairs;
-        const isPortal = isStairs || isDoor;
+          const isStairs = hs.kind === "stairs-up" || hs.kind === "stairs-down";
+          const isDoor = Boolean(hs.targetSceneId) && !isStairs;
+          const isPortal = isStairs || isDoor;
 
-        const bg = isStairs
-          ? "#B45309"
-          : isDoor
-            ? "#059669"
-            : isSelected
-              ? C.foil
-              : "rgba(15, 23, 42, 0.90)";
-        const border = isStairs ? "#FDE68A" : isDoor ? "#A7F3D0" : isSelected ? "#FFFFFF" : C.foil;
-        const textCol = isPortal ? "#FFFFFF" : isSelected ? C.ink : "#FFFFFF";
+          // CRITICAL UX: Once an art piece is clicked, its pin & name disappear completely so NOTHING overlaps the art piece!
+          if (!isPortal && hs.id === hiddenArtPinId) {
+            return null;
+          }
 
-        return (
-          <button
-            key={hs.id}
-            type="button"
-            onClick={() => handleHotspotActivate(hs)}
-            aria-label={isPortal ? hs.title : `Art piece ${idx + 1}: ${hs.title}`}
-            className="group absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-150 hover:scale-110"
-            style={{
-              left: `${proj.x}px`,
-              top: `${proj.y}px`,
-              zIndex: isSelected || isPortal ? 30 : 22,
-            }}
-          >
-            <span
-              className="pointer-events-none absolute -inset-1.5 animate-ping rounded-full opacity-35"
-              style={{
-                backgroundColor: isStairs
-                  ? "#F59E0B"
-                  : isDoor
-                    ? "#10B981"
-                    : isSelected
-                      ? C.foil
-                      : "#FFFFFF",
-                animationDuration: "2.5s",
-              }}
-            />
-            <div
-              className="relative flex items-center gap-2 rounded-full border-2 px-3 py-1.5 shadow-xl backdrop-blur-md"
-              style={{
-                backgroundColor: bg,
-                borderColor: border,
-                color: textCol,
-              }}
+          if (isPortal) {
+            const bg = isStairs ? "rgba(180, 83, 9, 0.90)" : "rgba(5, 150, 105, 0.90)";
+            const border = isStairs ? "#FDE68A" : "#A7F3D0";
+            return (
+              <button
+                key={hs.id}
+                type="button"
+                onClick={() => handleHotspotActivate(hs)}
+                aria-label={hs.title}
+                className="group absolute z-25 -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-150 hover:scale-110"
+                style={{ left: `${proj.x}px`, top: `${proj.y}px` }}
+              >
+                <div
+                  className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-white shadow-xl backdrop-blur-md"
+                  style={{ backgroundColor: bg, borderColor: border }}
+                >
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-white text-[11px]">
+                    {hs.badge}
+                  </span>
+                  <span
+                    className="max-w-[140px] truncate text-[11.5px] font-extrabold sm:max-w-[185px]"
+                    style={{ fontFamily: F.body }}
+                  >
+                    {hs.title}
+                  </span>
+                </div>
+              </button>
+            );
+          }
+
+          // Compact, Non-Intrusive Circular Museum Pin for Art Pieces (Title ONLY on hover BELOW pin — never blocks painting!)
+          const isSelected = hs.id === selectedHotspotId;
+          return (
+            <button
+              key={hs.id}
+              type="button"
+              onClick={() => handleHotspotActivate(hs)}
+              aria-label={`Art piece ${idx + 1}: ${hs.title}`}
+              className="group absolute z-22 -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-150 hover:z-30 hover:scale-115"
+              style={{ left: `${proj.x}px`, top: `${proj.y}px` }}
             >
               <span
-                className="flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold"
+                className="pointer-events-none absolute -inset-1.5 animate-ping rounded-full opacity-35"
                 style={{
-                  backgroundColor: isPortal ? "#FFFFFF" : isSelected ? C.cover : C.foil,
-                  color: isStairs ? "#B45309" : isDoor ? "#059669" : isSelected ? "#FFFFFF" : C.ink,
+                  backgroundColor: C.foil,
+                  animationDuration: "2.8s",
+                }}
+              />
+              <div
+                className="relative flex size-8 items-center justify-center rounded-full border-2 text-[12px] font-extrabold shadow-[0_4px_16px_rgba(0,0,0,0.65)] backdrop-blur-md transition-colors"
+                style={{
+                  backgroundColor: isSelected ? C.foil : "rgba(15, 23, 42, 0.86)",
+                  borderColor: isSelected ? "#FFFFFF" : C.foil,
+                  color: isSelected ? C.ink : "#FCD116",
                 }}
               >
                 {hs.badge ?? idx + 1}
-              </span>
-              <div className="text-left">
-                <div
-                  className="max-w-[145px] truncate text-[12px] font-extrabold sm:max-w-[205px]"
-                  style={{ fontFamily: F.body }}
-                >
-                  {hs.title}
-                </div>
-                {hs.subtitle ? (
-                  <div
-                    className="hidden max-w-[185px] truncate text-[9.5px] font-semibold opacity-90 sm:block"
-                    style={{ fontFamily: F.body }}
-                  >
-                    {hs.subtitle}
-                  </div>
-                ) : null}
               </div>
-            </div>
-          </button>
-        );
-      })}
+              {/* Hover-only caption positioned BELOW the pin so the painting above stays 100% clear */}
+              <span className="pointer-events-none absolute top-full left-1/2 mt-1.5 hidden -translate-x-1/2 rounded-full border border-white/20 bg-slate-950/92 px-2.5 py-0.5 text-[11px] font-bold whitespace-nowrap text-white shadow-xl group-hover:block">
+                {hs.title}
+              </span>
+            </button>
+          );
+        })}
 
-      {/* Foreground Ultra-HD Art Piece Spotlight Showcase (Brings Artwork Forward in Crisp 1600×1000 HD + Full Description!) */}
+      {/* UNBOXED Floating High-Resolution Art Piece Spotlight (Whole Uncropped Artwork + Separate Side Details!) */}
       {activeArtCard && !activeArtCard.targetSceneId && (
         <div
           data-art-card="true"
@@ -1431,158 +1525,172 @@ export function KrpanoViewer({
           aria-modal="true"
           aria-label={`High-resolution artwork inspection: ${activeArtCard.title}`}
           onClick={() => setActiveArtCard(null)}
-          className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-slate-950/80 p-2.5 backdrop-blur-md sm:p-5"
+          className="pointer-events-auto absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-slate-950/76 p-3 backdrop-blur-[3px] sm:p-5 md:flex-row md:items-center md:justify-center md:gap-6"
         >
+          {/* Open Floating Whole Art Piece Stage — ZERO Box, ZERO Cropping (object-contain), ZERO Text Overlapping Art! */}
           <div
             onClick={(e) => e.stopPropagation()}
-            className="grid max-h-[94%] w-full max-w-4xl grid-cols-1 overflow-y-auto rounded-2xl border-2 border-[#FCD116]/75 bg-white shadow-[0_24px_64px_rgba(0,0,0,0.75)] md:grid-cols-12 md:overflow-hidden"
+            className={`flex flex-col items-center justify-center transition-all duration-200 ${
+              showArtDetails ? "w-full md:flex-1" : "w-full max-w-5xl"
+            }`}
           >
-            {/* Left 7 Columns: Framed High-Resolution Art Piece Brought Right in Front of You */}
-            <div className="relative flex min-h-[200px] flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-[#131C31] via-[#0B1221] to-[#070C17] p-3 sm:min-h-[290px] sm:p-5 md:col-span-7">
-              {/* Top HD Badge & Interactive Canvas Zoom Bar */}
-              <div className="mb-2.5 flex w-full flex-wrap items-center justify-between gap-1.5 z-10">
-                <span className="inline-flex items-center gap-1 rounded-full border border-[#6EE7B7]/60 bg-[#059669]/90 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
-                  <Eye className="size-3" /> HD Front View · Crisp Close-Up
-                </span>
-
-                <div className="flex items-center gap-1 rounded-full border border-white/20 bg-slate-950/80 p-0.5 text-[10.5px] font-extrabold text-white">
-                  {[
-                    { z: 1, label: "1× Fit" },
-                    { z: 2, label: "2× Zoom" },
-                    { z: 3.2, label: "3.2× Macro" },
-                  ].map((opt) => {
-                    const activeZ = Math.abs(artZoom - opt.z) < 0.1;
-                    return (
-                      <button
-                        key={opt.label}
-                        type="button"
-                        onClick={() => {
-                          setArtZoom(opt.z);
-                          if (opt.z === 1) setArtPan({ x: 0, y: 0 });
-                        }}
-                        className="cursor-pointer rounded-full px-2 py-0.5 transition-colors"
-                        style={{
-                          backgroundColor: activeZ ? C.foil : "transparent",
-                          color: activeZ ? C.ink : "#E2E8F0",
-                        }}
-                      >
-                        {opt.label}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Museum Gilt & Mahogany Picture Frame Housing the Crisp 1,600×1,000 Artwork */}
-              <div
-                onPointerDown={(e) => {
-                  if (artZoom <= 1) return;
-                  e.stopPropagation();
-                  artDragRef.current = {
-                    startX: e.clientX,
-                    startY: e.clientY,
-                    origX: artPan.x,
-                    origY: artPan.y,
-                  };
-                  e.currentTarget.setPointerCapture?.(e.pointerId);
-                }}
-                onPointerMove={(e) => {
-                  if (!artDragRef.current || artZoom <= 1) return;
-                  e.stopPropagation();
-                  const dx = e.clientX - artDragRef.current.startX;
-                  const dy = e.clientY - artDragRef.current.startY;
-                  const maxPan = 140 * (artZoom - 1);
-                  setArtPan({
-                    x: clamp(artDragRef.current.origX + dx, -maxPan, maxPan),
-                    y: clamp(artDragRef.current.origY + dy, -maxPan, maxPan),
-                  });
-                }}
-                onPointerUp={() => {
-                  artDragRef.current = null;
-                }}
-                onPointerCancel={() => {
-                  artDragRef.current = null;
-                }}
-                onDoubleClick={() => {
-                  if (artZoom > 1) {
-                    setArtZoom(1);
-                    setArtPan({ x: 0, y: 0 });
-                  } else {
-                    setArtZoom(2.2);
-                  }
-                }}
-                className={`relative w-full overflow-hidden rounded-lg border-[5px] border-[#D4AF37] bg-[#1E140C] shadow-[0_18px_44px_rgba(0,0,0,0.85)] ring-2 ring-[#5C3A16] ${
-                  artZoom > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
+            <div
+              onPointerDown={(e) => {
+                if (artZoom <= 1) return;
+                e.stopPropagation();
+                artDragRef.current = {
+                  startX: e.clientX,
+                  startY: e.clientY,
+                  origX: artPan.x,
+                  origY: artPan.y,
+                };
+                e.currentTarget.setPointerCapture?.(e.pointerId);
+              }}
+              onPointerMove={(e) => {
+                if (!artDragRef.current || artZoom <= 1) return;
+                e.stopPropagation();
+                const dx = e.clientX - artDragRef.current.startX;
+                const dy = e.clientY - artDragRef.current.startY;
+                const maxPan = 160 * (artZoom - 1);
+                setArtPan({
+                  x: clamp(artDragRef.current.origX + dx, -maxPan, maxPan),
+                  y: clamp(artDragRef.current.origY + dy, -maxPan, maxPan),
+                });
+              }}
+              onPointerUp={() => {
+                artDragRef.current = null;
+              }}
+              onPointerCancel={() => {
+                artDragRef.current = null;
+              }}
+              onDoubleClick={() => {
+                if (artZoom > 1) {
+                  setArtZoom(1);
+                  setArtPan({ x: 0, y: 0 });
+                } else {
+                  setArtZoom(2.2);
+                }
+              }}
+              className={`relative flex items-center justify-center overflow-hidden rounded-lg shadow-[0_28px_70px_rgba(0,0,0,0.92)] ring-1 ring-[#FCD116]/45 ${
+                artZoom > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
+              }`}
+            >
+              <img
+                src={
+                  activeArtCard.artDetails?.imageUrl ??
+                  "/panoramas/artworks/kawit-proclamation-hd.webp"
+                }
+                alt={activeArtCard.title}
+                draggable={false}
+                className={`block w-auto max-w-full object-contain transition-transform duration-150 ${
+                  isFullscreen
+                    ? "max-h-[76vh]"
+                    : showArtDetails
+                      ? "max-h-[215px] sm:max-h-[345px]"
+                      : "max-h-[270px] sm:max-h-[410px]"
                 }`}
-              >
-                <img
-                  src={
-                    activeArtCard.artDetails?.imageUrl ??
-                    "/panoramas/artworks/kawit-proclamation-hd.webp"
-                  }
-                  alt={activeArtCard.title}
-                  draggable={false}
-                  className="block max-h-[220px] w-full object-cover transition-transform duration-150 sm:max-h-[320px]"
-                  style={{
-                    transform: `scale(${artZoom}) translate(${artPan.x / artZoom}px, ${artPan.y / artZoom}px)`,
-                  }}
-                />
-              </div>
-
-              <p className="mt-2 text-center text-[10.5px] font-medium text-slate-300">
-                {artZoom > 1
-                  ? "Drag the canvas to inspect details · Double-click to reset"
-                  : "Double-click artwork or tap 2× / 3.2× above to inspect fine brushstrokes"}
-              </p>
+                style={{
+                  transform: `scale(${artZoom}) translate(${artPan.x / artZoom}px, ${artPan.y / artZoom}px)`,
+                }}
+              />
             </div>
 
-            {/* Right 5 Columns: Complete Art Piece Details, Metadata & Curatorial Description */}
-            <div className="flex max-h-[380px] flex-col justify-between overflow-y-auto bg-white p-4 sm:max-h-[440px] sm:p-5 md:col-span-5">
+            {/* Minimal Floating Glass Controls BELOW the Artwork — Never Overlapping the Painting! */}
+            <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/15 bg-slate-950/82 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl backdrop-blur-md">
+              {[
+                { z: 1, label: "1× Whole Art" },
+                { z: 2, label: "2× Detail" },
+                { z: 3.2, label: "3.2× Macro" },
+              ].map((opt) => {
+                const activeZ = Math.abs(artZoom - opt.z) < 0.1;
+                return (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    onClick={() => {
+                      setArtZoom(opt.z);
+                      if (opt.z === 1) setArtPan({ x: 0, y: 0 });
+                    }}
+                    className="cursor-pointer rounded-full px-2.5 py-0.5 transition-colors"
+                    style={{
+                      backgroundColor: activeZ ? C.foil : "transparent",
+                      color: activeZ ? C.ink : "#E2E8F0",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+
+              <span className="h-3.5 w-px bg-white/20" />
+
+              <button
+                type="button"
+                onClick={() => setShowArtDetails((v) => !v)}
+                className="inline-flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-0.5 text-slate-200 hover:bg-white/10"
+              >
+                {showArtDetails ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
+                <span>{showArtDetails ? "Pure Art Only" : "Show Details"}</span>
+              </button>
+
+              {!showArtDetails && (
+                <button
+                  type="button"
+                  onClick={() => setActiveArtCard(null)}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-white hover:bg-white/25"
+                >
+                  <X className="size-3" /> 360°
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Sleek Translucent Side Details Drawer — Artwork Name & Description Live ONLY Here (Zero Overlap!) */}
+          {showArtDetails && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="flex max-h-[240px] w-full flex-col justify-between overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-4 text-white shadow-2xl backdrop-blur-xl sm:max-h-[410px] md:w-[335px] md:shrink-0 lg:w-[365px]"
+            >
               <div>
                 <div className="flex items-start justify-between gap-2">
-                  <span
-                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10.5px] font-extrabold uppercase tracking-wider"
-                    style={{ backgroundColor: "#EFF6FF", color: C.cover }}
-                  >
-                    <Info className="size-3" />{" "}
-                    {activeArtCard.artDetails?.zone ?? activeScene?.shortLabel ?? "360° Exhibit"}
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[#FCD116]/35 bg-[#FCD116]/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#FCD116]">
+                    {activeArtCard.artDetails?.zone ?? activeScene?.shortLabel ?? "Curated Exhibit"}
                   </span>
                   <button
                     type="button"
                     onClick={() => setActiveArtCard(null)}
-                    aria-label="Close art piece showcase"
-                    className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#CBD5E1] text-[#475569] hover:bg-[#F1F5F9]"
+                    aria-label="Close art piece spotlight"
+                    className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/20 text-slate-300 hover:bg-white/15 hover:text-white"
                   >
-                    <X className="size-4" />
+                    <X className="size-3.5" />
                   </button>
                 </div>
 
                 <h4
-                  className="mt-2 text-[18px] leading-snug font-extrabold sm:text-[20px]"
-                  style={{ fontFamily: F.display, color: C.ink }}
+                  className="mt-2 text-[17px] leading-snug font-extrabold text-white sm:text-[19px]"
+                  style={{ fontFamily: F.display }}
                 >
                   {activeArtCard.title}
                 </h4>
 
                 {activeArtCard.artDetails?.filTitle ? (
-                  <p className="mt-0.5 text-[12px] font-semibold italic" style={{ color: C.cover }}>
+                  <p className="mt-0.5 text-[12px] font-medium italic text-[#93C5FD]">
                     “{activeArtCard.artDetails.filTitle}”
                   </p>
                 ) : null}
 
-                {/* Structured Museum Metadata Chips */}
-                <div className="mt-2.5 space-y-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5 text-[11.5px]">
+                <div className="mt-2.5 space-y-1 border-y border-white/10 py-2 text-[11.5px] text-slate-300">
                   {activeArtCard.artDetails?.artist ? (
                     <div>
-                      <span className="font-extrabold text-[#475569]">Artist / Maker: </span>
-                      <span className="font-semibold" style={{ color: C.ink }}>
+                      <span className="font-bold text-slate-400">Artist / Maker: </span>
+                      <span className="font-semibold text-white">
                         {activeArtCard.artDetails.artist}
                       </span>
                     </div>
                   ) : null}
                   <div>
-                    <span className="font-extrabold text-[#475569]">Period: </span>
-                    <span className="font-semibold" style={{ color: C.ink }}>
+                    <span className="font-bold text-slate-400">Period: </span>
+                    <span className="font-semibold text-white">
                       {activeArtCard.artDetails?.period ??
                         activeArtCard.subtitle ??
                         "CALABARZON Heritage Collection"}
@@ -1590,60 +1698,56 @@ export function KrpanoViewer({
                   </div>
                   {activeArtCard.artDetails?.medium ? (
                     <div>
-                      <span className="font-extrabold text-[#475569]">Medium: </span>
-                      <span className="font-semibold" style={{ color: C.ink }}>
+                      <span className="font-bold text-slate-400">Medium: </span>
+                      <span className="font-semibold text-white">
                         {activeArtCard.artDetails.medium}
                       </span>
                     </div>
                   ) : null}
                   {activeArtCard.artDetails?.dimensions ? (
                     <div>
-                      <span className="font-extrabold text-[#475569]">Scale: </span>
-                      <span className="font-semibold" style={{ color: C.ink }}>
+                      <span className="font-bold text-slate-400">Scale: </span>
+                      <span className="font-semibold text-white">
                         {activeArtCard.artDetails.dimensions}
                       </span>
                     </div>
                   ) : null}
                 </div>
 
-                {/* Full Curatorial Description of the Art Piece */}
                 <p
-                  className="mt-3 text-[13.5px] leading-relaxed font-medium"
-                  style={{ fontFamily: F.body, color: C.ink }}
+                  className="mt-2.5 text-[13px] leading-relaxed text-slate-200"
+                  style={{ fontFamily: F.body }}
                 >
                   {activeArtCard.artDetails?.description ??
-                    "Inspect this curated heritage piece up close in crisp foreground resolution, or return to the 360° room to continue exploring."}
+                    "Inspect the entire uncropped artwork in high resolution, or step back to continue exploring the 360° room."}
                 </p>
 
                 {activeArtCard.artDetails?.conservationNote ||
                 activeArtCard.artDetails?.highlight ? (
-                  <div className="mt-2.5 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-[11.5px] font-semibold text-[#92400E]">
-                    ✨{" "}
+                  <p className="mt-2 text-[11.5px] font-medium text-[#FDE68A]">
+                    ✦{" "}
                     {activeArtCard.artDetails.conservationNote ??
                       activeArtCard.artDetails.highlight}
-                  </div>
+                  </p>
                 ) : null}
               </div>
 
-              {/* Bottom Navigation & Step-Back Bar */}
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-3">
+              <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3">
                 {roomArtHotspots.length > 1 ? (
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => cycleForegroundArt(-1)}
-                      className="inline-flex cursor-pointer items-center gap-0.5 rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-[11.5px] font-extrabold hover:bg-[#EFF6FF]"
-                      style={{ color: C.ink }}
+                      className="inline-flex cursor-pointer items-center gap-0.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-white/20"
                     >
                       <ChevronLeft className="size-3.5" /> Prev
                     </button>
                     <button
                       type="button"
                       onClick={() => cycleForegroundArt(1)}
-                      className="inline-flex cursor-pointer items-center gap-0.5 rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-[11.5px] font-extrabold hover:bg-[#EFF6FF]"
-                      style={{ color: C.ink }}
+                      className="inline-flex cursor-pointer items-center gap-0.5 rounded-full border border-white/20 bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-white/20"
                     >
-                      Next Art <ChevronRight className="size-3.5" />
+                      Next <ChevronRight className="size-3.5" />
                     </button>
                   </div>
                 ) : (
@@ -1653,164 +1757,168 @@ export function KrpanoViewer({
                 <button
                   type="button"
                   onClick={() => setActiveArtCard(null)}
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3.5 py-1.5 text-[12px] font-extrabold text-white shadow-xs"
-                  style={{ backgroundColor: C.cover }}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-full px-3.5 py-1 text-[11.5px] font-extrabold shadow-sm"
+                  style={{ backgroundColor: C.foil, color: C.ink }}
                 >
-                  Step Back to 360°
+                  Back to 360°
                 </button>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
       {/* Optional Custom Overlay */}
       {children}
 
-      {/* krpano Floating Control Dock (Pan, Tilt, UHD Zoom, Floor Path Walk, HD Crisp, Fullscreen) */}
-      <div className="absolute bottom-3 left-1/2 z-30 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-full border border-white/20 bg-slate-950/88 px-2.5 py-1.5 text-white shadow-2xl backdrop-blur-md">
-        <button
-          type="button"
-          onClick={() => nudgeCamera(-35, 0)}
-          aria-label="Rotate left"
-          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
-          title="Pan Left"
-        >
-          <MoveLeft className="size-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => nudgeCamera(35, 0)}
-          aria-label="Rotate right"
-          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
-          title="Pan Right"
-        >
-          <MoveRight className="size-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => nudgeCamera(0, 22)}
-          aria-label="Tilt up"
-          className="hidden size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15 sm:flex"
-          title="Look Up (Ceiling)"
-        >
-          <MoveUp className="size-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => nudgeCamera(0, -22)}
-          aria-label="Tilt down"
-          className="hidden size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15 sm:flex"
-          title="Look Down (Floor Path)"
-        >
-          <MoveDown className="size-4" />
-        </button>
+      {/* krpano Floating Control Dock */}
+      {!activeArtCard && (
+        <div className="absolute bottom-3 left-1/2 z-30 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-full border border-white/20 bg-slate-950/85 px-2.5 py-1.5 text-white shadow-2xl backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => nudgeCamera(-35, 0)}
+            aria-label="Rotate left"
+            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
+            title="Pan Left"
+          >
+            <MoveLeft className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => nudgeCamera(35, 0)}
+            aria-label="Rotate right"
+            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
+            title="Pan Right"
+          >
+            <MoveRight className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => nudgeCamera(0, 22)}
+            aria-label="Tilt up"
+            className="hidden size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15 sm:flex"
+            title="Look Up"
+          >
+            <MoveUp className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => nudgeCamera(0, -22)}
+            aria-label="Tilt down"
+            className="hidden size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15 sm:flex"
+            title="Look Down"
+          >
+            <MoveDown className="size-4" />
+          </button>
 
-        <span className="mx-0.5 h-4 w-px shrink-0 bg-white/20" />
+          <span className="mx-0.5 h-4 w-px shrink-0 bg-white/20" />
 
-        <button
-          type="button"
-          onClick={() => nudgeCamera(0, 0, -14)}
-          aria-label="Zoom in"
-          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
-          title="Zoom In (down to 20° Macro UHD)"
-        >
-          <ZoomIn className="size-4" />
-        </button>
-        <button
-          type="button"
-          onClick={() => nudgeCamera(0, 0, 14)}
-          aria-label="Zoom out"
-          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
-          title="Zoom Out"
-        >
-          <ZoomOut className="size-4" />
-        </button>
+          <button
+            type="button"
+            onClick={() => nudgeCamera(0, 0, -14)}
+            aria-label="Zoom in"
+            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
+            title="Zoom In (16K Smooth Detail)"
+          >
+            <ZoomIn className="size-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => nudgeCamera(0, 0, 14)}
+            aria-label="Zoom out"
+            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
+            title="Zoom Out"
+          >
+            <ZoomOut className="size-4" />
+          </button>
 
-        <span className="mx-0.5 h-4 w-px shrink-0 bg-white/20" />
+          <span className="mx-0.5 h-4 w-px shrink-0 bg-white/20" />
 
-        <button
-          type="button"
-          onClick={stepAlongPath}
-          className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[#FCD116] px-3 text-[11px] font-extrabold text-[#0F172A] hover:bg-[#FDE047]"
-          title="Walk to the next artwork, staircase, or doorway along the museum path"
-        >
-          <Footprints className="size-3.5" />
-          <span>Walk Path</span>
-        </button>
+          <button
+            type="button"
+            onClick={stepAlongPath}
+            className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[#FCD116] px-3 text-[11px] font-extrabold text-[#0F172A] hover:bg-[#FDE047]"
+            title="Walk to the next artwork, staircase, or doorway along the museum path"
+          >
+            <Footprints className="size-3.5" />
+            <span>Walk Path</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setShowPath((v) => !v)}
-          className="hidden h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors md:flex"
-          style={{
-            backgroundColor: showPath ? "rgba(252, 209, 22, 0.2)" : "transparent",
-            border: showPath ? "1px solid rgba(252, 209, 22, 0.6)" : "1px solid transparent",
-            color: showPath ? "#FDE68A" : "#94A3B8",
-          }}
-          title="Show/Hide 3D Floor Trail"
-        >
-          <span>Trail</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setShowPath((v) => !v)}
+            className="hidden h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors md:flex"
+            style={{
+              backgroundColor: showPath ? "rgba(252, 209, 22, 0.2)" : "transparent",
+              border: showPath ? "1px solid rgba(252, 209, 22, 0.6)" : "1px solid transparent",
+              color: showPath ? "#FDE68A" : "#94A3B8",
+            }}
+            title="Show/Hide 3D Floor Trail"
+          >
+            <span>Trail</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setHdCrisp((v) => !v)}
-          className="hidden h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors lg:flex"
-          style={{
-            backgroundColor: hdCrisp ? "rgba(16, 185, 129, 0.25)" : "transparent",
-            border: hdCrisp ? "1px solid #34D399" : "1px solid transparent",
-            color: hdCrisp ? "#A7F3D0" : "#94A3B8",
-          }}
-          title="Toggle Contrast-Adaptive HD Sharpening Filter"
-        >
-          <Sparkles className="size-3.5" />
-          <span>HD Crisp</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setHdCrisp((v) => !v)}
+            className="hidden h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors lg:flex"
+            style={{
+              backgroundColor: hdCrisp ? "rgba(16, 185, 129, 0.25)" : "transparent",
+              border: hdCrisp ? "1px solid #34D399" : "1px solid transparent",
+              color: hdCrisp ? "#A7F3D0" : "#94A3B8",
+            }}
+            title="Toggle Contrast-Adaptive HD Sharpening Filter"
+          >
+            <Sparkles className="size-3.5" />
+            <span>16K Crisp</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => setAutoRotate((v) => !v)}
-          className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors"
-          style={{
-            backgroundColor: autoRotate ? C.foil : "transparent",
-            color: autoRotate ? C.ink : "#FFFFFF",
-          }}
-          title="Toggle 360° Auto-Rotation"
-        >
-          <RotateCw className="size-3.5" />
-          <span className="hidden sm:inline">{autoRotate ? "Pause" : "Spin"}</span>
-        </button>
+          <button
+            type="button"
+            onClick={() => setAutoRotate((v) => !v)}
+            className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors"
+            style={{
+              backgroundColor: autoRotate ? C.foil : "transparent",
+              color: autoRotate ? C.ink : "#FFFFFF",
+            }}
+            title="Toggle 360° Auto-Rotation"
+          >
+            <RotateCw className="size-3.5" />
+            <span className="hidden sm:inline">{autoRotate ? "Pause" : "Spin"}</span>
+          </button>
 
-        <button
-          type="button"
-          onClick={() => {
-            setActiveArtCard(null);
-            lookTo(
-              activeScene?.initialHlookat ?? 0,
-              activeScene?.initialVlookat ?? 2,
-              activeScene?.initialFov ?? 80,
-              550,
-            );
-          }}
-          aria-label="Reset 360 view"
-          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
-          title="Reset View"
-        >
-          <RotateCcw className="size-4" />
-        </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveArtCard(null);
+              setHiddenArtPinId(null);
+              hiddenArtAnchorRef.current = null;
+              lookTo(
+                activeScene?.initialHlookat ?? 0,
+                activeScene?.initialVlookat ?? 1,
+                activeScene?.initialFov ?? 80,
+                550,
+              );
+            }}
+            aria-label="Reset 360 view"
+            className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
+            title="Reset View"
+          >
+            <RotateCcw className="size-4" />
+          </button>
 
-        <button
-          type="button"
-          onClick={toggleFullscreen}
-          aria-label="Toggle fullscreen"
-          className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[#0038A8] px-3 text-[11px] font-extrabold text-white hover:bg-[#1D4ED8]"
-          title="Fullscreen 12K Ultra-HD 360°"
-        >
-          {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
-          <span className="hidden md:inline">{isFullscreen ? "Exit" : "Fullscreen HD"}</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label="Toggle fullscreen"
+            className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[#0038A8] px-3 text-[11px] font-extrabold text-white hover:bg-[#1D4ED8]"
+            title="Fullscreen 16K Ultra-HD 360°"
+          >
+            {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+            <span className="hidden md:inline">{isFullscreen ? "Exit" : "Fullscreen 16K"}</span>
+          </button>
+        </div>
+      )}
 
       {/* krpano XML Inspector Modal */}
       {xmlModalOpen && (
@@ -1828,7 +1936,7 @@ export function KrpanoViewer({
                   className="text-[11px] font-extrabold uppercase tracking-wider"
                   style={{ color: C.cover }}
                 >
-                  krpano 1.21 Multi-Floor 12K Configuration
+                  krpano 1.21 Smooth 16K Multi-Gallery Configuration
                 </span>
                 <h4 className="text-[15px] font-bold" style={{ color: C.ink }}>
                   /krpano/tour.xml ({resolvedSceneTitle})

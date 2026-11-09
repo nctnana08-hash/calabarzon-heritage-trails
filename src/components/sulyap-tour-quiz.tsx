@@ -6,6 +6,8 @@ import {
   DEFAULT_MUSEUM_PANO_URL,
   GALLERY_HALL_PANO_URL,
   GALLERY_TILES,
+  GRAND_16K_PANO_URL,
+  GRAND_16K_TILES,
   ROTUNDA_TILES,
   SALON_12K_TILES,
   UPSTAIRS_12K_PANO_URL,
@@ -27,12 +29,12 @@ const STOPS = [
   {
     step: 1,
     id: "stop-1",
-    sceneId: "salon12k" as const,
+    sceneId: "grand16k" as const,
     title: "First Look",
-    subtitle: "1F · 12K Grand Atrium",
-    ath: -30,
-    atv: 3.4,
-    fov: 42,
+    subtitle: "1F · 16K Grand Pavilion",
+    ath: -91,
+    atv: 9,
+    fov: 54,
   },
   {
     step: 2,
@@ -40,9 +42,9 @@ const STOPS = [
     sceneId: "upstairs12k" as const,
     title: "Upstairs Story",
     subtitle: "2F · 12K Mezzanine",
-    ath: 0,
-    atv: 4,
-    fov: 42,
+    ath: -120,
+    atv: 5,
+    fov: 52,
   },
   {
     step: 3,
@@ -52,7 +54,7 @@ const STOPS = [
     subtitle: "East Wing · Stamp Hall",
     ath: -2,
     atv: 6,
-    fov: 54,
+    fov: 56,
   },
 ] as const;
 
@@ -67,8 +69,8 @@ export function SulyapTour({
 }) {
   const [step, setStep] = useState<0 | 1 | 2>(0);
   const [activeSceneId, setActiveSceneId] = useState<
-    "salon12k" | "upstairs12k" | "rotunda" | "gallery"
-  >("salon12k");
+    "grand16k" | "salon12k" | "upstairs12k" | "rotunda" | "gallery"
+  >("grand16k");
   const [expanded, setExpanded] = useState(false);
   const [done, setDone] = useState(false);
   const [targetView, setTargetView] = useState<{
@@ -119,38 +121,37 @@ export function SulyapTour({
     setDone(true);
   };
 
-  // Multi-floor, multi-room 360° scenes for the Guided Stamp Tour (1F Atrium -> Stairs -> 2F Upstairs -> Door -> Rotunda & Fine Arts)
+  // 5 Connected Living Museum Rooms for the Guided Stamp Tour (16K Grand Pavilion + Restored 12K Salon + 2F Upstairs + Rotunda + Fine Arts)
   const tourScenes: KrpanoSceneConfig[] = useMemo(() => {
     const safeSlug = destination.slug.replace(/[^a-zA-Z0-9_]/g, "_");
     return [
       {
-        id: "salon12k",
-        name: `tour_${safeSlug}_salon12k`,
-        shortLabel: "1F: 12K Atrium",
-        floorLabel: "1F Ground",
-        title: `${destination.name} — 1F Ground: 12K Grand Atrium`,
-        panoramaUrl: CALABARZON_12K_PANO_URL,
-        ...SALON_12K_TILES,
-        isUltraHd12k: true,
-        initialHlookat: -20,
-        initialVlookat: 3,
-        initialFov: 68,
+        id: "grand16k",
+        name: `tour_${safeSlug}_grand16k`,
+        shortLabel: "16K Grand Tour",
+        floorLabel: "1F Pavilion (16K)",
+        title: `${destination.name} — 1F Living Grand Pavilion (16,000 × 8,000)`,
+        panoramaUrl: GRAND_16K_PANO_URL,
+        ...GRAND_16K_TILES,
+        initialHlookat: 0,
+        initialVlookat: 1,
+        initialFov: 74,
         floorPath: [
-          { ath: -30, atv: -23, label: "Stop 1 · First Look", lookAtAth: -30, lookAtAtv: 3.4 },
+          { ath: -61, atv: -28, label: "Stop 1 · First Look", lookAtAth: -91, lookAtAtv: 9 },
           {
             ath: 0,
-            atv: -21,
+            atv: -31,
             label: "Climb Grand Staircase → Stop 2 (Upstairs) ↑",
             lookAtAth: 0,
-            lookAtAtv: 9,
+            lookAtAtv: -6,
             targetSceneId: "upstairs12k",
           },
           {
-            ath: 90,
-            atv: -22,
-            label: "East Door → Grand Rotunda →",
-            lookAtAth: 90,
-            lookAtAtv: 1,
+            ath: 61,
+            atv: -26,
+            label: "East Arch → Rotunda (Stop 3) →",
+            lookAtAth: 61,
+            lookAtAtv: -15,
             targetSceneId: "rotunda",
           },
         ],
@@ -158,12 +159,14 @@ export function SulyapTour({
           {
             id: "stop-1",
             kind: "art",
-            badge: "S1",
+            badge: "1",
             title: `Stop 1: ${destination.name}`,
-            subtitle: "First Look · 1F 12K Atrium",
-            ath: STOPS[0].ath,
-            atv: STOPS[0].atv,
-            fov: STOPS[0].fov,
+            subtitle: "First Look · 16K Grand Pavilion",
+            ath: -91,
+            atv: 1,
+            lookAtAth: STOPS[0].ath,
+            lookAtAtv: STOPS[0].atv,
+            fov: 42,
             pathOrder: 1,
             artDetails: {
               imageUrl: artPieces[0]
@@ -174,7 +177,7 @@ export function SulyapTour({
               period: artPieces[0]?.period ?? destination.province,
               medium: artPieces[0]?.medium ?? destination.category,
               dimensions: artPieces[0]?.dimensions,
-              zone: "Stop 1 · 1F Ground 12K Atrium",
+              zone: "Stop 1 · 16K Grand Pavilion",
               province: destination.province,
               description: destination.description,
               conservationNote: artPieces[0]?.conservationNote,
@@ -185,24 +188,36 @@ export function SulyapTour({
             id: "stairs-to-upstairs",
             kind: "stairs-up",
             badge: "🪜",
-            title: "Climb Stairs → 2F Upstairs (Stop 2) ↑",
-            subtitle: "Go Upstairs · 2nd Floor 12K",
+            title: "Grand Staircase → 2F Upstairs (Stop 2) ↑",
+            subtitle: "Climb Upstairs",
             ath: 0,
-            atv: 9,
-            fov: 50,
+            atv: -6,
+            fov: 52,
             targetSceneId: "upstairs12k",
-            arrivalView: { ath: 0, atv: 4, fov: 68 },
+            arrivalView: { ath: -120, atv: 5, fov: 68 },
             pathOrder: 2,
+          },
+          {
+            id: "door-to-salon12k",
+            kind: "door",
+            badge: "🚪",
+            title: "← 12K Heritage Salon",
+            subtitle: "Bahay na Bato Room",
+            ath: -61,
+            atv: -15,
+            fov: 52,
+            targetSceneId: "salon12k",
+            arrivalView: { ath: 43, atv: -2, fov: 74 },
           },
           {
             id: "door-to-rotunda",
             kind: "door",
             badge: "🚪",
-            title: "East Door → Rotunda Wing (Stop 3) →",
-            subtitle: "Walk Through Archway",
-            ath: 90,
-            atv: 1,
-            fov: 50,
+            title: "Rotunda Wing (Stop 3) →",
+            subtitle: "Walk Through East Arch",
+            ath: 61,
+            atv: -15,
+            fov: 52,
             targetSceneId: "rotunda",
             arrivalView: { ath: -2, atv: 6, fov: 68 },
             pathOrder: 3,
@@ -210,46 +225,103 @@ export function SulyapTour({
         ],
       },
       {
+        id: "salon12k",
+        name: `tour_${safeSlug}_salon12k`,
+        shortLabel: "12K Heritage Salon",
+        floorLabel: "Bahay Salon (12K)",
+        title: `${destination.name} — Bahay na Bato 12K Heritage Salon`,
+        panoramaUrl: CALABARZON_12K_PANO_URL,
+        ...SALON_12K_TILES,
+        initialHlookat: 43,
+        initialVlookat: -2,
+        initialFov: 74,
+        hotspots: [
+          {
+            id: "salon-flag-vitrine",
+            kind: "art",
+            badge: "★",
+            title: artPieces[0]?.title ?? destination.name,
+            subtitle: "Bahay na Bato 12K Salon",
+            ath: 43,
+            atv: -18,
+            lookAtAth: 43,
+            lookAtAtv: -4,
+            fov: 42,
+            artDetails: {
+              imageUrl: artPieces[0]
+                ? getArtPieceHdImage(artPieces[0], destination.province, destination.slug)
+                : ARTWORK_HD_PLATES.kawit,
+              filTitle: artPieces[0]?.filTitle,
+              artist: artPieces[0]?.artistOrMaker,
+              period: artPieces[0]?.period ?? destination.province,
+              medium: artPieces[0]?.medium ?? destination.category,
+              dimensions: artPieces[0]?.dimensions,
+              zone: "Bahay na Bato 12K Salon",
+              province: destination.province,
+              description: destination.description,
+              conservationNote: artPieces[0]?.conservationNote,
+            },
+          },
+          {
+            id: "salon-back-16k",
+            kind: "door",
+            badge: "🚪",
+            title: "16K Grand Pavilion →",
+            subtitle: "North Gallery Corridor",
+            ath: -59,
+            atv: -4,
+            fov: 52,
+            targetSceneId: "grand16k",
+            arrivalView: { ath: 0, atv: 1, fov: 74 },
+          },
+          {
+            id: "salon-upstairs",
+            kind: "stairs-up",
+            badge: "🪜",
+            title: "Stairs → 2F Upstairs (Stop 2) ↑",
+            subtitle: "Ascend to Mezzanine",
+            ath: -6,
+            atv: -8,
+            fov: 52,
+            targetSceneId: "upstairs12k",
+            arrivalView: { ath: -120, atv: 5, fov: 68 },
+          },
+        ],
+      },
+      {
         id: "upstairs12k",
         name: `tour_${safeSlug}_upstairs12k`,
-        shortLabel: "2F: Upstairs 12K",
-        floorLabel: "2F Upstairs",
-        title: `${destination.name} — 2F Upstairs: 12K Mezzanine Sky Gallery`,
+        shortLabel: "2F Upstairs",
+        floorLabel: "2F Mezzanine (12K)",
+        title: `${destination.name} — 2F Upstairs Mezzanine Sky Gallery`,
         panoramaUrl: UPSTAIRS_12K_PANO_URL,
         ...UPSTAIRS_12K_TILES,
-        isUltraHd12k: true,
-        initialHlookat: 0,
+        initialHlookat: -120,
         initialVlookat: 4,
         initialFov: 68,
         floorPath: [
-          { ath: 0, atv: -23, label: "Stop 2 · Upstairs Story", lookAtAth: 0, lookAtAtv: 4 },
+          { ath: -120, atv: -24, label: "Stop 2 · Upstairs Story", lookAtAth: -120, lookAtAtv: 5 },
           {
-            ath: 90,
-            atv: -22,
-            label: "Skybridge Door → Stop 3 (Rotunda) →",
-            lookAtAth: 90,
-            lookAtAtv: 1,
-            targetSceneId: "rotunda",
-          },
-          {
-            ath: 180,
-            atv: -22,
-            label: "Stairs Down → 1F Atrium ↓",
-            lookAtAth: 180,
-            lookAtAtv: -9,
-            targetSceneId: "salon12k",
+            ath: 0,
+            atv: -28,
+            label: "Descend Stairs → 16K Pavilion ↓",
+            lookAtAth: 0,
+            lookAtAtv: -18,
+            targetSceneId: "grand16k",
           },
         ],
         hotspots: [
           {
             id: "stop-2",
             kind: "art",
-            badge: "S2",
+            badge: "2",
             title: `Stop 2: ${artPieces[1]?.title ?? "The Historical Story"}`,
             subtitle: "The Story · 2F Mezzanine",
-            ath: STOPS[1].ath,
-            atv: STOPS[1].atv,
-            fov: STOPS[1].fov,
+            ath: -120,
+            atv: -6,
+            lookAtAth: STOPS[1].ath,
+            lookAtAtv: STOPS[1].atv,
+            fov: 40,
             pathOrder: 1,
             artDetails: {
               imageUrl: artPieces[1]
@@ -264,17 +336,17 @@ export function SulyapTour({
               province: destination.province,
               description: enrichment.history || destination.description,
               conservationNote: artPieces[1]?.conservationNote,
-              highlight: "Next: Walk through the 🚪 East Skybridge Door to reach Stop 3!",
+              highlight: "Next: Walk through the 🚪 Skybridge Door to reach Stop 3!",
             },
           },
           {
             id: "door-skybridge-rotunda",
             kind: "door",
             badge: "🚪",
-            title: "Skybridge Door → Stop 3 (Claim Stamp) →",
+            title: "Skybridge → Stop 3 (Claim Stamp) →",
             subtitle: "Enter Grand Rotunda",
-            ath: 90,
-            atv: 1,
+            ath: 0,
+            atv: 2,
             fov: 50,
             targetSceneId: "rotunda",
             arrivalView: { ath: -2, atv: 6, fov: 68 },
@@ -284,21 +356,20 @@ export function SulyapTour({
             id: "stairs-down-atrium",
             kind: "stairs-down",
             badge: "🪜",
-            title: "Go Downstairs → 1F Atrium ↓",
-            subtitle: "Descend Grand Staircase",
-            ath: 180,
-            atv: -9,
+            title: "Descend Stairs → 16K Pavilion ↓",
+            subtitle: "Go Downstairs",
+            ath: 0,
+            atv: -18,
             fov: 54,
-            targetSceneId: "salon12k",
-            arrivalView: { ath: 180, atv: 0, fov: 76 },
-            pathOrder: 3,
+            targetSceneId: "grand16k",
+            arrivalView: { ath: 0, atv: 1, fov: 74 },
           },
         ],
       },
       {
         id: "rotunda",
         name: `tour_${safeSlug}_rotunda`,
-        shortLabel: "1F: Rotunda Wing",
+        shortLabel: "Rotunda Wing",
         floorLabel: "1F East Wing",
         title: `${destination.name} — 1F East Wing: Grand Rotunda 360°`,
         panoramaUrl: DEFAULT_MUSEUM_PANO_URL,
@@ -321,12 +392,14 @@ export function SulyapTour({
           {
             id: "stop-3",
             kind: "art",
-            badge: "S3",
+            badge: "3",
             title: `Stop 3: ${artPieces[2]?.title ?? "Cultural Significance"}`,
             subtitle: "Why It Matters · Claim Stamp",
-            ath: STOPS[2].ath,
-            atv: STOPS[2].atv,
-            fov: STOPS[2].fov,
+            ath: -2,
+            atv: -10,
+            lookAtAth: STOPS[2].ath,
+            lookAtAtv: STOPS[2].atv,
+            fov: 50,
             pathOrder: 1,
             artDetails: {
               imageUrl: artPieces[2]
@@ -358,23 +431,23 @@ export function SulyapTour({
             pathOrder: 2,
           },
           {
-            id: "rotunda-back-1f",
+            id: "rotunda-back-16k",
             kind: "door",
             badge: "🚪",
-            title: "← Return to 1F 12K Atrium",
+            title: "← Return to 16K Grand Pavilion",
             subtitle: "West Archway Door",
             ath: -62,
             atv: -2,
             fov: 54,
-            targetSceneId: "salon12k",
-            arrivalView: { ath: -30, atv: 3.4, fov: 74 },
+            targetSceneId: "grand16k",
+            arrivalView: { ath: 0, atv: 1, fov: 74 },
           },
         ],
       },
       {
         id: "gallery",
         name: `tour_${safeSlug}_gallery`,
-        shortLabel: "1F: Fine Arts",
+        shortLabel: "Fine Arts Hall",
         floorLabel: "1F West Wing",
         title: `${destination.name} — 1F West Wing: Fine Arts Hall 360°`,
         panoramaUrl: GALLERY_HALL_PANO_URL,
@@ -390,7 +463,9 @@ export function SulyapTour({
             title: artPieces[3]?.title ?? "Fine Arts Masterwork",
             subtitle: "Bonus Gallery Exhibit",
             ath: -48,
-            atv: 4,
+            atv: -7,
+            lookAtAth: -48,
+            lookAtAtv: 4,
             fov: 50,
             artDetails: {
               imageUrl: artPieces[3]
@@ -495,15 +570,17 @@ export function SulyapTour({
         activeSceneId={activeSceneId}
         onSceneChange={(id) => {
           const nextRoom =
-            id === "upstairs12k"
-              ? "upstairs12k"
-              : id === "rotunda"
-                ? "rotunda"
-                : id === "gallery"
-                  ? "gallery"
-                  : "salon12k";
+            id === "salon12k"
+              ? "salon12k"
+              : id === "upstairs12k"
+                ? "upstairs12k"
+                : id === "rotunda"
+                  ? "rotunda"
+                  : id === "gallery"
+                    ? "gallery"
+                    : "grand16k";
           setActiveSceneId(nextRoom);
-          if (nextRoom === "salon12k" && step !== 0) {
+          if ((nextRoom === "grand16k" || nextRoom === "salon12k") && step !== 0) {
             setStep(0);
             setExpanded(false);
           } else if (nextRoom === "upstairs12k" && step !== 1) {

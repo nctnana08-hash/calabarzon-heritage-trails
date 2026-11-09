@@ -247,12 +247,12 @@ function Index() {
           })}
         </div>
 
-        {/* Live Multi-Floor 12K Ultra-HD 360° Museum Virtual Tour Showcase */}
+        {/* Live Multi-Gallery Smooth 16K + 12K Living Museum Virtual Tour */}
         <Sec
-          fil="360° Virtual Museum Walkthrough (2 Floors · 4 Rooms · True 12K UHD)"
-          en="Instant-loading 12,000 × 6,000 360° tour — follow the 👣 floor path, click artworks for curatorial details, climb 🪜 stairs upstairs, or walk through 🚪 doors"
+          fil="360° Living Museum Tour (Smooth 16K UHD · 5 Connected Galleries)"
+          en="Explore our sunlit 16,000 × 8,000 Grand Pavilion, restored 12K Bahay na Bato Salon, 2F Mezzanine, Rotunda & Fine Arts Hall — click any numbered pin for unboxed HD art & details"
         />
-        <KrpanoViewer autoRotateDefault={false} heightClass="h-[400px] sm:h-[520px]" />
+        <KrpanoViewer autoRotateDefault={false} heightClass="h-[410px] sm:h-[530px]" />
 
         {/* 5 Visual Province Cards */}
         <Sec fil="Explore by Province" en="Select any CALABARZON province to view its landmarks" />
