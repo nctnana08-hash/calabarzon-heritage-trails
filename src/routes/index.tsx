@@ -3,11 +3,7 @@ import { Award, BookOpenCheck, Compass, Eye, Map, MapPin, ShieldCheck } from "lu
 
 import { SiteHeader, MobileBottomNav } from "@/components/site-nav";
 import { DestinationCard } from "@/components/destination-card";
-import {
-  DEFAULT_MUSEUM_PANO_URL,
-  KrpanoViewer,
-  type KrpanoHotspot,
-} from "@/components/krpano-viewer";
+import { KrpanoViewer } from "@/components/krpano-viewer";
 import { Banig, Label, Pop, Sec, Stamp } from "@/components/sulyap-ui";
 import { useDestinations } from "@/hooks/use-destinations";
 import { PROVINCES } from "@/lib/destinations";
@@ -251,70 +247,12 @@ function Index() {
           })}
         </div>
 
-        {/* Live 360° Museum Rotunda Virtual Tour Showcase */}
+        {/* Live Multi-Room 360° Museum Virtual Tour Showcase */}
         <Sec
-          fil="360° Virtual Heritage Rotunda"
-          en="Drag in any direction (360°×180°), zoom in, or tap a 3D gallery hotspot"
+          fil="360° Virtual Museum Walkthrough (2 Rooms)"
+          en="Drag 360°×180°, switch between the Grand Rotunda & Fine Arts Hall, or click the green 🚪 portal door"
         />
-        <KrpanoViewer
-          panoramaUrl={DEFAULT_MUSEUM_PANO_URL}
-          sceneName="scene_sulyap_museum_rotunda"
-          sceneTitle="SulyapPH — Grand Heritage Rotunda 360°"
-          autoRotateDefault={true}
-          heightClass="h-[360px] sm:h-[460px]"
-          hotspots={
-            [
-              {
-                id: "hs-monument",
-                badge: "1",
-                title: "Inang Bayan Torch Monument",
-                ath: -2,
-                atv: 6,
-                fov: 58,
-              },
-              {
-                id: "hs-cavite-mural",
-                badge: "2",
-                title: "Revolution & Kasaysayan Mural (Cavite)",
-                ath: -128,
-                atv: 3,
-                fov: 56,
-              },
-              {
-                id: "hs-mestiza-gown",
-                badge: "3",
-                title: "19th-Century Traje de Mestiza (Laguna)",
-                ath: -167,
-                atv: -9,
-                fov: 54,
-              },
-              {
-                id: "hs-bahay-kubo",
-                badge: "4",
-                title: "Ancestral Bahay Kubo Model (Quezon)",
-                ath: 92,
-                atv: -2,
-                fov: 56,
-              },
-              {
-                id: "hs-gold-vessels",
-                badge: "5",
-                title: "Pre-Colonial Gold & Burial Jars (Batangas)",
-                ath: 121,
-                atv: -11,
-                fov: 52,
-              },
-              {
-                id: "hs-okir-tapestry",
-                badge: "6",
-                title: "Carved Relief & Woven Tapestry (Rizal)",
-                ath: 142,
-                atv: 5,
-                fov: 56,
-              },
-            ] satisfies KrpanoHotspot[]
-          }
-        />
+        <KrpanoViewer autoRotateDefault={true} heightClass="h-[360px] sm:h-[460px]" />
 
         {/* 5 Visual Province Cards */}
         <Sec fil="Explore by Province" en="Select any CALABARZON province to view its landmarks" />

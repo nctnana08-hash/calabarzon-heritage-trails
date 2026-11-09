@@ -1,4 +1,4 @@
-<krpano version="1.21" title="SulyapPH — CALABARZON 360° Heritage Museum Virtual Tour" onstart="startup();">
+<krpano version="1.21" title="SulyapPH — CALABARZON Multi-Room 360° Heritage Museum Virtual Tour" onstart="startup();">
 
   <action name="startup" autorun="onstart">
     if(startscene === null OR !scene[get(startscene)], copy(startscene, scene[0].name); );
@@ -7,7 +7,7 @@
 
   <!-- krpano Control & Autorotate Settings -->
   <control mousetype="drag2d" touchtype="drag2d" zoomtocursor="true" zoomoutcursor="true" friction="0.88" />
-  <autorotate enabled="false" waittime="2.0" speed="3.5" horizon="0.0" tofov="90.0" />
+  <autorotate enabled="false" waittime="2.0" speed="3.5" horizon="0.0" tofov="86.0" />
 
   <!-- Hotspot Shared Style -->
   <style name="skin_hotspotstyle"
@@ -17,13 +17,15 @@
          onover="tween(scale,0.75,0.15);"
          onout="tween(scale,0.65,0.15);" />
 
-  <!-- Main 360° Equirectangular Museum Rotunda Scene -->
-  <scene name="scene_sulyap_museum_rotunda" title="SulyapPH Grand Heritage Rotunda" onstart="" thumburl="/panoramas/museum-rotunda-360.jpg">
+  <!-- =================================================================== -->
+  <!-- SCENE 1: Grand Heritage Rotunda 360° (/panoramas/museum-rotunda-360.jpg) -->
+  <!-- =================================================================== -->
+  <scene name="scene_sulyap_museum_rotunda" title="Room 1: Grand Heritage Rotunda" onstart="" thumburl="/panoramas/museum-rotunda-360.jpg">
 
     <view hlookat="0.0"
           vlookat="2.0"
           fovtype="MFOV"
-          fov="90.0"
+          fov="86.0"
           maxpixelzoom="2.0"
           fovmin="35.0"
           fovmax="115.0"
@@ -33,7 +35,15 @@
       <sphere url="/panoramas/museum-rotunda-360.jpg" />
     </image>
 
-    <!-- 3D Spherical Hotspots (ath = horizontal azimuth -180..180, atv = vertical pitch -90..90) -->
+    <!-- Portal Hotspot to Scene 2 (Fine Arts Gallery Hall) -->
+    <hotspot name="hs_portal_to_gallery"
+             style="skin_hotspotstyle"
+             ath="58.0"
+             atv="-2.0"
+             title="Enter Fine Arts Gallery Hall →"
+             onclick="loadscene(scene_sulyap_fine_arts_hall, null, MERGE, BLEND(0.8));" />
+
+    <!-- 3D Spherical Artwork Hotspots -->
     <hotspot name="hs_torch_monument"
              style="skin_hotspotstyle"
              ath="-2.0"
@@ -76,12 +86,69 @@
              title="Carved Okir &amp; Woven Tapestry"
              onclick="lookto(142.0, 5.0, 56.0, smooth(120,60,30));" />
 
-    <hotspot name="hs_rotunda_dome"
+  </scene>
+
+  <!-- =================================================================== -->
+  <!-- SCENE 2: Fine Arts & Masterworks Hall 360° (/panoramas/museum-gallery-hall-360.webp) -->
+  <!-- =================================================================== -->
+  <scene name="scene_sulyap_fine_arts_hall" title="Room 2: Fine Arts &amp; Masterworks Hall" onstart="" thumburl="/panoramas/museum-gallery-hall-360.webp">
+
+    <view hlookat="-18.0"
+          vlookat="2.0"
+          fovtype="MFOV"
+          fov="86.0"
+          maxpixelzoom="2.0"
+          fovmin="35.0"
+          fovmax="115.0"
+          limitview="auto" />
+
+    <image>
+      <sphere url="/panoramas/museum-gallery-hall-360.webp" />
+    </image>
+
+    <!-- Portal Hotspot back to Scene 1 (Grand Heritage Rotunda) -->
+    <hotspot name="hs_portal_to_rotunda"
+             style="skin_hotspotstyle"
+             ath="90.0"
+             atv="-2.0"
+             title="Return to Grand Rotunda →"
+             onclick="loadscene(scene_sulyap_museum_rotunda, null, MERGE, BLEND(0.8));" />
+
+    <!-- 3D Spherical Artwork Hotspots in Fine Arts Hall -->
+    <hotspot name="hs_grand_historical_canvas"
+             style="skin_hotspotstyle"
+             ath="-48.0"
+             atv="4.0"
+             title="Monumental Historical Canvas"
+             onclick="lookto(-48.0, 4.0, 54.0, smooth(120,60,30));" />
+
+    <hotspot name="hs_pastoral_landscapes"
+             style="skin_hotspotstyle"
+             ath="-80.0"
+             atv="5.0"
+             title="Classical Tagalog Landscapes &amp; Portraits"
+             onclick="lookto(-80.0, 5.0, 56.0, smooth(120,60,30));" />
+
+    <hotspot name="hs_carved_anito"
+             style="skin_hotspotstyle"
+             ath="-102.0"
+             atv="-5.0"
+             title="Cordillera &amp; Sierra Madre Wood Sculpture"
+             onclick="lookto(-102.0, -5.0, 56.0, smooth(120,60,30));" />
+
+    <hotspot name="hs_modernist_gallery"
+             style="skin_hotspotstyle"
+             ath="42.0"
+             atv="4.0"
+             title="Modernist Folk &amp; Cubist Masterworks"
+             onclick="lookto(42.0, 4.0, 56.0, smooth(120,60,30));" />
+
+    <hotspot name="hs_vaulted_skylight"
              style="skin_hotspotstyle"
              ath="0.0"
-             atv="62.0"
-             title="Neoclassical Skylight Oculus Dome"
-             onclick="lookto(0.0, 62.0, 68.0, smooth(120,60,30));" />
+             atv="48.0"
+             title="Coffered Barrel-Vaulted Clerestory Ceiling"
+             onclick="lookto(0.0, 48.0, 68.0, smooth(120,60,30));" />
 
   </scene>
 

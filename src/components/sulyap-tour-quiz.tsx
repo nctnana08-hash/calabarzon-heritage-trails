@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Award, CheckCircle2, ChevronLeft, ChevronRight, RotateCw, Sparkles } from "lucide-react";
+import { Award, CheckCircle2, ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
 import type { Destination } from "@/lib/destinations";
+import {
+  DEFAULT_MUSEUM_PANO_URL,
+  GALLERY_HALL_PANO_URL,
+  type KrpanoSceneConfig,
+} from "@/lib/krpano-scenes";
 import { getArtPieces360 } from "@/lib/sulyap-art-360";
 import {
   getEnrichment,
@@ -9,15 +14,16 @@ import {
   saveScore,
 } from "@/lib/sulyap-data";
 import { C, F, conciseText, getCategoryMeta } from "@/lib/sulyap-theme";
-import { DEFAULT_MUSEUM_PANO_URL, KrpanoViewer, type KrpanoHotspot } from "./krpano-viewer";
+import { KrpanoViewer } from "./krpano-viewer";
 import { Btn, Label, Pop, Stamp } from "./sulyap-ui";
 
 const STOPS = [
   {
     step: 1,
     id: "stop-1",
+    sceneId: "rotunda" as const,
     title: "First Look",
-    subtitle: "Central Rotunda · 0° N",
+    subtitle: "Room 1 · Grand Rotunda",
     ath: -2,
     atv: 5,
     fov: 74,
@@ -25,20 +31,22 @@ const STOPS = [
   {
     step: 2,
     id: "stop-2",
+    sceneId: "gallery" as const,
     title: "The Story",
-    subtitle: "Historical Mural Wing · 232° SW",
-    ath: -128,
-    atv: 3,
-    fov: 60,
+    subtitle: "Room 2 · Historical Canvas",
+    ath: -48,
+    atv: 4,
+    fov: 58,
   },
   {
     step: 3,
     id: "stop-3",
+    sceneId: "gallery" as const,
     title: "Why It Matters",
-    subtitle: "Ancestral & Gold Wing · 98° E",
-    ath: 98,
-    atv: -3,
-    fov: 60,
+    subtitle: "Room 2 · Folk & Heritage Salon",
+    ath: 42,
+    atv: 4,
+    fov: 58,
   },
 ] as const;
 
@@ -52,17 +60,20 @@ export function SulyapTour({
   onStartQuiz: () => void;
 }) {
   const [step, setStep] = useState<0 | 1 | 2>(0);
+  const [activeSceneId, setActiveSceneId] = useState<"rotunda" | "gallery">("rotunda");
   const [expanded, setExpanded] = useState(false);
   const [done, setDone] = useState(false);
   const [targetView, setTargetView] = useState<{
     ath: number;
     atv: number;
     fov: number;
+    sceneId: string;
     key: string;
   }>({
     ath: STOPS[0].ath,
     atv: STOPS[0].atv,
     fov: STOPS[0].fov,
+    sceneId: STOPS[0].sceneId,
     key: "init-0",
   });
 
@@ -73,10 +84,12 @@ export function SulyapTour({
     setStep(nextStep);
     setExpanded(false);
     const s = STOPS[nextStep];
+    setActiveSceneId(s.sceneId);
     setTargetView({
       ath: s.ath,
       atv: s.atv,
       fov: s.fov,
+      sceneId: s.sceneId,
       key: `step-${nextStep}-${Date.now()}`,
     });
   };
@@ -98,47 +111,88 @@ export function SulyapTour({
     setDone(true);
   };
 
-  // Combine the 3 guided tour stops + overhead dome oculus as interactive 3D hotspots inside the 360° sphere
-  const tourHotspots: KrpanoHotspot[] = useMemo(
+  // Multi-room 360° scenes for the Virtual Tour (Room 1 Rotunda + Room 2 Fine Arts Hall)
+  const tourScenes: KrpanoSceneConfig[] = useMemo(
     () => [
       {
-        id: "stop-1",
-        badge: "S1",
-        title: `Stop 1: ${destination.name}`,
-        subtitle: "First Look · Central Rotunda",
-        ath: STOPS[0].ath,
-        atv: STOPS[0].atv,
-        fov: STOPS[0].fov,
+        id: "rotunda",
+        name: `tour_${destination.slug.replace(/[^a-zA-Z0-9_]/g, "_")}_rotunda`,
+        shortLabel: "Room 1: Grand Rotunda",
+        title: `${destination.name} — Room 1: Grand Rotunda 360°`,
+        panoramaUrl: DEFAULT_MUSEUM_PANO_URL,
+        initialHlookat: -2,
+        initialVlookat: 5,
+        initialFov: 74,
+        hotspots: [
+          {
+            id: "stop-1",
+            badge: "S1",
+            title: `Stop 1: ${destination.name}`,
+            subtitle: "First Look · Central Rotunda",
+            ath: STOPS[0].ath,
+            atv: STOPS[0].atv,
+            fov: STOPS[0].fov,
+          },
+          {
+            id: "portal-to-gallery",
+            badge: "🚪",
+            title: "Walk to Room 2 (Stop 2: The Story) →",
+            ath: 58,
+            atv: -2,
+            fov: 76,
+            targetSceneId: "gallery",
+          },
+          {
+            id: "rotunda-ancestral",
+            badge: "★",
+            title: artPieces[0]?.title ?? "Ancestral Architecture Wing",
+            ath: 92,
+            atv: -2,
+            fov: 58,
+          },
+        ],
       },
       {
-        id: "stop-2",
-        badge: "S2",
-        title: `Stop 2: ${artPieces[0]?.title ?? "Historical Record"}`,
-        subtitle: "The Story · West Gallery",
-        ath: STOPS[1].ath,
-        atv: STOPS[1].atv,
-        fov: STOPS[1].fov,
-      },
-      {
-        id: "stop-3",
-        badge: "S3",
-        title: `Stop 3: ${artPieces[1]?.title ?? "Cultural Legacy"}`,
-        subtitle: "Why It Matters · East Gallery",
-        ath: STOPS[2].ath,
-        atv: STOPS[2].atv,
-        fov: STOPS[2].fov,
-      },
-      {
-        id: "dome-oculus",
-        badge: "↑",
-        title: "Rotunda Stained-Glass Oculus Dome",
-        subtitle: "Zenith Ceiling Vault",
-        ath: 0,
-        atv: 58,
-        fov: 70,
+        id: "gallery",
+        name: `tour_${destination.slug.replace(/[^a-zA-Z0-9_]/g, "_")}_gallery`,
+        shortLabel: "Room 2: Fine Arts Hall",
+        title: `${destination.name} — Room 2: Fine Arts Hall 360°`,
+        panoramaUrl: GALLERY_HALL_PANO_URL,
+        initialHlookat: -48,
+        initialVlookat: 4,
+        initialFov: 60,
+        hotspots: [
+          {
+            id: "stop-2",
+            badge: "S2",
+            title: `Stop 2: ${artPieces[1]?.title ?? "The Historical Story"}`,
+            subtitle: "The Story · Historical Canvas",
+            ath: STOPS[1].ath,
+            atv: STOPS[1].atv,
+            fov: STOPS[1].fov,
+          },
+          {
+            id: "stop-3",
+            badge: "S3",
+            title: `Stop 3: ${artPieces[2]?.title ?? "Cultural Significance"}`,
+            subtitle: "Why It Matters · Claim Stamp",
+            ath: STOPS[2].ath,
+            atv: STOPS[2].atv,
+            fov: STOPS[2].fov,
+          },
+          {
+            id: "portal-to-rotunda",
+            badge: "🚪",
+            title: "Return to Room 1 (Grand Rotunda) →",
+            ath: 90,
+            atv: -2,
+            fov: 76,
+            targetSceneId: "rotunda",
+          },
+        ],
       },
     ],
-    [destination.name, artPieces],
+    [destination.slug, destination.name, artPieces],
   );
 
   const activeText =
@@ -197,12 +251,21 @@ export function SulyapTour({
         })}
       </div>
 
-      {/* Real Full 360°×180° Spherical Panorama Virtual Tour Stage */}
+      {/* Real Full 360°×180° Spherical Panorama Virtual Tour Stage across 2 Connected Rooms */}
       <KrpanoViewer
-        panoramaUrl={DEFAULT_MUSEUM_PANO_URL}
-        sceneName={`tour_${destination.slug.replace(/[^a-zA-Z0-9_]/g, "_")}`}
-        sceneTitle={`${destination.name} — 360° Virtual Tour`}
-        hotspots={tourHotspots}
+        scenes={tourScenes}
+        activeSceneId={activeSceneId}
+        onSceneChange={(id) => {
+          const nextRoom = id === "gallery" ? "gallery" : "rotunda";
+          setActiveSceneId(nextRoom);
+          if (nextRoom === "gallery" && step === 0) {
+            setStep(1);
+            setExpanded(false);
+          } else if (nextRoom === "rotunda" && step !== 0) {
+            setStep(0);
+            setExpanded(false);
+          }
+        }}
         selectedHotspotId={STOPS[step].id}
         onSelectHotspot={(hs) => {
           if (hs.id === "stop-1") goToStep(0);
@@ -217,10 +280,11 @@ export function SulyapTour({
       <Pop className="mt-3 overflow-hidden p-5 sm:p-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="inline-flex items-center gap-1.5 rounded-full bg-[#EFF6FF] px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-[#0038A8]">
-            <RotateCw className="size-3.5" /> 360° Stop {step + 1} of 3 · {STOPS[step].title}
+            <RotateCw className="size-3.5" /> 360° Stop {step + 1} of 3 · {STOPS[step].title} (
+            {STOPS[step].subtitle})
           </div>
           <span className="text-[12px] font-semibold" style={{ color: C.mute }}>
-            Drag the 360° room above to look around freely
+            Drag 360° or click the green 🚪 door to walk between Room 1 &amp; Room 2
           </span>
         </div>
 
@@ -282,7 +346,8 @@ export function SulyapTour({
                 className="inline-flex cursor-pointer items-center gap-1 rounded-xl px-5 py-2.5 text-[14px] font-bold text-white shadow-xs transition-transform hover:-translate-y-0.5"
                 style={{ backgroundColor: C.cover }}
               >
-                Fly to Next 360° Stop <ChevronRight className="size-4" />
+                {step === 0 ? "Walk to Room 2 (Stop 2) →" : "Fly to Stop 3 →"}{" "}
+                <ChevronRight className="size-4" />
               </button>
             ) : (
               <button

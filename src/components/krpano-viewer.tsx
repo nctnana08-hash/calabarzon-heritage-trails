@@ -4,6 +4,7 @@ import {
   Compass,
   Copy,
   Check,
+  DoorOpen,
   Maximize2,
   Minimize2,
   MoveDown,
@@ -15,23 +16,14 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import {
+  DEFAULT_MUSEUM_PANO_URL,
+  DEFAULT_MUSEUM_SCENES,
+  buildKrpanoXml,
+  type KrpanoHotspot,
+  type KrpanoSceneConfig,
+} from "@/lib/krpano-scenes";
 import { C, F } from "@/lib/sulyap-theme";
-
-export const DEFAULT_MUSEUM_PANO_URL = "/panoramas/museum-rotunda-360.jpg";
-
-export type KrpanoHotspot = {
-  id: string;
-  title: string;
-  subtitle?: string;
-  badge?: string;
-  /** Horizontal spherical azimuth in degrees (-180..180, 0 = front center) */
-  ath: number;
-  /** Vertical spherical pitch in degrees (-90..90, + = up toward dome, - = down toward floor) */
-  atv: number;
-  /** Optional target FOV when flying to this hotspot */
-  fov?: number;
-  accentColor?: string;
-};
 
 type CameraState = {
   hlookat: number;
@@ -74,9 +66,6 @@ function cardinalDirection(deg: number): string {
   return dirs[Math.round(norm / 45) % 8] ?? "N";
 }
 
-/**
- * Computes the orthonormal camera basis vectors (R, U, F) for spherical (hlookat, vlookat).
- */
 function computeCameraBasis(hlookatDeg: number, vlookatDeg: number) {
   const psi = (hlookatDeg * Math.PI) / 180;
   const theta = (vlookatDeg * Math.PI) / 180;
@@ -92,10 +81,6 @@ function computeCameraBasis(hlookatDeg: number, vlookatDeg: number) {
   return { Rvec, Uvec, Fvec };
 }
 
-/**
- * Projects a 3D spherical hotspot (ath, atv) into 2D viewport screen coordinates
- * using the exact same camera matrix as the WebGL equirectangular shader.
- */
 function projectHotspotToScreen(
   athDeg: number,
   atvDeg: number,
@@ -190,59 +175,15 @@ function createShader(gl: WebGLRenderingContext, type: number, source: string): 
   return shader;
 }
 
-export function buildKrpanoXml({
-  sceneName,
-  sceneTitle,
-  panoramaUrl,
-  cam,
-  hotspots,
-}: {
-  sceneName: string;
-  sceneTitle: string;
-  panoramaUrl: string;
-  cam: CameraState;
-  hotspots: KrpanoHotspot[];
-}): string {
-  const hsLines = hotspots
-    .map(
-      (h) =>
-        `    <hotspot name="hs_${h.id.replace(/[^a-zA-Z0-9_]/g, "_")}"
-             style="skin_hotspotstyle"
-             ath="${h.ath.toFixed(1)}"
-             atv="${h.atv.toFixed(1)}"
-             title="${h.title.replace(/"/g, "&quot;")}"
-             onclick="lookto(${h.ath.toFixed(1)}, ${h.atv.toFixed(1)}, ${(h.fov ?? 58).toFixed(1)}, smooth(120,60,30));" />`,
-    )
-    .join("\n\n");
-
-  return `<krpano version="1.21" title="${sceneTitle.replace(/"/g, "&quot;")}">
-  <control mousetype="drag2d" touchtype="drag2d" zoomtocursor="true" friction="0.88" />
-  <autorotate enabled="false" waittime="2.0" speed="3.5" horizon="0.0" tofov="85.0" />
-
-  <scene name="${sceneName}" title="${sceneTitle.replace(/"/g, "&quot;")}">
-    <view hlookat="${cam.hlookat.toFixed(1)}"
-          vlookat="${cam.vlookat.toFixed(1)}"
-          fovtype="MFOV"
-          fov="${cam.fov.toFixed(1)}"
-          fovmin="35.0"
-          fovmax="115.0"
-          limitview="auto" />
-
-    <image>
-      <sphere url="${panoramaUrl}" />
-    </image>
-
-${hsLines}
-  </scene>
-</krpano>`;
-}
-
 export function KrpanoViewer({
-  panoramaUrl = DEFAULT_MUSEUM_PANO_URL,
+  panoramaUrl,
   fallbackPanoramaUrl = DEFAULT_MUSEUM_PANO_URL,
   sceneName = "scene_sulyap_museum_rotunda",
   sceneTitle = "SulyapPH 360° Heritage Museum Rotunda",
-  hotspots = [],
+  scenes = DEFAULT_MUSEUM_SCENES,
+  activeSceneId,
+  onSceneChange,
+  hotspots,
   selectedHotspotId,
   onSelectHotspot,
   initialHlookat = 0,
@@ -257,26 +198,49 @@ export function KrpanoViewer({
   fallbackPanoramaUrl?: string;
   sceneName?: string;
   sceneTitle?: string;
+  /** Optional multi-scene array (defaults to Room 1 Rotunda + Room 2 Fine Arts Hall) */
+  scenes?: KrpanoSceneConfig[];
+  activeSceneId?: string;
+  onSceneChange?: (sceneId: string) => void;
   hotspots?: KrpanoHotspot[];
   selectedHotspotId?: string;
   onSelectHotspot?: (hotspot: KrpanoHotspot) => void;
   initialHlookat?: number;
   initialVlookat?: number;
   initialFov?: number;
-  /** Optional external camera target { ath, atv, fov, key } to trigger smooth krpano lookto() */
-  targetView?: { ath: number; atv: number; fov?: number; key?: string | number } | null;
+  /** Optional external camera target { ath, atv, fov, sceneId, key } to trigger smooth krpano lookto() */
+  targetView?: {
+    ath: number;
+    atv: number;
+    fov?: number;
+    sceneId?: string;
+    key?: string | number;
+  } | null;
   autoRotateDefault?: boolean;
   heightClass?: string;
-  /** Optional HUD overlay rendered inside the 360° stage */
   children?: React.ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  const [internalSceneId, setInternalSceneId] = useState<string>(
+    activeSceneId ?? scenes[0]?.id ?? "rotunda",
+  );
+  const currentSceneId = activeSceneId ?? internalSceneId;
+  const activeScene = useMemo(
+    () => scenes.find((s) => s.id === currentSceneId) ?? scenes[0],
+    [scenes, currentSceneId],
+  );
+
+  const resolvedPanoUrl = panoramaUrl ?? activeScene?.panoramaUrl ?? DEFAULT_MUSEUM_PANO_URL;
+  const resolvedHotspots = hotspots ?? activeScene?.hotspots ?? [];
+  const resolvedSceneName = activeScene?.name ?? sceneName;
+  const resolvedSceneTitle = activeScene?.title ?? sceneTitle;
+
   const [cam, setCam] = useState<CameraState>({
-    hlookat: wrapDeg180(initialHlookat),
-    vlookat: clamp(initialVlookat, -82, 82),
-    fov: clamp(initialFov, 35, 115),
+    hlookat: wrapDeg180(activeScene?.initialHlookat ?? initialHlookat),
+    vlookat: clamp(activeScene?.initialVlookat ?? initialVlookat, -82, 82),
+    fov: clamp(activeScene?.initialFov ?? initialFov, 35, 115),
   });
   const camRef = useRef<CameraState>(cam);
   camRef.current = cam;
@@ -289,7 +253,8 @@ export function KrpanoViewer({
   const [autoRotate, setAutoRotate] = useState(autoRotateDefault);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [webglReady, setWebglReady] = useState(false);
-  const [activeTexUrl, setActiveTexUrl] = useState(panoramaUrl || DEFAULT_MUSEUM_PANO_URL);
+  const [activeTexUrl, setActiveTexUrl] = useState(resolvedPanoUrl);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const [xmlModalOpen, setXmlModalOpen] = useState(false);
   const [copiedXml, setCopiedXml] = useState(false);
 
@@ -303,8 +268,8 @@ export function KrpanoViewer({
   const lookToRef = useRef<LookToAnimation | null>(null);
 
   useEffect(() => {
-    setActiveTexUrl(panoramaUrl || DEFAULT_MUSEUM_PANO_URL);
-  }, [panoramaUrl]);
+    setActiveTexUrl(resolvedPanoUrl);
+  }, [resolvedPanoUrl]);
 
   // Smooth krpano lookto(ath, atv, fov) camera interpolation
   const lookTo = useCallback((ath: number, atv: number, fov = 62, duration = 680) => {
@@ -323,11 +288,40 @@ export function KrpanoViewer({
     };
   }, []);
 
-  // Trigger smooth lookto whenever targetView prop changes
+  // Switch 360° room (krpano loadscene equivalent with smooth blend)
+  const switchScene = useCallback(
+    (nextSceneId: string, customLook?: { ath: number; atv: number; fov?: number }) => {
+      const nextScene = scenes.find((s) => s.id === nextSceneId);
+      if (!nextScene) return;
+      setIsTransitioning(true);
+      setInternalSceneId(nextSceneId);
+      onSceneChange?.(nextSceneId);
+      window.setTimeout(() => {
+        setIsTransitioning(false);
+        lookTo(
+          customLook?.ath ?? nextScene.initialHlookat ?? 0,
+          customLook?.atv ?? nextScene.initialVlookat ?? 2,
+          customLook?.fov ?? nextScene.initialFov ?? 84,
+          650,
+        );
+      }, 160);
+    },
+    [scenes, onSceneChange, lookTo],
+  );
+
+  // Trigger smooth lookto (and optional scene switch) whenever targetView prop changes
   useEffect(() => {
     if (!targetView) return;
-    lookTo(targetView.ath, targetView.atv, targetView.fov ?? 64, 700);
-  }, [targetView, lookTo]);
+    if (targetView.sceneId && targetView.sceneId !== currentSceneId) {
+      switchScene(targetView.sceneId, {
+        ath: targetView.ath,
+        atv: targetView.atv,
+        fov: targetView.fov,
+      });
+    } else {
+      lookTo(targetView.ath, targetView.atv, targetView.fov ?? 64, 700);
+    }
+  }, [targetView, currentSceneId, switchScene, lookTo]);
 
   // Observe container size for crisp retina WebGL viewport and accurate 3D hotspot coordinates
   useEffect(() => {
@@ -419,7 +413,6 @@ export function KrpanoViewer({
 
     const texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, texture);
-    // Warm placeholder pixel until panorama finishes loading
     gl.texImage2D(
       gl.TEXTURE_2D,
       0,
@@ -440,8 +433,6 @@ export function KrpanoViewer({
       gl.bindTexture(gl.TEXTURE_2D, texture);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-      // Non-power-of-two equirectangular textures in WebGL1 require CLAMP_TO_EDGE + LINEAR;
-      // horizontal 360° wraparound is handled analytically by fract() in our fragment shader!
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
@@ -459,11 +450,9 @@ export function KrpanoViewer({
     const renderLoop = (now: number) => {
       if (cancelled || !gl) return;
 
-      // Update camera from active lookto() animation, inertia, or autorotate
       const anim = lookToRef.current;
       if (anim) {
         const t = clamp((now - anim.startTime) / anim.duration, 0, 1);
-        // Smooth cubic easeOut
         const ease = 1 - Math.pow(1 - t, 3);
         const nextCam: CameraState = {
           hlookat: wrapDeg180(anim.startH + (anim.targetH - anim.startH) * ease),
@@ -532,7 +521,6 @@ export function KrpanoViewer({
     };
   }, [activeTexUrl, fallbackPanoramaUrl, autoRotate]);
 
-  // Pointer drag handlers for 360° horizontal & 180° vertical spherical look
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest("button")) return;
     lookToRef.current = null;
@@ -555,7 +543,6 @@ export function KrpanoViewer({
     dragRef.current.lastX = e.clientX;
     dragRef.current.lastY = e.clientY;
 
-    // Scale sensitivity by current FOV so zoomed-in panning is fine-grained
     const speed = (camRef.current.fov / 90) * 0.22;
     const dH = -dx * speed;
     const dV = dy * speed;
@@ -583,7 +570,6 @@ export function KrpanoViewer({
     setIsDragging(false);
   };
 
-  // Mouse wheel zoom (FOV)
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     lookToRef.current = null;
@@ -612,13 +598,13 @@ export function KrpanoViewer({
   const generatedXml = useMemo(
     () =>
       buildKrpanoXml({
-        sceneName,
-        sceneTitle,
+        sceneName: resolvedSceneName,
+        sceneTitle: resolvedSceneTitle,
         panoramaUrl: activeTexUrl,
         cam,
-        hotspots,
+        hotspots: resolvedHotspots,
       }),
-    [sceneName, sceneTitle, activeTexUrl, cam, hotspots],
+    [resolvedSceneName, resolvedSceneTitle, activeTexUrl, cam, resolvedHotspots],
   );
 
   const handleCopyXml = () => {
@@ -641,7 +627,12 @@ export function KrpanoViewer({
       style={{ touchAction: "none" }}
     >
       {/* True 360°×180° WebGL Equirectangular Spherical Canvas */}
-      <canvas ref={canvasRef} className="block h-full w-full" />
+      <canvas
+        ref={canvasRef}
+        className={`block h-full w-full transition-opacity duration-200 ${
+          isTransitioning ? "opacity-40" : "opacity-100"
+        }`}
+      />
 
       {/* Fallback CSS Spherical Pan Layer for non-WebGL / Headless Test Environments */}
       {!webglReady && (
@@ -662,14 +653,27 @@ export function KrpanoViewer({
         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/65 via-transparent to-slate-950/35"
       />
 
-      {/* Top Bar: krpano Badge + Live Spherical Compass & Pitch Telemetry */}
+      {/* Top Bar: Multi-Room Switcher + Live Spherical Compass & Pitch Telemetry */}
       <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex flex-wrap items-center justify-between gap-2 px-3.5">
-        <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-white/20 bg-slate-950/75 px-3 py-1 text-[11px] font-bold text-white backdrop-blur-md">
-          <span
-            className="size-2 rounded-full"
-            style={{ backgroundColor: "#10B981", boxShadow: "0 0 8px #10B981" }}
-          />
-          <span>krpano 360°×180° Spherical View</span>
+        <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 rounded-full border border-white/20 bg-slate-950/80 p-1 text-[11px] font-bold text-white backdrop-blur-md">
+          {scenes.map((sc) => {
+            const on = sc.id === currentSceneId;
+            return (
+              <button
+                key={sc.id}
+                type="button"
+                onClick={() => switchScene(sc.id)}
+                className="flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-extrabold transition-all"
+                style={{
+                  backgroundColor: on ? C.foil : "transparent",
+                  color: on ? C.ink : "#FFFFFF",
+                }}
+              >
+                <DoorOpen className="size-3.5" />
+                <span>{sc.shortLabel}</span>
+              </button>
+            );
+          })}
         </div>
 
         <div className="flex items-center gap-2">
@@ -695,55 +699,64 @@ export function KrpanoViewer({
       </div>
 
       {/* 3D Spherical Hotspots Projected onto the 360° Sphere */}
-      {hotspots.map((hs, idx) => {
+      {resolvedHotspots.map((hs, idx) => {
         const proj = projectHotspotToScreen(hs.ath, hs.atv, cam, viewport.width, viewport.height);
         if (!proj.visible) return null;
 
         const isSelected = hs.id === selectedHotspotId;
+        const isPortal = Boolean(hs.targetSceneId);
+
         return (
           <button
             key={hs.id}
             type="button"
             onClick={() => {
               setAutoRotate(false);
-              lookTo(hs.ath, hs.atv, hs.fov ?? 60, 680);
-              onSelectHotspot?.(hs);
+              if (hs.targetSceneId) {
+                switchScene(hs.targetSceneId);
+              } else {
+                lookTo(hs.ath, hs.atv, hs.fov ?? 60, 680);
+                onSelectHotspot?.(hs);
+              }
             }}
-            aria-label={`Art piece ${idx + 1}: ${hs.title}`}
+            aria-label={isPortal ? hs.title : `Art piece ${idx + 1}: ${hs.title}`}
             className="group absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-150 hover:scale-110"
             style={{
               left: `${proj.x}px`,
               top: `${proj.y}px`,
-              zIndex: isSelected ? 30 : 20,
+              zIndex: isSelected || isPortal ? 30 : 20,
             }}
           >
-            {/* Pulsing Halo */}
             <span
               className="pointer-events-none absolute -inset-1.5 animate-ping rounded-full opacity-35"
               style={{
-                backgroundColor: isSelected ? C.foil : "#FFFFFF",
+                backgroundColor: isPortal ? "#10B981" : isSelected ? C.foil : "#FFFFFF",
                 animationDuration: "2.4s",
               }}
             />
             <div
               className="relative flex items-center gap-2 rounded-full border-2 px-3 py-1.5 shadow-xl backdrop-blur-md"
               style={{
-                backgroundColor: isSelected ? C.foil : "rgba(15, 23, 42, 0.88)",
-                borderColor: isSelected ? "#FFFFFF" : C.foil,
-                color: isSelected ? C.ink : "#FFFFFF",
+                backgroundColor: isPortal
+                  ? "#059669"
+                  : isSelected
+                    ? C.foil
+                    : "rgba(15, 23, 42, 0.88)",
+                borderColor: isPortal ? "#A7F3D0" : isSelected ? "#FFFFFF" : C.foil,
+                color: isPortal ? "#FFFFFF" : isSelected ? C.ink : "#FFFFFF",
               }}
             >
               <span
                 className="flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold"
                 style={{
-                  backgroundColor: isSelected ? C.cover : C.foil,
-                  color: isSelected ? "#FFFFFF" : C.ink,
+                  backgroundColor: isPortal ? "#FFFFFF" : isSelected ? C.cover : C.foil,
+                  color: isPortal ? "#059669" : isSelected ? "#FFFFFF" : C.ink,
                 }}
               >
                 {hs.badge ?? idx + 1}
               </span>
               <span
-                className="max-w-[130px] truncate text-[12px] font-bold sm:max-w-[175px]"
+                className="max-w-[140px] truncate text-[12px] font-bold sm:max-w-[185px]"
                 style={{ fontFamily: F.body }}
               >
                 {hs.title}
@@ -753,11 +766,11 @@ export function KrpanoViewer({
         );
       })}
 
-      {/* Optional Custom Overlay (e.g., Virtual Tour Story HUD) */}
+      {/* Optional Custom Overlay */}
       {children}
 
       {/* krpano Floating Control Dock */}
-      <div className=" absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/20 bg-slate-950/80 px-2.5 py-1.5 text-white shadow-2xl backdrop-blur-md">
+      <div className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/20 bg-slate-950/80 px-2.5 py-1.5 text-white shadow-2xl backdrop-blur-md">
         <button
           type="button"
           onClick={() => nudgeCamera(-35, 0)}
@@ -781,7 +794,7 @@ export function KrpanoViewer({
           onClick={() => nudgeCamera(0, 22)}
           aria-label="Tilt up"
           className="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
-          title="Look Up (Dome Ceiling)"
+          title="Look Up (Ceiling)"
         >
           <MoveUp className="size-4" />
         </button>
@@ -834,11 +847,11 @@ export function KrpanoViewer({
 
         <button
           type="button"
-          onClick={() => lookTo(0, 58, 72, 700)}
+          onClick={() => lookTo(0, 54, 72, 700)}
           className="hidden h-8 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold hover:bg-white/15 sm:flex"
-          title="Look up at the Glass Oculus Dome"
+          title="Look up at the Skylight Vault"
         >
-          Dome ↑
+          Ceiling ↑
         </button>
 
         <button
@@ -878,10 +891,10 @@ export function KrpanoViewer({
                   className="text-[11px] font-extrabold uppercase tracking-wider"
                   style={{ color: C.cover }}
                 >
-                  krpano 1.21 Scene Configuration
+                  krpano 1.21 Multi-Scene Configuration
                 </span>
                 <h4 className="text-[15px] font-bold" style={{ color: C.ink }}>
-                  /krpano/tour.xml ({sceneTitle})
+                  /krpano/tour.xml ({resolvedSceneTitle})
                 </h4>
               </div>
               <div className="flex items-center gap-2">
