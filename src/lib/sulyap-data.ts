@@ -1321,7 +1321,11 @@ export function getEnrichment(
         : dbGallery.length > 0
           ? dbGallery
           : (seed?.images ?? []),
-    quiz: custom.quiz && custom.quiz.length > 0 ? custom.quiz : seed?.quiz,
+    ...(custom.quiz && custom.quiz.length > 0
+      ? { quiz: custom.quiz }
+      : seed?.quiz
+        ? { quiz: seed.quiz }
+        : {}),
   };
 }
 
