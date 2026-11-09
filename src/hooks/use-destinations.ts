@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import type { Destination } from "@/lib/destinations";
 import { deleteDestinationProgress, FALLBACK_DESTINATIONS } from "@/lib/sulyap-data";
 
@@ -87,7 +88,7 @@ export function useSaveDestination() {
         ...(input.significance !== undefined ? { significance: input.significance } : {}),
         ...(input.sources !== undefined ? { sources: input.sources } : {}),
         ...(input.gallery_urls !== undefined ? { gallery_urls: input.gallery_urls } : {}),
-      };
+      } as Database["public"]["Tables"]["destinations"]["Update"];
 
       if (destination) {
         const { error } = await supabase
@@ -109,7 +110,9 @@ export function useSaveDestination() {
         return destination.id;
       }
 
-      const { error } = await supabase.from("destinations").insert(phase2Payload);
+      const { error } = await supabase
+        .from("destinations")
+        .insert(phase2Payload as Database["public"]["Tables"]["destinations"]["Insert"]);
       if (error) {
         if (error.message.includes("column") || error.message.includes("schema cache")) {
           const { error: retryErr } = await supabase.from("destinations").insert(phase1Payload);
