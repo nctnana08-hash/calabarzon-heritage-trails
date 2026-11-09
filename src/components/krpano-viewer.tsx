@@ -2,11 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowUpDown,
   Check,
+  ChevronLeft,
   ChevronRight,
   Code2,
   Compass,
   Copy,
   DoorOpen,
+  Eye,
   Footprints,
   Info,
   Maximize2,
@@ -334,6 +336,7 @@ export function KrpanoViewer({
     atv: number;
     fov?: number;
     sceneId?: string;
+    openHotspotId?: string;
     key?: string | number;
   } | null;
   autoRotateDefault?: boolean;
@@ -380,6 +383,14 @@ export function KrpanoViewer({
   const [showPath, setShowPath] = useState(true);
   const [pathStepIdx, setPathStepIdx] = useState(0);
   const [activeArtCard, setActiveArtCard] = useState<KrpanoHotspot | null>(null);
+  const [artZoom, setArtZoom] = useState<number>(1);
+  const [artPan, setArtPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const artDragRef = useRef<{
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+  } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [webglReady, setWebglReady] = useState(false);
   const [streamingTiles, setStreamingTiles] = useState(false);
@@ -469,19 +480,50 @@ export function KrpanoViewer({
     [scenes, onSceneChange, lookTo],
   );
 
-  // Trigger smooth lookto (and optional scene switch) whenever external targetView prop changes
+  // Trigger smooth lookto (and optional scene switch + foreground HD art showcase) whenever targetView changes
   useEffect(() => {
     if (!targetView) return;
+    const openId = targetView.openHotspotId;
+
+    const maybeOpenArt = (sceneIdToSearch: string) => {
+      if (!openId) return;
+      const sc = scenes.find((s) => s.id === sceneIdToSearch) ?? activeScene;
+      const found = (hotspots ?? sc?.hotspots ?? []).find(
+        (h) => h.id === openId && !h.targetSceneId,
+      );
+      if (found) {
+        setArtZoom(1);
+        setArtPan({ x: 0, y: 0 });
+        setActiveArtCard(found);
+      }
+    };
+
     if (targetView.sceneId && targetView.sceneId !== currentSceneId) {
       switchScene(targetView.sceneId, {
         ath: targetView.ath,
         atv: targetView.atv,
         fov: targetView.fov,
       });
+      if (openId) {
+        window.setTimeout(() => maybeOpenArt(targetView.sceneId!), 210);
+      }
     } else {
       lookTo(targetView.ath, targetView.atv, targetView.fov ?? 46, 650);
+      maybeOpenArt(currentSceneId);
     }
-  }, [targetView, currentSceneId, switchScene, lookTo]);
+  }, [targetView, currentSceneId, switchScene, lookTo, scenes, activeScene, hotspots]);
+
+  // Allow pressing Escape to close the Foreground Art Piece Showcase
+  useEffect(() => {
+    if (!activeArtCard) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActiveArtCard(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [activeArtCard]);
 
   // Observe container size for crisp retina WebGL viewport and accurate 3D hotspot coordinates
   useEffect(() => {
@@ -1023,12 +1065,33 @@ export function KrpanoViewer({
         });
       } else {
         lookTo(hs.ath, hs.atv, hs.fov ?? 38, 620);
+        setArtZoom(1);
+        setArtPan({ x: 0, y: 0 });
         setActiveArtCard(hs);
         onSelectHotspot?.(hs);
       }
     },
     [switchScene, lookTo, onSelectHotspot],
   );
+
+  // Art-only hotspots in current room for Previous / Next High-Res Artwork cycling
+  const roomArtHotspots = useMemo(
+    () => resolvedHotspots.filter((h) => !h.targetSceneId),
+    [resolvedHotspots],
+  );
+
+  const cycleForegroundArt = (dir: -1 | 1) => {
+    if (roomArtHotspots.length === 0 || !activeArtCard) return;
+    const curIdx = Math.max(
+      0,
+      roomArtHotspots.findIndex((h) => h.id === activeArtCard.id),
+    );
+    const nextArt =
+      roomArtHotspots[(curIdx + dir + roomArtHotspots.length) % roomArtHotspots.length];
+    if (nextArt) {
+      handleHotspotActivate(nextArt);
+    }
+  };
 
   // Ordered interactive path items (artworks + stairs + doors in pathOrder)
   const orderedPathHotspots = useMemo(() => {
@@ -1360,87 +1423,245 @@ export function KrpanoViewer({
         );
       })}
 
-      {/* In-Viewer Curatorial Art Piece Details Plaque (Appears on Artwork Click — Works in Fullscreen too!) */}
+      {/* Foreground Ultra-HD Art Piece Spotlight Showcase (Brings Artwork Forward in Crisp 1600×1000 HD + Full Description!) */}
       {activeArtCard && !activeArtCard.targetSceneId && (
-        <aside
+        <div
           data-art-card="true"
-          aria-label={`Artwork details: ${activeArtCard.title}`}
-          className="pointer-events-auto absolute right-3 bottom-16 z-35 w-[calc(100%-1.5rem)] max-w-[360px] rounded-2xl border border-[#CBD5E1] bg-white/96 p-4 shadow-2xl backdrop-blur-md sm:right-4 sm:bottom-16"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`High-resolution artwork inspection: ${activeArtCard.title}`}
+          onClick={() => setActiveArtCard(null)}
+          className="pointer-events-auto absolute inset-0 z-40 flex items-center justify-center bg-slate-950/80 p-2.5 backdrop-blur-md sm:p-5"
         >
-          <div className="flex items-start justify-between gap-2">
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10.5px] font-extrabold uppercase tracking-wider"
-              style={{ backgroundColor: "#EFF6FF", color: C.cover }}
-            >
-              <Info className="size-3" />{" "}
-              {activeArtCard.artDetails?.zone ?? activeScene?.shortLabel ?? "360° Exhibit"}
-            </span>
-            <button
-              type="button"
-              onClick={() => setActiveArtCard(null)}
-              aria-label="Close art piece details"
-              className="flex size-6 cursor-pointer items-center justify-center rounded-full border border-[#CBD5E1] text-[#475569] hover:bg-[#F1F5F9]"
-            >
-              <X className="size-3.5" />
-            </button>
-          </div>
-
-          <h4
-            className="mt-2 text-[17px] leading-snug font-extrabold"
-            style={{ fontFamily: F.display, color: C.ink }}
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="grid max-h-[94%] w-full max-w-4xl grid-cols-1 overflow-y-auto rounded-2xl border-2 border-[#FCD116]/75 bg-white shadow-[0_24px_64px_rgba(0,0,0,0.75)] md:grid-cols-12 md:overflow-hidden"
           >
-            {activeArtCard.title}
-          </h4>
+            {/* Left 7 Columns: Framed High-Resolution Art Piece Brought Right in Front of You */}
+            <div className="relative flex min-h-[200px] flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-[#131C31] via-[#0B1221] to-[#070C17] p-3 sm:min-h-[290px] sm:p-5 md:col-span-7">
+              {/* Top HD Badge & Interactive Canvas Zoom Bar */}
+              <div className="mb-2.5 flex w-full flex-wrap items-center justify-between gap-1.5 z-10">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[#6EE7B7]/60 bg-[#059669]/90 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-white">
+                  <Eye className="size-3" /> HD Front View · Crisp Close-Up
+                </span>
 
-          <p className="mt-0.5 text-[11.5px] font-bold" style={{ color: C.mute }}>
-            {activeArtCard.artDetails?.period ??
-              activeArtCard.subtitle ??
-              "CALABARZON Heritage Collection"}
-            {activeArtCard.artDetails?.medium ? ` · ${activeArtCard.artDetails.medium}` : ""}
-          </p>
+                <div className="flex items-center gap-1 rounded-full border border-white/20 bg-slate-950/80 p-0.5 text-[10.5px] font-extrabold text-white">
+                  {[
+                    { z: 1, label: "1× Fit" },
+                    { z: 2, label: "2× Zoom" },
+                    { z: 3.2, label: "3.2× Macro" },
+                  ].map((opt) => {
+                    const activeZ = Math.abs(artZoom - opt.z) < 0.1;
+                    return (
+                      <button
+                        key={opt.label}
+                        type="button"
+                        onClick={() => {
+                          setArtZoom(opt.z);
+                          if (opt.z === 1) setArtPan({ x: 0, y: 0 });
+                        }}
+                        className="cursor-pointer rounded-full px-2 py-0.5 transition-colors"
+                        style={{
+                          backgroundColor: activeZ ? C.foil : "transparent",
+                          color: activeZ ? C.ink : "#E2E8F0",
+                        }}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-          <p
-            className="mt-2.5 text-[13px] leading-relaxed font-medium"
-            style={{ fontFamily: F.body, color: C.ink }}
-          >
-            {activeArtCard.artDetails?.description ??
-              "Click Macro Zoom to inspect this heritage artwork closely in full 360° spherical projection, or continue along the museum floor path."}
-          </p>
+              {/* Museum Gilt & Mahogany Picture Frame Housing the Crisp 1,600×1,000 Artwork */}
+              <div
+                onPointerDown={(e) => {
+                  if (artZoom <= 1) return;
+                  e.stopPropagation();
+                  artDragRef.current = {
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    origX: artPan.x,
+                    origY: artPan.y,
+                  };
+                  e.currentTarget.setPointerCapture?.(e.pointerId);
+                }}
+                onPointerMove={(e) => {
+                  if (!artDragRef.current || artZoom <= 1) return;
+                  e.stopPropagation();
+                  const dx = e.clientX - artDragRef.current.startX;
+                  const dy = e.clientY - artDragRef.current.startY;
+                  const maxPan = 140 * (artZoom - 1);
+                  setArtPan({
+                    x: clamp(artDragRef.current.origX + dx, -maxPan, maxPan),
+                    y: clamp(artDragRef.current.origY + dy, -maxPan, maxPan),
+                  });
+                }}
+                onPointerUp={() => {
+                  artDragRef.current = null;
+                }}
+                onPointerCancel={() => {
+                  artDragRef.current = null;
+                }}
+                onDoubleClick={() => {
+                  if (artZoom > 1) {
+                    setArtZoom(1);
+                    setArtPan({ x: 0, y: 0 });
+                  } else {
+                    setArtZoom(2.2);
+                  }
+                }}
+                className={`relative w-full overflow-hidden rounded-lg border-[5px] border-[#D4AF37] bg-[#1E140C] shadow-[0_18px_44px_rgba(0,0,0,0.85)] ring-2 ring-[#5C3A16] ${
+                  artZoom > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
+                }`}
+              >
+                <img
+                  src={
+                    activeArtCard.artDetails?.imageUrl ??
+                    "/panoramas/artworks/kawit-proclamation-hd.webp"
+                  }
+                  alt={activeArtCard.title}
+                  draggable={false}
+                  className="block max-h-[220px] w-full object-cover transition-transform duration-150 sm:max-h-[320px]"
+                  style={{
+                    transform: `scale(${artZoom}) translate(${artPan.x / artZoom}px, ${artPan.y / artZoom}px)`,
+                  }}
+                />
+              </div>
 
-          {activeArtCard.artDetails?.highlight ? (
-            <div className="mt-2 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-3 py-1.5 text-[11.5px] font-semibold text-[#92400E]">
-              ✨ {activeArtCard.artDetails.highlight}
+              <p className="mt-2 text-center text-[10.5px] font-medium text-slate-300">
+                {artZoom > 1
+                  ? "Drag the canvas to inspect details · Double-click to reset"
+                  : "Double-click artwork or tap 2× / 3.2× above to inspect fine brushstrokes"}
+              </p>
             </div>
-          ) : null}
 
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-2.5">
-            <button
-              type="button"
-              onClick={() => {
-                const zoomedIn = camRef.current.fov <= 26;
-                lookTo(
-                  activeArtCard.ath,
-                  activeArtCard.atv,
-                  zoomedIn ? (activeArtCard.fov ?? 44) : 22,
-                  520,
-                );
-              }}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-[#EFF6FF] px-2.5 py-1.5 text-[11.5px] font-extrabold text-[#0038A8] hover:bg-[#DBEAFE]"
-            >
-              <ZoomIn className="size-3.5" />
-              {cam.fov <= 26 ? "Frame View" : "Macro Zoom (22°)"}
-            </button>
+            {/* Right 5 Columns: Complete Art Piece Details, Metadata & Curatorial Description */}
+            <div className="flex max-h-[380px] flex-col justify-between overflow-y-auto bg-white p-4 sm:max-h-[440px] sm:p-5 md:col-span-5">
+              <div>
+                <div className="flex items-start justify-between gap-2">
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10.5px] font-extrabold uppercase tracking-wider"
+                    style={{ backgroundColor: "#EFF6FF", color: C.cover }}
+                  >
+                    <Info className="size-3" />{" "}
+                    {activeArtCard.artDetails?.zone ?? activeScene?.shortLabel ?? "360° Exhibit"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setActiveArtCard(null)}
+                    aria-label="Close art piece showcase"
+                    className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-[#CBD5E1] text-[#475569] hover:bg-[#F1F5F9]"
+                  >
+                    <X className="size-4" />
+                  </button>
+                </div>
 
-            <button
-              type="button"
-              onClick={stepAlongPath}
-              className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-[11.5px] font-extrabold text-white"
-              style={{ backgroundColor: C.cover }}
-            >
-              Next on Path <ChevronRight className="size-3.5" />
-            </button>
+                <h4
+                  className="mt-2 text-[18px] leading-snug font-extrabold sm:text-[20px]"
+                  style={{ fontFamily: F.display, color: C.ink }}
+                >
+                  {activeArtCard.title}
+                </h4>
+
+                {activeArtCard.artDetails?.filTitle ? (
+                  <p className="mt-0.5 text-[12px] font-semibold italic" style={{ color: C.cover }}>
+                    “{activeArtCard.artDetails.filTitle}”
+                  </p>
+                ) : null}
+
+                {/* Structured Museum Metadata Chips */}
+                <div className="mt-2.5 space-y-1 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-2.5 text-[11.5px]">
+                  {activeArtCard.artDetails?.artist ? (
+                    <div>
+                      <span className="font-extrabold text-[#475569]">Artist / Maker: </span>
+                      <span className="font-semibold" style={{ color: C.ink }}>
+                        {activeArtCard.artDetails.artist}
+                      </span>
+                    </div>
+                  ) : null}
+                  <div>
+                    <span className="font-extrabold text-[#475569]">Period: </span>
+                    <span className="font-semibold" style={{ color: C.ink }}>
+                      {activeArtCard.artDetails?.period ??
+                        activeArtCard.subtitle ??
+                        "CALABARZON Heritage Collection"}
+                    </span>
+                  </div>
+                  {activeArtCard.artDetails?.medium ? (
+                    <div>
+                      <span className="font-extrabold text-[#475569]">Medium: </span>
+                      <span className="font-semibold" style={{ color: C.ink }}>
+                        {activeArtCard.artDetails.medium}
+                      </span>
+                    </div>
+                  ) : null}
+                  {activeArtCard.artDetails?.dimensions ? (
+                    <div>
+                      <span className="font-extrabold text-[#475569]">Scale: </span>
+                      <span className="font-semibold" style={{ color: C.ink }}>
+                        {activeArtCard.artDetails.dimensions}
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Full Curatorial Description of the Art Piece */}
+                <p
+                  className="mt-3 text-[13.5px] leading-relaxed font-medium"
+                  style={{ fontFamily: F.body, color: C.ink }}
+                >
+                  {activeArtCard.artDetails?.description ??
+                    "Inspect this curated heritage piece up close in crisp foreground resolution, or return to the 360° room to continue exploring."}
+                </p>
+
+                {activeArtCard.artDetails?.conservationNote ||
+                activeArtCard.artDetails?.highlight ? (
+                  <div className="mt-2.5 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-3 py-2 text-[11.5px] font-semibold text-[#92400E]">
+                    ✨{" "}
+                    {activeArtCard.artDetails.conservationNote ??
+                      activeArtCard.artDetails.highlight}
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Bottom Navigation & Step-Back Bar */}
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-3">
+                {roomArtHotspots.length > 1 ? (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => cycleForegroundArt(-1)}
+                      className="inline-flex cursor-pointer items-center gap-0.5 rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-[11.5px] font-extrabold hover:bg-[#EFF6FF]"
+                      style={{ color: C.ink }}
+                    >
+                      <ChevronLeft className="size-3.5" /> Prev
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => cycleForegroundArt(1)}
+                      className="inline-flex cursor-pointer items-center gap-0.5 rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-1.5 text-[11.5px] font-extrabold hover:bg-[#EFF6FF]"
+                      style={{ color: C.ink }}
+                    >
+                      Next Art <ChevronRight className="size-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <span />
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setActiveArtCard(null)}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3.5 py-1.5 text-[12px] font-extrabold text-white shadow-xs"
+                  style={{ backgroundColor: C.cover }}
+                >
+                  Step Back to 360°
+                </button>
+              </div>
+            </div>
           </div>
-        </aside>
+        </div>
       )}
 
       {/* Optional Custom Overlay */}

@@ -1392,3 +1392,57 @@ export function getArtPieces360(
     },
   ];
 }
+
+export const ARTWORK_HD_PLATES = {
+  kawit: "/panoramas/artworks/kawit-proclamation-hd.webp",
+  taal: "/panoramas/artworks/taal-volcano-sunrise-hd.webp",
+  paete: "/panoramas/artworks/paete-woodcarvers-hd.webp",
+  pahiyas: "/panoramas/artworks/pahiyas-banahaw-hd.webp",
+  rizal: "/panoramas/artworks/rizal-calamba-study-hd.webp",
+  gold: "/panoramas/artworks/batangas-gold-pina-hd.webp",
+  monument: "/panoramas/artworks/inang-bayan-monument-hd.webp",
+  ancestral: "/panoramas/artworks/bahay-kubo-ancestral-hd.webp",
+  retablo: "/panoramas/artworks/baroque-church-retablo-hd.webp",
+  modernist: "/panoramas/artworks/angono-modernist-folk-hd.webp",
+} as const;
+
+/**
+ * Selects a razor-sharp 1,600×1,066 Ultra-HD close-up museum plate for foreground inspection
+ * when an art piece hotspot is clicked inside the 360° viewer.
+ */
+export function getArtPieceHdImage(
+  piece: Pick<ArtPiece360, "id" | "motif" | "title">,
+  province?: string,
+  slug?: string,
+): string {
+  if (piece.motif === "retablo") return ARTWORK_HD_PLATES.retablo;
+  if (piece.motif === "natural") return ARTWORK_HD_PLATES.taal;
+  if (piece.motif === "manuscript") {
+    return province === "Cavite" ? ARTWORK_HD_PLATES.kawit : ARTWORK_HD_PLATES.rizal;
+  }
+  if (piece.motif === "vessel") return ARTWORK_HD_PLATES.gold;
+  if (piece.motif === "petroglyph") return ARTWORK_HD_PLATES.modernist;
+
+  if (slug?.includes("aguinaldo") || (province === "Cavite" && piece.motif === "fresco")) {
+    return ARTWORK_HD_PLATES.kawit;
+  }
+  if (slug?.includes("rizal-shrine")) {
+    return piece.motif === "sculpture" ? ARTWORK_HD_PLATES.monument : ARTWORK_HD_PLATES.rizal;
+  }
+  if (slug?.includes("paete")) {
+    return piece.motif === "arch" ? ARTWORK_HD_PLATES.retablo : ARTWORK_HD_PLATES.paete;
+  }
+  if (province === "Quezon") {
+    return piece.motif === "arch" ? ARTWORK_HD_PLATES.retablo : ARTWORK_HD_PLATES.pahiyas;
+  }
+  if (province === "Rizal") {
+    return piece.motif === "arch" ? ARTWORK_HD_PLATES.retablo : ARTWORK_HD_PLATES.modernist;
+  }
+  if (piece.motif === "sculpture") {
+    return province === "Laguna" ? ARTWORK_HD_PLATES.paete : ARTWORK_HD_PLATES.monument;
+  }
+  if (piece.motif === "arch") {
+    return province === "Cavite" ? ARTWORK_HD_PLATES.kawit : ARTWORK_HD_PLATES.ancestral;
+  }
+  return ARTWORK_HD_PLATES.pahiyas;
+}

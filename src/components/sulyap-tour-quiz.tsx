@@ -12,7 +12,7 @@ import {
   UPSTAIRS_12K_TILES,
   type KrpanoSceneConfig,
 } from "@/lib/krpano-scenes";
-import { getArtPieces360 } from "@/lib/sulyap-art-360";
+import { ARTWORK_HD_PLATES, getArtPieceHdImage, getArtPieces360 } from "@/lib/sulyap-art-360";
 import {
   getEnrichment,
   getQuestionsForDestination,
@@ -166,11 +166,18 @@ export function SulyapTour({
             fov: STOPS[0].fov,
             pathOrder: 1,
             artDetails: {
+              imageUrl: artPieces[0]
+                ? getArtPieceHdImage(artPieces[0], destination.province, destination.slug)
+                : ARTWORK_HD_PLATES.kawit,
+              filTitle: artPieces[0]?.filTitle,
+              artist: artPieces[0]?.artistOrMaker,
               period: artPieces[0]?.period ?? destination.province,
               medium: artPieces[0]?.medium ?? destination.category,
+              dimensions: artPieces[0]?.dimensions,
               zone: "Stop 1 · 1F Ground 12K Atrium",
               province: destination.province,
               description: destination.description,
+              conservationNote: artPieces[0]?.conservationNote,
               highlight: "Next: Click the 🪜 Grand Staircase to climb upstairs to Stop 2!",
             },
           },
@@ -245,11 +252,18 @@ export function SulyapTour({
             fov: STOPS[1].fov,
             pathOrder: 1,
             artDetails: {
+              imageUrl: artPieces[1]
+                ? getArtPieceHdImage(artPieces[1], destination.province, destination.slug)
+                : ARTWORK_HD_PLATES.pahiyas,
+              filTitle: artPieces[1]?.filTitle,
+              artist: artPieces[1]?.artistOrMaker,
               period: artPieces[1]?.period ?? "Historical Archive",
               medium: artPieces[1]?.medium ?? "2F Mezzanine Centerpiece",
+              dimensions: artPieces[1]?.dimensions,
               zone: "Stop 2 · 2F Upstairs 12K Mezzanine",
               province: destination.province,
               description: enrichment.history || destination.description,
+              conservationNote: artPieces[1]?.conservationNote,
               highlight: "Next: Walk through the 🚪 East Skybridge Door to reach Stop 3!",
             },
           },
@@ -315,11 +329,18 @@ export function SulyapTour({
             fov: STOPS[2].fov,
             pathOrder: 1,
             artDetails: {
+              imageUrl: artPieces[2]
+                ? getArtPieceHdImage(artPieces[2], destination.province, destination.slug)
+                : ARTWORK_HD_PLATES.monument,
+              filTitle: artPieces[2]?.filTitle,
+              artist: artPieces[2]?.artistOrMaker,
               period: artPieces[2]?.period ?? "Living Heritage",
               medium: artPieces[2]?.medium ?? "Monumental Exhibit",
+              dimensions: artPieces[2]?.dimensions,
               zone: "Stop 3 · Grand Rotunda",
               province: destination.province,
               description: enrichment.significance || destination.description,
+              conservationNote: artPieces[2]?.conservationNote,
               highlight: "You reached the final tour stop — click 'Collect My Stamp' below!",
             },
           },
@@ -372,11 +393,18 @@ export function SulyapTour({
             atv: 4,
             fov: 50,
             artDetails: {
+              imageUrl: artPieces[3]
+                ? getArtPieceHdImage(artPieces[3], destination.province, destination.slug)
+                : ARTWORK_HD_PLATES.modernist,
+              filTitle: artPieces[3]?.filTitle,
+              artist: artPieces[3]?.artistOrMaker,
               period: artPieces[3]?.period ?? "Regional Masterwork",
               medium: artPieces[3]?.medium ?? "Oil on Canvas",
+              dimensions: artPieces[3]?.dimensions,
               zone: "1F Fine Arts Wing",
               province: destination.province,
               description: artPieces[3]?.details ?? destination.description,
+              conservationNote: artPieces[3]?.conservationNote,
             },
           },
           {

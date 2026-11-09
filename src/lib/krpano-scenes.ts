@@ -1,3 +1,5 @@
+import { ARTWORK_HD_PLATES } from "./sulyap-art-360";
+
 export const CALABARZON_12K_PANO_URL = "/panoramas/calabarzon-heritage-salon-12k.jpg";
 export const UPSTAIRS_12K_PANO_URL = "/panoramas/calabarzon-upstairs-mezzanine-12k.jpg";
 export const DEFAULT_MUSEUM_PANO_URL = "/panoramas/museum-rotunda-360.jpg";
@@ -62,12 +64,18 @@ export const GALLERY_TILES = {
 export type KrpanoHotspotKind = "art" | "door" | "stairs-up" | "stairs-down" | "path";
 
 export type KrpanoArtDetails = {
+  /** Dedicated 1,600×1,000 Ultra-HD close-up image brought forward when clicked */
+  imageUrl?: string;
+  filTitle?: string;
+  artist?: string;
   period: string;
   medium: string;
+  dimensions?: string;
   zone: string;
   province?: string;
   description: string;
   highlight?: string;
+  conservationNote?: string;
 };
 
 export type KrpanoHotspot = {
@@ -87,7 +95,7 @@ export type KrpanoHotspot = {
   targetSceneId?: string;
   /** Optional arrival camera orientation after walking through door or climbing stairs */
   arrivalView?: { ath: number; atv: number; fov?: number };
-  /** Rich curatorial details shown in the in-viewer Art Piece Plaque when clicked */
+  /** Rich curatorial details & Ultra-HD foreground image shown when clicked */
   artDetails?: KrpanoArtDetails;
   /** Optional sequential order (1, 2, 3...) along the guided floor path */
   pathOrder?: number;
@@ -210,20 +218,25 @@ export const DEFAULT_MUSEUM_SCENES: KrpanoSceneConfig[] = [
         kind: "art",
         badge: "1",
         title: "1898 Kawit Independence Proclamation",
-        subtitle: "Cavite · North-West Bay",
+        subtitle: "Cavite · Click to Inspect in HD",
         ath: -30,
         atv: 3.4,
         fov: 36,
         pathOrder: 1,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.kawit,
+          filTitle: "Pagpapahayag ng Kasarinlan sa Kawit, Kabite (1898)",
+          artist: "Cavite Centennial Heritage Atelier",
           period: "June 12, 1898 · Kawit, Cavite",
           medium: "Classical Oil on Linen Canvas · Ornate Gilt Frame",
+          dimensions: "3.3 m × 2.3 m monumental canvas",
           zone: "1F Ground Atrium · North-West Bay",
           province: "Cavite",
           description:
-            "Depicts the historic unfurling of the Philippine Sun-and-Stars Flag from the Aguinaldo Shrine Bahay na Bato window before townsfolk gathered along Kawit's sunlit plaza.",
+            "Depicts the historic unfurling of the Philippine Sun-and-Stars Flag from the Aguinaldo Shrine Bahay na Bato balcony before cheering townsfolk and revolutionary soldiers gathered in Kawit, Cavite on June 12, 1898.",
           highlight:
-            "Zoom to 25° FOV to inspect individual oil impasto brushstrokes and balcony woodwork.",
+            "Use the 2× / 3.5× Zoom buttons on the left to inspect individual oil brushstrokes, Barong Tagalog embroidery, and balcony woodwork.",
+          conservationNote: "Preserved in climate-controlled museum gallery framing.",
         },
       },
       {
@@ -231,19 +244,25 @@ export const DEFAULT_MUSEUM_SCENES: KrpanoSceneConfig[] = [
         kind: "art",
         badge: "2",
         title: "Golden Sunrise Over Taal Volcano & Lake",
-        subtitle: "Batangas · North-East Bay",
+        subtitle: "Batangas · Click to Inspect in HD",
         ath: 30,
         atv: 3.4,
         fov: 36,
         pathOrder: 3,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.taal,
+          filTitle: "Bukang-Liwayway sa Bulkang Taal at Lawa",
+          artist: "Southern Luzon Realist Landscape School",
           period: "Early 20th Century · Batangas",
-          medium: "Luminous Realist Oil on Canvas",
+          medium: "Luminous Realist Oil Impasto on Canvas",
+          dimensions: "3.3 m × 2.3 m gallery canvas",
           zone: "1F Ground Atrium · North-East Bay",
           province: "Batangas",
           description:
-            "Captures Batangas's iconic Volcano Island rising from tranquil Taal Lake at dawn as wooden paraw outriggers glide past coconut groves.",
-          highlight: "Notice the golden sunrise water reflections and crisp horizon ridge details.",
+            "Captures Batangas's iconic Volcano Island rising from tranquil Taal Lake at golden sunrise as traditional wooden paraw outriggers glide past lush coconut palms.",
+          highlight:
+            "Zoom into the high-resolution canvas to examine the sunlit water ripples and volcanic crater ridge.",
+          conservationNote: "Protected behind museum anti-reflective UV glazing.",
         },
       },
       {
@@ -251,20 +270,24 @@ export const DEFAULT_MUSEUM_SCENES: KrpanoSceneConfig[] = [
         kind: "art",
         badge: "3",
         title: "Master Woodcarvers of Paete & Angono",
-        subtitle: "Laguna & Rizal · East Gallery Wall",
+        subtitle: "Laguna & Rizal · Click to Inspect in HD",
         ath: 59.7,
         atv: 3.4,
         fov: 36,
         pathOrder: 4,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.paete,
+          filTitle: "Mga Manlililok ng Paete at Pintor ng Angono",
+          artist: "Laguna & Rizal Guild of Master Artisans",
           period: "19th–20th Century Tradition · Laguna & Rizal",
-          medium: "Academic Oil on Canvas",
+          medium: "Academic Genre Oil on Canvas",
+          dimensions: "3.3 m × 2.3 m",
           zone: "1F Ground Atrium · East Colonnade",
           province: "Laguna",
           description:
-            "Honors the chisel masters of Paete, Laguna—the Carving Capital of the Philippines—and the folk muralists of Angono, Rizal inside a sunlit Bahay na Bato atelier.",
+            "Honors the chisel masters of Paete, Laguna—the Carving Capital of the Philippines—sculpting wooden santos beside folk muralists inside a sunlit Bahay na Bato workshop.",
           highlight:
-            "Zoom closely to see fine wood shavings, santos reliefs, and Capiz lattice light.",
+            "Inspect fine wood shavings, hand chisels (paet), and Capiz window light in crisp HD.",
         },
       },
       {
@@ -272,19 +295,23 @@ export const DEFAULT_MUSEUM_SCENES: KrpanoSceneConfig[] = [
         kind: "art",
         badge: "4",
         title: "Pahiyas Harvest of Lucban & Mt. Banahaw",
-        subtitle: "Quezon · West Gallery Wall",
+        subtitle: "Quezon · Click to Inspect in HD",
         ath: -59.7,
         atv: 3.4,
         fov: 36,
         pathOrder: 6,
         artDetails: {
-          period: "Mid-20th Century Modernist · Quezon",
-          medium: "Vibrant Modernist Oil Mural",
+          imageUrl: ARTWORK_HD_PLATES.pahiyas,
+          filTitle: "Kapistahan ng Pahiyas sa Paanan ng Bundok Banahaw",
+          artist: "Quezon Modernist Muralist Circle",
+          period: "Mid-20th Century Modernist · Lucban, Quezon",
+          medium: "Vibrant Modernist-Realist Oil Mural",
+          dimensions: "3.3 m × 2.3 m",
           zone: "1F Ground Atrium · West Colonnade",
           province: "Quezon",
           description:
-            "Celebrates Lucban's Maytime feast of San Isidro Labrador with translucent colorful kiping rice-wafer chandeliers draped across ancestral facades beneath Mount Banahaw.",
-          highlight: "Inspect the jewel-toned kiping leaf patterns and woven harvest baskets.",
+            "Celebrates Lucban's May 15 feast of San Isidro Labrador with colorful kiping rice-wafer chandeliers, overflowing harvest baskets, and townsfolk parading beneath mystical Mount Banahaw.",
+          highlight: "Zoom to 3.5× to see every jewel-toned kiping leaf and woven basket.",
         },
       },
       {
@@ -292,19 +319,23 @@ export const DEFAULT_MUSEUM_SCENES: KrpanoSceneConfig[] = [
         kind: "art",
         badge: "5",
         title: "Batangas 24K Gold & Piña-Jusi Regalia",
-        subtitle: "Batangas · South-East Alcove",
+        subtitle: "Batangas · Click to Inspect in HD",
         ath: 120.3,
         atv: 3.4,
         fov: 36,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.gold,
+          filTitle: "Sinaunang Ginto ng Batangas at Burdang Piña",
+          artist: "Pre-Colonial Tagalog Goldsmiths & Taal Embroiderers",
           period: "10th–19th Century · Batangas",
-          medium: "24K Filigree Gold & Hand-Embroidered Pineapple Fiber",
+          medium: "24K Filigree Gold Heirlooms & Calado Pineapple Fiber",
+          dimensions: "1.8 m illuminated velvet vitrine",
           zone: "1F Ground Atrium · South-East Alcove",
           province: "Batangas",
           description:
-            "Pairs pre-colonial Tagalog goldsmithing recovered in Batangas with gossamer calado-embroidered Piña-Jusi Barong Tagalog textiles.",
+            "Pairs pre-colonial Tagalog goldsmithing (lingling-o ornaments, filigree ceremonial buckle, and kinnari vessel) with gossamer calado-embroidered Piña-Jusi textiles from Taal.",
           highlight:
-            "Macro clarity reveals delicate gold granulation beads and translucent piña threads.",
+            "Studio macro photography reveals microscopic gold granulation beads and translucent piña threads.",
         },
       },
     ],
@@ -386,20 +417,24 @@ export const DEFAULT_MUSEUM_SCENES: KrpanoSceneConfig[] = [
         kind: "art",
         badge: "1",
         title: "Young Jose Rizal's Study in Calamba",
-        subtitle: "Laguna · Mezzanine North-West",
+        subtitle: "Laguna · Click to Inspect in HD",
         ath: -30,
         atv: 4,
         fov: 35,
         pathOrder: 1,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.rizal,
+          filTitle: "Ang Pag-aaral ng Batang si Jose Rizal sa Calamba",
+          artist: "Laguna Academic Portrait Tradition",
           period: "Late 19th Century · Calamba, Laguna",
           medium: "Chiaroscuro Classical Oil on Canvas",
+          dimensions: "2.9 m × 2.2 m",
           zone: "2F Mezzanine Sky Gallery · North-West Wall",
           province: "Laguna",
           description:
-            "Portrays young Jose Rizal reading by warm oil-lamp glow inside the family library in Calamba, surrounded by leather-bound volumes, botanical sketches, and Capiz moonlight.",
+            "Portrays young Jose Rizal reading by warm brass oil-lamp glow inside the Mercado family library in Calamba, surrounded by leather-bound folios, quill manuscripts, and cool Capiz window moonlight.",
           highlight:
-            "Zoom in to examine the feather quill, manuscript ink, and warm candlelight chiaroscuro.",
+            "Zoom into the foreground canvas to inspect the quill inkstand, open folios, and warm chiaroscuro lighting.",
         },
       },
       {
@@ -407,18 +442,22 @@ export const DEFAULT_MUSEUM_SCENES: KrpanoSceneConfig[] = [
         kind: "art",
         badge: "2",
         title: "Grand Pahiyas & Mount Banahaw Panorama",
-        subtitle: "Quezon · Mezzanine Centerpiece",
+        subtitle: "Quezon · Click to Inspect in HD",
         ath: 0,
         atv: 4,
         fov: 36,
         pathOrder: 2,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.pahiyas,
+          filTitle: "Dakilang Tanawin ng Pahiyas at Bundok Banahaw",
+          artist: "Quezon Heritage Masterworks Studio",
           period: "Heritage Masterwork · Lucban, Quezon",
           medium: "Monumental Oil & Tempera on Panel",
+          dimensions: "3.3 m × 2.3 m centerpiece",
           zone: "2F Mezzanine Sky Gallery · North Centerpiece",
           province: "Quezon",
           description:
-            "Anchors the second-floor sky gallery with a sweeping celebration of Quezon Province's agricultural bounty, kiping artistry, and sacred Mount Banahaw.",
+            "Anchors the second-floor sky gallery with a sweeping celebration of Quezon Province's agricultural bounty, vibrant kiping chandeliers, and sacred Mount Banahaw.",
           highlight: "Illuminated directly beneath the 2nd-floor leaded-glass oculus skylight.",
         },
       },
@@ -427,38 +466,48 @@ export const DEFAULT_MUSEUM_SCENES: KrpanoSceneConfig[] = [
         kind: "art",
         badge: "3",
         title: "Royal Tagalog Gold & Piña-Seda Treasury",
-        subtitle: "Batangas · Mezzanine North-East",
+        subtitle: "Batangas · Click to Inspect in HD",
         ath: 30,
         atv: 4,
         fov: 35,
         pathOrder: 3,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.gold,
+          filTitle: "Kayamanang Ginto at Habi ng Katagalugan",
+          artist: "Batangas Goldsmiths & Taal Master Weavers",
           period: "Pre-Colonial to 1890s · Batangas",
-          medium: "24K Gold Artifacts & Embroidered Textile Plate",
+          medium: "24K Gold Artifacts & Calado-Embroidered Textile Plate",
+          dimensions: "2.9 m × 2.2 m treasury display",
           zone: "2F Mezzanine Sky Gallery · North-East Wall",
           province: "Batangas",
           description:
-            "Showcases intricate Batangas filigree gold ceremonial ornaments alongside hand-loomed piña-seda embroidery preserved in the upstairs treasury.",
-          highlight: "Native 12K resolution lets you inspect filigree twists without pixelation.",
+            "Showcases intricate Batangas filigree gold ceremonial ornaments alongside hand-loomed piña-seda embroidery preserved in the upstairs mezzanine treasury.",
+          highlight:
+            "High-resolution foreground view lets you examine delicate filigree twists with zero blur.",
         },
       },
       {
         id: "hs-upstairs-kawit-study",
         kind: "art",
         badge: "4",
-        title: "Proclamation Morning in Cavite Viejo",
-        subtitle: "Cavite · Mezzanine East Bay",
+        title: "Baroque Sanctuary & Gilded Retablo Mayor",
+        subtitle: "Laguna & Batangas · Click to Inspect in HD",
         ath: 58,
         atv: 4,
         fov: 36,
         artDetails: {
-          period: "1898 Centennial Collection · Cavite",
-          medium: "Oil on Canvas",
+          imageUrl: ARTWORK_HD_PLATES.retablo,
+          filTitle: "Ginintuang Retablo Mayor ng Sinaunang Simbahan",
+          artist: "Colonial Ecclesiastical Builders & Santeros",
+          period: "18th–19th Century · Taal & Paete",
+          medium: "Architectural Oil & Gold-Leaf Study on Canvas",
+          dimensions: "2.9 m × 2.2 m",
           zone: "2F Mezzanine Sky Gallery · East Bay",
-          province: "Cavite",
+          province: "Batangas",
           description:
-            "Upper-level curatorial study highlighting the civic bands from San Francisco de Malabon who first played the Marcha Filipina Magdalo on June 12, 1898.",
-          highlight: "Paired beside the East Skybridge doorway leading into the Grand Rotunda.",
+            "Celebrates CALABARZON's grand earthquake-Baroque and Neoclassical stone churches—from Taal Basilica to Paete and Majayjay—highlighting multi-tiered gold-leaf retablo altars.",
+          highlight:
+            "Inspect Solomonic columns, saint niches, and stained-glass sunbeams in high resolution.",
         },
       },
     ],
@@ -538,19 +587,23 @@ export const DEFAULT_MUSEUM_SCENES: KrpanoSceneConfig[] = [
         kind: "art",
         badge: "1",
         title: "Inang Bayan Torch Monument",
-        subtitle: "Rotunda Centerpiece",
+        subtitle: "Rotunda Centerpiece · Click for HD",
         ath: -2,
         atv: 6,
         fov: 54,
         pathOrder: 1,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.monument,
+          filTitle: "Bantayog ng Inang Bayan at Sulo ng Kalayaan",
+          artist: "National Heritage Foundry Sculptors",
           period: "National Heritage Sculpture · 20th Century",
-          medium: "Cast Bronze on Nero Marquina Marble Plinth",
+          medium: "Cast Bronze on Polished Nero Marquina Marble Plinth",
+          dimensions: "4.6 m monument height",
           zone: "1F Grand Rotunda · Central Oculus",
           description:
-            "Rising beneath the stained-glass rotunda dome, this bronze allegory of Inang Bayan lifts the torch of civic liberty and regional unity.",
+            "Rising beneath the stained-glass rotunda dome, this neoclassical cast-bronze statue of Inang Bayan raises the golden torch of liberty while holding the eight-rayed sun shield of Philippine sovereignty.",
           highlight:
-            "Walk 360° around the circular marble inlay or look straight up at the glass oculus.",
+            "Foreground HD studio view reveals crisp Filipiniana bronze drapery and stained-glass oculus reflections.",
         },
       },
       {
@@ -558,36 +611,46 @@ export const DEFAULT_MUSEUM_SCENES: KrpanoSceneConfig[] = [
         kind: "art",
         badge: "2",
         title: "Revolution & Kasaysayan Mural (Cavite)",
-        subtitle: "West Rotunda Wall",
+        subtitle: "West Rotunda Wall · Click for HD",
         ath: -128,
         atv: 3,
         fov: 52,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.kawit,
+          filTitle: "Mural ng Himagsikan at Kasaysayan ng Kabite",
+          artist: "Historical Muralist Guild",
           period: "Centennial Historical Cycle · Cavite",
           medium: "Panoramic Oil on Canvas",
+          dimensions: "5.4 m × 3.2 m",
           zone: "1F Grand Rotunda · West Gallery",
           province: "Cavite",
           description:
-            "Chronicles the struggle for Philippine nationhood across Cavite's historic towns from Imus and Binakayan to Kawit.",
+            "Chronicles the struggle for Philippine nationhood across Cavite's historic towns from Imus and Binakayan to the June 12, 1898 proclamation in Kawit.",
+          highlight: "Brought forward in crisp 1,600×1,000 HD so every figure is crystal clear.",
         },
       },
       {
         id: "hs-bahay-kubo",
         kind: "art",
         badge: "3",
-        title: "Ancestral Bahay Kubo & Gold Vessels",
-        subtitle: "Quezon & Batangas · East Wing",
+        title: "Ancestral Bahay Kubo & Burial Jars",
+        subtitle: "Quezon & Batangas · Click for HD",
         ath: 92,
         atv: -2,
         fov: 52,
         pathOrder: 2,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.ancestral,
+          filTitle: "Sinaunang Bahay Kubo, Bahay-na-Bato at Tapayan",
+          artist: "Master Vernacular Carpenters of Quezon & Laguna",
           period: "Vernacular & Pre-Colonial Collection",
-          medium: "Bamboo, Nipa Palm, Capiz & Excavated Gold",
+          medium: "Woven Bamboo Sawali, Nipa Thatch, Capiz & Earthenware",
+          dimensions: "2.4 m architectural scale model",
           zone: "1F Grand Rotunda · East Alcove",
           province: "Quezon",
           description:
-            "Architectural scale study of elevated Tagalog vernacular timber framing displayed beside Batangas ritual vessels and woven textiles.",
+            "Intricate museum architectural study of elevated Tagalog vernacular timber framing, woven sawali walls, and sliding Capiz shell windows displayed beside excavated pre-colonial earthenware jars.",
+          highlight: "Zoom to 3.5× to inspect woven bamboo lashing and Capiz window joinery.",
         },
       },
     ],
@@ -646,56 +709,72 @@ export const DEFAULT_MUSEUM_SCENES: KrpanoSceneConfig[] = [
         id: "hs-grand-canvas",
         kind: "art",
         badge: "1",
-        title: "Monumental Historical Canvas",
-        subtitle: "North-West Gallery Wall",
+        title: "Baroque Sanctuary & Altar Masterwork",
+        subtitle: "North-West Wall · Click for HD",
         ath: -48,
         atv: 4,
         fov: 50,
         pathOrder: 1,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.retablo,
+          filTitle: "Dakilang Pintura ng Dambana at Retablo",
+          artist: "19th-Century Academic Salon Masters",
           period: "19th-Century Academic Salon Tradition",
-          medium: "Monumental Oil on Canvas",
+          medium: "Monumental Oil on Linen Canvas",
+          dimensions: "4.8 m × 3.1 m",
           zone: "1F Fine Arts Hall · Main Salon",
           description:
-            "Grand-scale allegorical history painting framed in carved gilt wood above polished tropical hardwood flooring.",
+            "Grand-scale architectural and liturgical oil masterwork depicting sunbeams illuminating a gilded Baroque retablo sanctuary, framed in carved gilt wood above polished Narra flooring.",
+          highlight: "Brought forward in full HD clarity despite the wide gallery room backdrop.",
         },
       },
       {
         id: "hs-pastoral-landscapes",
         kind: "art",
         badge: "2",
-        title: "Classical Tagalog Landscapes & Portraits",
-        subtitle: "Laguna & Rizal · West Salon",
+        title: "Classical Tagalog Lake & Volcano Pastorale",
+        subtitle: "Laguna & Batangas · Click for HD",
         ath: -80,
         atv: 5,
         fov: 52,
         pathOrder: 2,
         artDetails: {
-          period: "Early 20th Century · Laguna & Rizal",
+          imageUrl: ARTWORK_HD_PLATES.taal,
+          filTitle: "Tanawing Bukid at Lawa ng Katagalugan",
+          artist: "Tagalog Plein-Air Landscape School",
+          period: "Early 20th Century · Laguna & Batangas",
           medium: "Oil on Wood Panel & Canvas",
+          dimensions: "2.4 m × 1.6 m",
           zone: "1F Fine Arts Hall · West Bay",
-          province: "Laguna",
+          province: "Batangas",
           description:
-            "Sun-drenched rice paddies, Laguna lakeshore scenes, and ilustrado portraiture celebrating everyday Tagalog life.",
+            "Sun-drenched waters, outrigger bancas, and tranquil volcanic horizons celebrating everyday rural life across Batangas and Laguna.",
+          highlight: "Zoom into the HD plate to inspect warm golden-hour brushwork.",
         },
       },
       {
         id: "hs-modernist-folk",
         kind: "art",
         badge: "3",
-        title: "Modernist Folk & Cubist Masterworks",
-        subtitle: "Angono, Rizal · East Salon",
+        title: "Angono Lakeside Modernist & Cubist Folk",
+        subtitle: "Angono, Rizal · Click for HD",
         ath: 42,
         atv: 4,
         fov: 52,
         pathOrder: 3,
         artDetails: {
+          imageUrl: ARTWORK_HD_PLATES.modernist,
+          filTitle: "Makabagong Sining-Bayan ng Angono sa Lawa",
+          artist: "Rizal Lakeside Modernist Guild (Angono & Tanay)",
           period: "Post-War Philippine Modernism · Rizal",
-          medium: "Oil & Acrylic on Canvas",
+          medium: "Transparent Cubist Oil on Canvas",
+          dimensions: "3.2 m × 2.0 m",
           zone: "1F Fine Arts Hall · East Bay",
           province: "Rizal",
           description:
-            "Bold geometric color planes and rhythmic folk compositions inspired by the lakeside artists of Angono and Tanay, Rizal.",
+            "Vibrant transparent-Cubist light planes, fisherfolk hauling Laguna de Bay nets, folk guitarists, and blooming lotus flowers inspired by the National Artists and lakeside masters of Angono, Rizal.",
+          highlight:
+            "Inspect the prism-like geometric color planes and rich canvas impasto in 1,600×1,000 HD.",
         },
       },
     ],
@@ -719,7 +798,7 @@ export function buildKrpanoXml({
     .map((h) => {
       const action = h.targetSceneId
         ? `loadscene(scene_${h.targetSceneId}, null, MERGE, BLEND(0.8));`
-        : `lookto(${h.ath.toFixed(1)}, ${h.atv.toFixed(1)}, ${(h.fov ?? 46).toFixed(1)}, smooth(120,60,30));`;
+        : `lookto(${h.ath.toFixed(1)}, ${h.atv.toFixed(1)}, ${(h.fov ?? 46).toFixed(1)}, smooth(120,60,30)); popup_art_hd(${h.id});`;
       return `    <hotspot name="hs_${h.id.replace(/[^a-zA-Z0-9_]/g, "_")}"
              style="${h.kind === "stairs-up" || h.kind === "stairs-down" ? "skin_stairsstyle" : h.kind === "door" ? "skin_doorstyle" : "skin_hotspotstyle"}"
              ath="${h.ath.toFixed(1)}"
@@ -740,7 +819,7 @@ export function buildKrpanoXml({
           fovtype="MFOV"
           fov="${cam.fov.toFixed(1)}"
           maxpixelzoom="4.0"
-          fovmin="22.0"
+          fovmin="20.0"
           fovmax="115.0"
           limitview="auto" />
 

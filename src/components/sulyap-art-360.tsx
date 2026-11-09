@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ChevronLeft, ChevronRight, ExternalLink, RotateCw, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, ExternalLink, Eye, RotateCw, Sparkles } from "lucide-react";
 import type { Destination } from "@/lib/destinations";
 import {
   CALABARZON_12K_PANO_URL,
@@ -12,7 +12,7 @@ import {
   UPSTAIRS_12K_TILES,
   type KrpanoSceneConfig,
 } from "@/lib/krpano-scenes";
-import { getArtPieces360, type ArtPiece360 } from "@/lib/sulyap-art-360";
+import { getArtPieceHdImage, getArtPieces360, type ArtPiece360 } from "@/lib/sulyap-art-360";
 import { C, F, conciseText, getCategoryMeta } from "@/lib/sulyap-theme";
 import { KrpanoViewer } from "./krpano-viewer";
 import { Pop } from "./sulyap-ui";
@@ -80,6 +80,7 @@ export function SulyapArt360Map({
     atv: number;
     fov: number;
     sceneId: string;
+    openHotspotId?: string;
     key: string;
   } | null>(null);
 
@@ -213,13 +214,18 @@ export function SulyapArt360Map({
                   fov: MUSEUM_WING_COORDS[0]!.fov,
                   pathOrder: 1,
                   artDetails: {
+                    imageUrl: getArtPieceHdImage(p0, destination.province, destination.slug),
+                    filTitle: p0.filTitle,
+                    artist: p0.artistOrMaker,
                     period: p0.period,
                     medium: p0.medium,
+                    dimensions: p0.dimensions,
                     zone: `1F 12K Atrium · ${p0.zone}`,
                     province: destination.province,
                     description: p0.details,
+                    conservationNote: p0.conservationNote,
                     highlight:
-                      "Click Macro Zoom (22°) for crystal-clear native 12,000 × 6,000 detail.",
+                      "Double-click the artwork or tap 2× / 3.2× to inspect fine brushwork in high resolution.",
                   },
                 },
               ]
@@ -303,11 +309,16 @@ export function SulyapArt360Map({
                   fov: MUSEUM_WING_COORDS[1]!.fov,
                   pathOrder: 1,
                   artDetails: {
+                    imageUrl: getArtPieceHdImage(p1, destination.province, destination.slug),
+                    filTitle: p1.filTitle,
+                    artist: p1.artistOrMaker,
                     period: p1.period,
                     medium: p1.medium,
+                    dimensions: p1.dimensions,
                     zone: `2F Upstairs 12K · ${p1.zone}`,
                     province: destination.province,
                     description: p1.details,
+                    conservationNote: p1.conservationNote,
                     highlight: "Displayed beneath the 2nd-floor leaded-glass oculus dome.",
                   },
                 },
@@ -382,11 +393,16 @@ export function SulyapArt360Map({
                   fov: MUSEUM_WING_COORDS[2]!.fov,
                   pathOrder: 1,
                   artDetails: {
+                    imageUrl: getArtPieceHdImage(p2, destination.province, destination.slug),
+                    filTitle: p2.filTitle,
+                    artist: p2.artistOrMaker,
                     period: p2.period,
                     medium: p2.medium,
+                    dimensions: p2.dimensions,
                     zone: `1F Rotunda Wing · ${p2.zone}`,
                     province: destination.province,
                     description: p2.details,
+                    conservationNote: p2.conservationNote,
                   },
                 },
               ]
@@ -460,11 +476,16 @@ export function SulyapArt360Map({
                   fov: MUSEUM_WING_COORDS[3]!.fov,
                   pathOrder: 1,
                   artDetails: {
+                    imageUrl: getArtPieceHdImage(p3, destination.province, destination.slug),
+                    filTitle: p3.filTitle,
+                    artist: p3.artistOrMaker,
                     period: p3.period,
                     medium: p3.medium,
+                    dimensions: p3.dimensions,
                     zone: `1F Fine Arts Hall · ${p3.zone}`,
                     province: destination.province,
                     description: p3.details,
+                    conservationNote: p3.conservationNote,
                   },
                 },
               ]
@@ -474,7 +495,7 @@ export function SulyapArt360Map({
     ];
   }, [destination.slug, destination.name, destination.province, pieces]);
 
-  const focusPiece = (piece: ArtPiece360, idx: number) => {
+  const focusPiece = (piece: ArtPiece360, idx: number, bringToFront = true) => {
     const coords = MUSEUM_WING_COORDS[idx % MUSEUM_WING_COORDS.length]!;
     setSelectedId(piece.id);
     setActiveSceneId(coords.sceneId);
@@ -484,6 +505,7 @@ export function SulyapArt360Map({
       ath: coords.ath,
       atv: coords.atv,
       fov: coords.fov,
+      openHotspotId: bringToFront ? piece.id : undefined,
       key: `${piece.id}-${Date.now()}`,
     });
   };
@@ -636,9 +658,19 @@ export function SulyapArt360Map({
             <Sparkles className="size-3" /> 360° Hotspot {selectedIndex + 1} of {pieces.length} ·{" "}
             {selectedWing.roomTitle}
           </span>
-          <span className="text-[12px] font-semibold" style={{ color: C.mute }}>
-            {selectedPiece.period}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-[12px] font-semibold" style={{ color: C.mute }}>
+              {selectedPiece.period}
+            </span>
+            <button
+              type="button"
+              onClick={() => focusPiece(selectedPiece, selectedIndex, true)}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-full px-3 py-1 text-[11.5px] font-extrabold text-white shadow-xs hover:opacity-95"
+              style={{ backgroundColor: C.cover }}
+            >
+              <Eye className="size-3.5" /> View Art in Front (HD)
+            </button>
+          </div>
         </div>
 
         <h4
