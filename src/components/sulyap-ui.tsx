@@ -75,7 +75,7 @@ export const Banig = React.memo(function Banig({
 
   const isRed = color === C.red || color === "#B91C1C";
   const isBlue = color === C.blue || color === "#0038A8" || color === "#1D4ED8";
-  const isGold = color === C.gold || color === "#B45309";
+  const isGold = color === C.gold || color === "#8F6200" || color === "#B45309";
 
   const skyTop = isRed ? "#881337" : isBlue ? "#002366" : isGold ? "#78350F" : "#064E3B";
   const skyBottom = isRed ? "#E11D48" : isBlue ? "#2563EB" : isGold ? "#D97706" : "#059669";

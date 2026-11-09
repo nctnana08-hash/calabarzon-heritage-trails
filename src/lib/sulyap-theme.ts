@@ -65,7 +65,7 @@ export const CATS: Record<SulyapCategoryKey, CategoryMeta> = {
     key: "Museum",
     dbCategory: "Museums",
     color: C.gold,
-    deep: "#B45309",
+    deep: "#8F6200",
     fil: "Museo",
     en: "Museums",
     stampShape: "rect",
