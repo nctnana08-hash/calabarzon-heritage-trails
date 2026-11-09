@@ -233,7 +233,10 @@ export function KrpanoViewer({
   );
 
   const resolvedPanoUrl = panoramaUrl ?? activeScene?.panoramaUrl ?? DEFAULT_MUSEUM_PANO_URL;
-  const resolvedHotspots = hotspots ?? activeScene?.hotspots ?? [];
+  const resolvedHotspots = useMemo(
+    () => hotspots ?? activeScene?.hotspots ?? [],
+    [hotspots, activeScene],
+  );
   const resolvedSceneName = activeScene?.name ?? sceneName;
   const resolvedSceneTitle = activeScene?.title ?? sceneTitle;
 
