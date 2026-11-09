@@ -71,7 +71,7 @@ export function DestinationForm({
     if (errors["name"]) {
       setErrors((e) => {
         const next = { ...e };
-        delete next.name;
+        delete next["name"];
         return next;
       });
     }
@@ -89,7 +89,7 @@ export function DestinationForm({
     if (!/^https?:\/\/.+/i.test(trimmed)) {
       setErrors((e) => ({
         ...e,
-        urlInput: "Paste a full image link that starts with http:// or https://.",
+        ["urlInput"]: "Paste a full image link that starts with http:// or https://.",
       }));
       return;
     }
@@ -97,7 +97,7 @@ export function DestinationForm({
     setUrlInput("");
     setErrors((e) => {
       const next = { ...e };
-      delete next.urlInput;
+      delete next["urlInput"];
       return next;
     });
   }
@@ -478,7 +478,7 @@ export function DestinationForm({
                 if (errors["urlInput"]) {
                   setErrors((prev) => {
                     const next = { ...prev };
-                    delete next.urlInput;
+                    delete next["urlInput"];
                     return next;
                   });
                 }
