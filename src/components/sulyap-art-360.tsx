@@ -1,24 +1,18 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, ExternalLink, RotateCw, Sparkles } from "lucide-react";
-import { imageUrl, type Destination } from "@/lib/destinations";
+import type { Destination } from "@/lib/destinations";
 import { getArtPieces360, type ArtPiece360 } from "@/lib/sulyap-art-360";
-import { getEnrichment } from "@/lib/sulyap-data";
 import { C, F, conciseText, getCategoryMeta } from "@/lib/sulyap-theme";
-import { Banig, Pop } from "./sulyap-ui";
+import { DEFAULT_MUSEUM_PANO_URL, KrpanoViewer, type KrpanoHotspot } from "./krpano-viewer";
+import { Pop } from "./sulyap-ui";
 
-function normalizeAngle(deg: number): number {
-  return ((deg % 360) + 360) % 360;
-}
-
-function shortestDelta(target: number, current: number): number {
-  return ((target - current + 540) % 360) - 180;
-}
-
-function cardinalLabel(deg: number): string {
-  const norm = normalizeAngle(deg);
-  const dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
-  return dirs[Math.round(norm / 45) % 8] ?? "N";
-}
+// Calibrated 3D spherical vantage points (ath, atv, fov) inside the 360° museum rotunda
+const MUSEUM_WING_COORDS: { ath: number; atv: number; fov: number }[] = [
+  { ath: -2, atv: 6, fov: 60 }, // Central Torch Monument & Rotunda Pedestal
+  { ath: 92, atv: -2, fov: 58 }, // East Wing: Ancestral Bahay Kubo & Architecture
+  { ath: -128, atv: 3, fov: 58 }, // West Wing: Historical Revolution Mural & Bust
+  { ath: 134, atv: -4, fov: 56 }, // South-East Wing: Pre-Colonial Gold, Okir & Tapestry
+];
 
 export function SulyapArt360Map({
   destination,
@@ -31,31 +25,26 @@ export function SulyapArt360Map({
 }) {
   const pieces = useMemo(() => getArtPieces360(destination), [destination]);
   const [selectedId, setSelectedId] = useState<string>(pieces[0]?.id ?? "");
-  const [yaw, setYaw] = useState<number>(pieces[0]?.bearing ?? 20);
-  const [autoRotate, setAutoRotate] = useState<boolean>(false);
-  const [isDragging, setIsDragging] = useState<boolean>(false);
   const [expanded, setExpanded] = useState<boolean>(false);
-  const dragStartRef = useRef<{ x: number; startYaw: number } | null>(null);
+  const [targetView, setTargetView] = useState<{
+    ath: number;
+    atv: number;
+    fov: number;
+    key: string;
+  } | null>(null);
 
   const cat = getCategoryMeta(destination.category);
-  const enrichment = getEnrichment(destination);
-  const backdropUrl = imageUrl(destination) || enrichment.images[0] || null;
 
   useEffect(() => {
     if (pieces[0]) {
       setSelectedId(pieces[0].id);
-      setYaw(pieces[0].bearing);
       setExpanded(false);
+      setTargetView({
+        ...MUSEUM_WING_COORDS[0]!,
+        key: `${destination.id}-${pieces[0].id}-init`,
+      });
     }
   }, [destination.id, pieces]);
-
-  useEffect(() => {
-    if (!autoRotate || isDragging) return;
-    const id = window.setInterval(() => {
-      setYaw((prev) => normalizeAngle(prev + 0.5));
-    }, 40);
-    return () => window.clearInterval(id);
-  }, [autoRotate, isDragging]);
 
   const selectedPiece: ArtPiece360 = pieces.find((p) => p.id === selectedId) ?? pieces[0]!;
   const selectedIndex = Math.max(
@@ -63,36 +52,40 @@ export function SulyapArt360Map({
     pieces.findIndex((p) => p.id === selectedPiece.id),
   );
 
-  const focusPiece = (piece: ArtPiece360) => {
-    setAutoRotate(false);
+  const hotspots: KrpanoHotspot[] = useMemo(
+    () =>
+      pieces.map((p, idx) => {
+        const coords = MUSEUM_WING_COORDS[idx % MUSEUM_WING_COORDS.length]!;
+        return {
+          id: p.id,
+          title: p.title,
+          subtitle: p.zone,
+          badge: String(idx + 1),
+          ath: coords.ath,
+          atv: coords.atv,
+          fov: coords.fov,
+          accentColor: cat.color,
+        };
+      }),
+    [pieces, cat.color],
+  );
+
+  const focusPiece = (piece: ArtPiece360, idx: number) => {
+    const coords = MUSEUM_WING_COORDS[idx % MUSEUM_WING_COORDS.length]!;
     setSelectedId(piece.id);
-    setYaw(normalizeAngle(piece.bearing));
     setExpanded(false);
+    setTargetView({
+      ath: coords.ath,
+      atv: coords.atv,
+      fov: coords.fov,
+      key: `${piece.id}-${Date.now()}`,
+    });
   };
 
   const stepPiece = (dir: -1 | 1) => {
     const nextIdx = (selectedIndex + dir + pieces.length) % pieces.length;
     const next = pieces[nextIdx];
-    if (next) focusPiece(next);
-  };
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest("button")) return;
-    setAutoRotate(false);
-    setIsDragging(true);
-    dragStartRef.current = { x: e.clientX, startYaw: yaw };
-    e.currentTarget.setPointerCapture?.(e.pointerId);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDragging || !dragStartRef.current) return;
-    const dx = e.clientX - dragStartRef.current.x;
-    setYaw(normalizeAngle(dragStartRef.current.startYaw - dx * 0.35));
-  };
-
-  const handlePointerUp = () => {
-    setIsDragging(false);
-    dragStartRef.current = null;
+    if (next) focusPiece(next, nextIdx);
   };
 
   const streetViewUrl =
@@ -100,39 +93,25 @@ export function SulyapArt360Map({
       ? `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${destination.latitude},${destination.longitude}`
       : null;
 
-  const FOV = 140;
   const { short, hasMore } = conciseText(selectedPiece.details, 1);
 
   return (
     <section aria-label={`360-degree Art Map for ${destination.name}`} className="w-full">
-      {/* Clean Header */}
+      {/* Header Bar */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold text-white"
             style={{ backgroundColor: C.cover }}
           >
-            <RotateCw className="size-3.5" /> 360° Art &amp; Relics
+            <RotateCw className="size-3.5" /> krpano 360° Museum View
           </span>
           <span className="text-[13px] font-medium" style={{ color: C.mute }}>
-            Drag to look around or tap 1–4
+            Drag 360° in any direction, scroll to zoom, or tap hotspots 1–4
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setAutoRotate((v) => !v)}
-            className="cursor-pointer rounded-full border px-3 py-1 text-[12px] font-bold transition-colors"
-            style={{
-              backgroundColor: autoRotate ? C.foil : "#FFFFFF",
-              borderColor: autoRotate ? C.foil : "#CBD5E1",
-              color: C.ink,
-            }}
-          >
-            {autoRotate ? "Pause 360°" : "Auto-Spin"}
-          </button>
-
           {streetViewUrl ? (
             <button
               type="button"
@@ -140,7 +119,7 @@ export function SulyapArt360Map({
               className="inline-flex cursor-pointer items-center gap-1 rounded-full border border-[#CBD5E1] bg-white px-3 py-1 text-[12px] font-bold hover:bg-[#EFF6FF]"
               style={{ color: C.ink }}
             >
-              Google 360° <ExternalLink className="size-3" />
+              Google Street View <ExternalLink className="size-3" />
             </button>
           ) : null}
 
@@ -157,168 +136,57 @@ export function SulyapArt360Map({
         </div>
       </div>
 
-      {/* 360° Stage */}
-      <div
-        className="overflow-hidden rounded-2xl border shadow-md"
-        style={{
-          borderColor: "#CBD5E1",
-          backgroundColor: "#0F172A",
+      {/* Real Full 360°×180° WebGL Spherical Panorama Stage */}
+      <KrpanoViewer
+        panoramaUrl={DEFAULT_MUSEUM_PANO_URL}
+        sceneName={`scene_${destination.slug.replace(/[^a-zA-Z0-9_]/g, "_")}`}
+        sceneTitle={`${destination.name} — 360° Art & Relics`}
+        hotspots={hotspots}
+        selectedHotspotId={selectedPiece.id}
+        onSelectHotspot={(hs) => {
+          const idx = pieces.findIndex((p) => p.id === hs.id);
+          const found = pieces[idx];
+          if (found) {
+            setSelectedId(found.id);
+            setExpanded(false);
+          }
         }}
-      >
-        <div
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
-          className={`relative w-full overflow-hidden select-none ${
-            compact ? "h-[240px] sm:h-[270px]" : "h-[270px] sm:h-[330px]"
-          } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
-          style={{
-            touchAction: "pan-y",
-          }}
-        >
-          {/* Illustrated / Photo Panoramic Backdrop */}
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-70"
-            style={{
-              transform: `translateX(${((yaw % 90) - 45) * -1.2}px) scale(1.15)`,
-              transition: isDragging ? "none" : "transform 150ms ease-out",
-            }}
-          >
-            {backdropUrl ? (
-              <img src={backdropUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <Banig color={cat.deep} seed={selectedIndex + 2} />
-            )}
-          </div>
+        targetView={targetView}
+        heightClass={compact ? "h-[320px] sm:h-[380px]" : "h-[380px] sm:h-[480px]"}
+      />
 
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/25 to-slate-950/50"
-          />
-
-          {/* Compass Pill at Top Center */}
-          <div className="pointer-events-none absolute top-3 left-1/2 z-20 -translate-x-1/2">
-            <span
-              className="rounded-full px-3 py-1 text-[11px] font-bold"
+      {/* 4 Quick Numbered Artwork Selector Buttons */}
+      <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {pieces.map((p, idx) => {
+          const active = p.id === selectedPiece.id;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => focusPiece(p, idx)}
+              className="flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-left transition-all"
               style={{
-                fontFamily: F.mono,
-                backgroundColor: "rgba(15, 23, 42, 0.78)",
-                color: C.foil,
-                border: "1px solid rgba(252, 209, 22, 0.45)",
+                backgroundColor: active ? C.cover : "#FFFFFF",
+                borderColor: active ? C.cover : "#CBD5E1",
+                color: active ? "#FFFFFF" : C.ink,
+                boxShadow: active ? "0 4px 12px rgba(0, 56, 168, 0.2)" : "none",
               }}
             >
-              {Math.round(normalizeAngle(yaw))}° {cardinalLabel(yaw)}
-            </span>
-          </div>
-
-          {/* Floating Art Pins */}
-          {pieces.map((piece, idx) => {
-            const delta = shortestDelta(piece.bearing, yaw);
-            if (Math.abs(delta) > FOV / 2) return null;
-
-            const leftPct = 50 + (delta / (FOV / 2)) * 42;
-            const topPct = 52 - piece.pitch * 1.1;
-            const isSelected = piece.id === selectedPiece.id;
-
-            return (
-              <button
-                key={piece.id}
-                type="button"
-                onClick={() => focusPiece(piece)}
-                aria-label={`Art piece ${idx + 1}: ${piece.title}`}
-                className="absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform hover:scale-105"
+              <span
+                className="flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold"
                 style={{
-                  left: `${leftPct}%`,
-                  top: `${Math.max(22, Math.min(78, topPct))}%`,
-                  zIndex: isSelected ? 30 : 20,
+                  backgroundColor: active ? C.foil : "#EFF6FF",
+                  color: active ? C.ink : C.cover,
                 }}
               >
-                <div
-                  className="flex items-center gap-2 rounded-full border-2 px-3 py-1.5 shadow-lg"
-                  style={{
-                    backgroundColor: isSelected ? C.foil : "rgba(255, 255, 255, 0.96)",
-                    borderColor: isSelected ? "#FFFFFF" : C.cover,
-                    color: C.ink,
-                  }}
-                >
-                  <span
-                    className="flex size-5 items-center justify-center rounded-full text-[11px] font-bold"
-                    style={{
-                      backgroundColor: C.cover,
-                      color: "#FFFFFF",
-                    }}
-                  >
-                    {idx + 1}
-                  </span>
-                  <span
-                    className="max-w-[130px] truncate text-[12px] font-bold sm:max-w-[170px]"
-                    style={{ fontFamily: F.body }}
-                  >
-                    {piece.title}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-
-          {/* Left / Right Pan Arrows */}
-          <button
-            type="button"
-            onClick={() => {
-              setAutoRotate(false);
-              setYaw((y) => normalizeAngle(y - 45));
-            }}
-            aria-label="Rotate left"
-            className="absolute top-1/2 left-3 z-20 flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-slate-900/65 text-white hover:bg-slate-900/90"
-          >
-            <ChevronLeft className="size-5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setAutoRotate(false);
-              setYaw((y) => normalizeAngle(y + 45));
-            }}
-            aria-label="Rotate right"
-            className="absolute top-1/2 right-3 z-20 flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full bg-slate-900/65 text-white hover:bg-slate-900/90"
-          >
-            <ChevronRight className="size-5" />
-          </button>
-        </div>
-
-        {/* 4 Quick Numbered Buttons */}
-        <div className="grid grid-cols-2 gap-1.5 bg-[#0F172A] p-2 sm:grid-cols-4">
-          {pieces.map((p, idx) => {
-            const active = p.id === selectedPiece.id;
-            return (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => focusPiece(p)}
-                className="flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2 text-left transition-all"
-                style={{
-                  backgroundColor: active ? C.foil : "rgba(255,255,255,0.08)",
-                  color: active ? C.ink : "#FFFFFF",
-                }}
-              >
-                <span
-                  className="flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold"
-                  style={{
-                    backgroundColor: active ? C.cover : "rgba(255,255,255,0.2)",
-                    color: "#FFFFFF",
-                  }}
-                >
-                  {idx + 1}
-                </span>
-                <span className="truncate text-[12px] font-bold" style={{ fontFamily: F.body }}>
-                  {p.title}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                {idx + 1}
+              </span>
+              <span className="truncate text-[12px] font-bold" style={{ fontFamily: F.body }}>
+                {p.title}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Bite-Sized Art Piece Detail Card */}
@@ -328,7 +196,7 @@ export function SulyapArt360Map({
             className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-bold"
             style={{ backgroundColor: `${cat.color}14`, color: cat.deep }}
           >
-            <Sparkles className="size-3" /> Highlight {selectedIndex + 1} of {pieces.length}
+            <Sparkles className="size-3" /> 360° Hotspot {selectedIndex + 1} of {pieces.length}
           </span>
           <span className="text-[12px] font-semibold" style={{ color: C.mute }}>
             {selectedPiece.period}
@@ -371,7 +239,7 @@ export function SulyapArt360Map({
             className="inline-flex cursor-pointer items-center gap-1 text-[13px] font-bold hover:underline"
             style={{ color: C.cover }}
           >
-            <ChevronLeft className="size-4" /> Previous
+            <ChevronLeft className="size-4" /> Previous Hotspot
           </button>
           <button
             type="button"
@@ -379,7 +247,7 @@ export function SulyapArt360Map({
             className="inline-flex cursor-pointer items-center gap-1 text-[13px] font-bold hover:underline"
             style={{ color: C.cover }}
           >
-            Next <ChevronRight className="size-4" />
+            Next Hotspot <ChevronRight className="size-4" />
           </button>
         </div>
       </Pop>

@@ -155,7 +155,7 @@ function DestinationDetail() {
             }[] = [
               { id: "overview", label: "Overview", icon: BookOpen },
               { id: "art360", label: "360° Art View", icon: RotateCw },
-              { id: "tour", label: "3-Step Tour", icon: Compass },
+              { id: "tour", label: "360° Virtual Tour", icon: Compass },
               { id: "quiz", label: "Quick Quiz", icon: HelpCircle },
             ];
 
@@ -334,10 +334,10 @@ function DestinationDetail() {
                             </div>
                             <div>
                               <div className="text-[14px] font-extrabold" style={{ color: C.ink }}>
-                                3-Step Virtual Tour
+                                360° Virtual Tour
                               </div>
                               <div className="text-[12px]" style={{ color: C.mute }}>
-                                Quick story &amp; stamp →
+                                Full 360° room tour &amp; stamp →
                               </div>
                             </div>
                           </button>
@@ -429,7 +429,7 @@ function DestinationDetail() {
                                 className="w-full"
                               />
                               <Btn
-                                label="Take 3-Step Tour"
+                                label="Start 360° Tour"
                                 color={C.cover}
                                 onClick={() => setTab("tour")}
                                 className="w-full"

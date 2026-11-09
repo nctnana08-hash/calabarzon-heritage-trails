@@ -1,0 +1,88 @@
+<krpano version="1.21" title="SulyapPH — CALABARZON 360° Heritage Museum Virtual Tour" onstart="startup();">
+
+  <action name="startup" autorun="onstart">
+    if(startscene === null OR !scene[get(startscene)], copy(startscene, scene[0].name); );
+    loadscene(get(startscene), null, MERGE);
+  </action>
+
+  <!-- krpano Control & Autorotate Settings -->
+  <control mousetype="drag2d" touchtype="drag2d" zoomtocursor="true" zoomoutcursor="true" friction="0.88" />
+  <autorotate enabled="false" waittime="2.0" speed="3.5" horizon="0.0" tofov="90.0" />
+
+  <!-- Hotspot Shared Style -->
+  <style name="skin_hotspotstyle"
+         scale="0.65"
+         edge="center"
+         distorted="false"
+         onover="tween(scale,0.75,0.15);"
+         onout="tween(scale,0.65,0.15);" />
+
+  <!-- Main 360° Equirectangular Museum Rotunda Scene -->
+  <scene name="scene_sulyap_museum_rotunda" title="SulyapPH Grand Heritage Rotunda" onstart="" thumburl="/panoramas/museum-rotunda-360.jpg">
+
+    <view hlookat="0.0"
+          vlookat="2.0"
+          fovtype="MFOV"
+          fov="90.0"
+          maxpixelzoom="2.0"
+          fovmin="35.0"
+          fovmax="115.0"
+          limitview="auto" />
+
+    <image>
+      <sphere url="/panoramas/museum-rotunda-360.jpg" />
+    </image>
+
+    <!-- 3D Spherical Hotspots (ath = horizontal azimuth -180..180, atv = vertical pitch -90..90) -->
+    <hotspot name="hs_torch_monument"
+             style="skin_hotspotstyle"
+             ath="-2.0"
+             atv="6.0"
+             title="Inang Bayan Torch Monument"
+             onclick="lookto(-2.0, 6.0, 58.0, smooth(120,60,30));" />
+
+    <hotspot name="hs_revolution_mural"
+             style="skin_hotspotstyle"
+             ath="-130.0"
+             atv="3.0"
+             title="Revolution &amp; Kasaysayan Mural"
+             onclick="lookto(-130.0, 3.0, 56.0, smooth(120,60,30));" />
+
+    <hotspot name="hs_mestiza_gown"
+             style="skin_hotspotstyle"
+             ath="-167.0"
+             atv="-9.0"
+             title="19th-Century Traje de Mestiza"
+             onclick="lookto(-167.0, -9.0, 54.0, smooth(120,60,30));" />
+
+    <hotspot name="hs_bahay_kubo"
+             style="skin_hotspotstyle"
+             ath="92.0"
+             atv="-2.0"
+             title="Ancestral Bahay Kubo &amp; Bale Model"
+             onclick="lookto(92.0, -2.0, 56.0, smooth(120,60,30));" />
+
+    <hotspot name="hs_gold_vessels"
+             style="skin_hotspotstyle"
+             ath="121.0"
+             atv="-11.0"
+             title="Pre-Colonial Gold &amp; Burial Jars"
+             onclick="lookto(121.0, -11.0, 52.0, smooth(120,60,30));" />
+
+    <hotspot name="hs_okir_tapestry"
+             style="skin_hotspotstyle"
+             ath="142.0"
+             atv="5.0"
+             title="Carved Okir &amp; Woven Tapestry"
+             onclick="lookto(142.0, 5.0, 56.0, smooth(120,60,30));" />
+
+    <hotspot name="hs_rotunda_dome"
+             style="skin_hotspotstyle"
+             ath="0.0"
+             atv="62.0"
+             title="Neoclassical Skylight Oculus Dome"
+             onclick="lookto(0.0, 62.0, 68.0, smooth(120,60,30));" />
+
+  </scene>
+
+</krpano>

@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { Award, CheckCircle2, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
-import { imageUrl, type Destination } from "@/lib/destinations";
+import { useEffect, useMemo, useState } from "react";
+import { Award, CheckCircle2, ChevronLeft, ChevronRight, RotateCw, Sparkles } from "lucide-react";
+import type { Destination } from "@/lib/destinations";
+import { getArtPieces360 } from "@/lib/sulyap-art-360";
 import {
   getEnrichment,
   getQuestionsForDestination,
@@ -8,12 +9,37 @@ import {
   saveScore,
 } from "@/lib/sulyap-data";
 import { C, F, conciseText, getCategoryMeta } from "@/lib/sulyap-theme";
-import { Btn, Cover, Label, Pop, Stamp } from "./sulyap-ui";
+import { DEFAULT_MUSEUM_PANO_URL, KrpanoViewer, type KrpanoHotspot } from "./krpano-viewer";
+import { Btn, Label, Pop, Stamp } from "./sulyap-ui";
 
 const STOPS = [
-  { step: 1, title: "First Look", subtitle: "What you see here" },
-  { step: 2, title: "The Story", subtitle: "How it began" },
-  { step: 3, title: "Why It Matters", subtitle: "Collect your stamp" },
+  {
+    step: 1,
+    id: "stop-1",
+    title: "First Look",
+    subtitle: "Central Rotunda · 0° N",
+    ath: -2,
+    atv: 5,
+    fov: 74,
+  },
+  {
+    step: 2,
+    id: "stop-2",
+    title: "The Story",
+    subtitle: "Historical Mural Wing · 232° SW",
+    ath: -128,
+    atv: 3,
+    fov: 60,
+  },
+  {
+    step: 3,
+    id: "stop-3",
+    title: "Why It Matters",
+    subtitle: "Ancestral & Gold Wing · 98° E",
+    ath: 98,
+    atv: -3,
+    fov: 60,
+  },
 ] as const;
 
 export function SulyapTour({
@@ -26,41 +52,94 @@ export function SulyapTour({
   onStartQuiz: () => void;
 }) {
   const [step, setStep] = useState<0 | 1 | 2>(0);
-  const [activePhotoIdx, setActivePhotoIdx] = useState(0);
   const [expanded, setExpanded] = useState(false);
   const [done, setDone] = useState(false);
+  const [targetView, setTargetView] = useState<{
+    ath: number;
+    atv: number;
+    fov: number;
+    key: string;
+  }>({
+    ath: STOPS[0].ath,
+    atv: STOPS[0].atv,
+    fov: STOPS[0].fov,
+    key: "init-0",
+  });
 
   const enrichment = getEnrichment(destination);
-  const primaryImg = imageUrl(destination);
-  const allPhotos = useMemo(() => {
-    const list: string[] = [];
-    if (primaryImg) list.push(primaryImg);
-    for (const u of enrichment.images) {
-      if (u && !list.includes(u)) list.push(u);
-    }
-    return list;
-  }, [primaryImg, enrichment.images]);
+  const artPieces = useMemo(() => getArtPieces360(destination), [destination]);
 
-  useEffect(() => {
+  const goToStep = (nextStep: 0 | 1 | 2) => {
+    setStep(nextStep);
     setExpanded(false);
-  }, [step]);
+    const s = STOPS[nextStep];
+    setTargetView({
+      ath: s.ath,
+      atv: s.atv,
+      fov: s.fov,
+      key: `step-${nextStep}-${Date.now()}`,
+    });
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "ArrowRight" && step < 2) {
-        setStep((s) => (s + 1) as 0 | 1 | 2);
+        goToStep((step + 1) as 0 | 1 | 2);
       } else if (e.key === "ArrowLeft" && step > 0) {
-        setStep((s) => (s - 1) as 0 | 1 | 2);
+        goToStep((step - 1) as 0 | 1 | 2);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [step]);
+  });
 
   const finishTour = () => {
     markToured(destination.id, destination.slug);
     setDone(true);
   };
+
+  // Combine the 3 guided tour stops + overhead dome oculus as interactive 3D hotspots inside the 360° sphere
+  const tourHotspots: KrpanoHotspot[] = useMemo(
+    () => [
+      {
+        id: "stop-1",
+        badge: "S1",
+        title: `Stop 1: ${destination.name}`,
+        subtitle: "First Look · Central Rotunda",
+        ath: STOPS[0].ath,
+        atv: STOPS[0].atv,
+        fov: STOPS[0].fov,
+      },
+      {
+        id: "stop-2",
+        badge: "S2",
+        title: `Stop 2: ${artPieces[0]?.title ?? "Historical Record"}`,
+        subtitle: "The Story · West Gallery",
+        ath: STOPS[1].ath,
+        atv: STOPS[1].atv,
+        fov: STOPS[1].fov,
+      },
+      {
+        id: "stop-3",
+        badge: "S3",
+        title: `Stop 3: ${artPieces[1]?.title ?? "Cultural Legacy"}`,
+        subtitle: "Why It Matters · East Gallery",
+        ath: STOPS[2].ath,
+        atv: STOPS[2].atv,
+        fov: STOPS[2].fov,
+      },
+      {
+        id: "dome-oculus",
+        badge: "↑",
+        title: "Rotunda Stained-Glass Oculus Dome",
+        subtitle: "Zenith Ceiling Vault",
+        ath: 0,
+        atv: 58,
+        fov: 70,
+      },
+    ],
+    [destination.name, artPieces],
+  );
 
   const activeText =
     step === 0
@@ -72,9 +151,9 @@ export function SulyapTour({
   const { short, hasMore } = conciseText(activeText, 2);
 
   return (
-    <div className="mx-auto w-full max-w-2xl pb-8">
-      {/* Visual 3-Step Progress Bar */}
-      <div className="mb-4 grid grid-cols-3 gap-2.5" role="tablist" aria-label="Tour steps">
+    <div className="mx-auto w-full max-w-4xl pb-8">
+      {/* 360° Tour Waypoint Selector Bar */}
+      <div className="mb-3 grid grid-cols-3 gap-2.5" role="tablist" aria-label="360 Tour stops">
         {STOPS.map((s, n) => {
           const active = step === n;
           const completed = n < step || done;
@@ -85,7 +164,7 @@ export function SulyapTour({
               type="button"
               role="tab"
               aria-selected={active}
-              onClick={() => setStep(idx)}
+              onClick={() => goToStep(idx)}
               className="flex cursor-pointer items-center gap-2.5 rounded-xl border p-3 text-left transition-all"
               style={{
                 backgroundColor: active ? C.cover : completed ? "#ECFDF5" : "#FFFFFF",
@@ -108,7 +187,7 @@ export function SulyapTour({
                 </div>
                 <div
                   className="hidden truncate text-[11px] sm:block"
-                  style={{ color: active ? "rgba(255,255,255,0.8)" : C.mute }}
+                  style={{ color: active ? "rgba(255,255,255,0.82)" : C.mute }}
                 >
                   {s.subtitle}
                 </div>
@@ -118,46 +197,35 @@ export function SulyapTour({
         })}
       </div>
 
-      {/* Flashcard Slide */}
-      <Pop className="overflow-hidden p-5 sm:p-6">
-        {step === 0 && (
-          <div className="mb-4">
-            {allPhotos.length > 0 && activePhotoIdx > 0 ? (
-              <img
-                src={allPhotos[activePhotoIdx]!}
-                alt={destination.name}
-                className="h-56 w-full rounded-xl object-cover sm:h-68"
-              />
-            ) : (
-              <Cover destination={destination} className="h-56 w-full rounded-xl sm:h-68" />
-            )}
+      {/* Real Full 360°×180° Spherical Panorama Virtual Tour Stage */}
+      <KrpanoViewer
+        panoramaUrl={DEFAULT_MUSEUM_PANO_URL}
+        sceneName={`tour_${destination.slug.replace(/[^a-zA-Z0-9_]/g, "_")}`}
+        sceneTitle={`${destination.name} — 360° Virtual Tour`}
+        hotspots={tourHotspots}
+        selectedHotspotId={STOPS[step].id}
+        onSelectHotspot={(hs) => {
+          if (hs.id === "stop-1") goToStep(0);
+          else if (hs.id === "stop-2") goToStep(1);
+          else if (hs.id === "stop-3") goToStep(2);
+        }}
+        targetView={targetView}
+        heightClass="h-[360px] sm:h-[460px]"
+      />
 
-            {allPhotos.length > 1 ? (
-              <div className="mt-2.5 flex flex-wrap gap-2">
-                {allPhotos.map((u, idx) => (
-                  <button
-                    key={u + idx}
-                    type="button"
-                    onClick={() => setActivePhotoIdx(idx)}
-                    className="size-12 cursor-pointer overflow-hidden rounded-lg border-2"
-                    style={{
-                      borderColor: activePhotoIdx === idx ? C.cover : "transparent",
-                    }}
-                  >
-                    <img src={u} alt="" className="h-full w-full object-cover" />
-                  </button>
-                ))}
-              </div>
-            ) : null}
+      {/* Synchronized 360° Tour Narrative & Stamp Action Card */}
+      <Pop className="mt-3 overflow-hidden p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="inline-flex items-center gap-1.5 rounded-full bg-[#EFF6FF] px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-[#0038A8]">
+            <RotateCw className="size-3.5" /> 360° Stop {step + 1} of 3 · {STOPS[step].title}
           </div>
-        )}
-
-        <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[#EFF6FF] px-3 py-1 text-[11px] font-extrabold uppercase tracking-wider text-[#0038A8]">
-          <Sparkles className="size-3.5" /> Step {step + 1} of 3 · {STOPS[step].title}
+          <span className="text-[12px] font-semibold" style={{ color: C.mute }}>
+            Drag the 360° room above to look around freely
+          </span>
         </div>
 
         <p
-          className="mt-2 text-[16.5px] leading-relaxed font-medium sm:text-[17.5px]"
+          className="mt-3 text-[16px] leading-relaxed font-medium sm:text-[17px]"
           style={{ fontFamily: F.body, color: C.ink }}
         >
           {expanded ? activeText : short}
@@ -193,15 +261,15 @@ export function SulyapTour({
             </div>
           </div>
         ) : (
-          <div className="mt-6 flex items-center justify-between border-t border-[#E2E8F0] pt-4">
+          <div className="mt-5 flex items-center justify-between border-t border-[#E2E8F0] pt-4">
             {step > 0 ? (
               <button
                 type="button"
-                onClick={() => setStep((s) => (s - 1) as 0 | 1 | 2)}
+                onClick={() => goToStep((step - 1) as 0 | 1 | 2)}
                 className="inline-flex cursor-pointer items-center gap-1 rounded-xl border border-[#CBD5E1] bg-white px-4 py-2.5 text-[14px] font-bold hover:bg-[#EFF6FF]"
                 style={{ color: C.ink }}
               >
-                <ChevronLeft className="size-4" /> Previous
+                <ChevronLeft className="size-4" /> Previous 360° Stop
               </button>
             ) : (
               <span />
@@ -210,11 +278,11 @@ export function SulyapTour({
             {step < 2 ? (
               <button
                 type="button"
-                onClick={() => setStep((s) => (s + 1) as 0 | 1 | 2)}
+                onClick={() => goToStep((step + 1) as 0 | 1 | 2)}
                 className="inline-flex cursor-pointer items-center gap-1 rounded-xl px-5 py-2.5 text-[14px] font-bold text-white shadow-xs transition-transform hover:-translate-y-0.5"
                 style={{ backgroundColor: C.cover }}
               >
-                Next Step <ChevronRight className="size-4" />
+                Fly to Next 360° Stop <ChevronRight className="size-4" />
               </button>
             ) : (
               <button
@@ -322,7 +390,7 @@ export function SulyapQuiz({
           <div className="mt-6 flex flex-wrap justify-center gap-2.5">
             <Btn label="View My e-Passport" color={C.cover} onClick={onOpenPassport} />
             <Btn label="Try Again" color={C.foil} onClick={retry} />
-            <Btn label="Review Tour" color={C.card} onClick={onReviewTour} />
+            <Btn label="Review 360° Tour" color={C.card} onClick={onReviewTour} />
             <Btn label="Back" color={C.card} onClick={onBack} />
           </div>
         </Pop>
