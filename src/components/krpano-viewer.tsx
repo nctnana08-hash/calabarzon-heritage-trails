@@ -13,11 +13,12 @@ import {
   MoveUp,
   RotateCcw,
   RotateCw,
+  Sparkles,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
 import {
-  DEFAULT_MUSEUM_PANO_URL,
+  CALABARZON_12K_PANO_URL,
   DEFAULT_MUSEUM_SCENES,
   buildKrpanoXml,
   type KrpanoHotspot,
@@ -134,17 +135,50 @@ void main() {
 }
 `;
 
+/**
+ * Multi-Tile 12K Spherical Equirectangular Fragment Shader
+ * + AMD FidelityFX Contrast-Adaptive Sharpening (CAS) for Zero Fullscreen Blur.
+ */
 const FRAGMENT_SHADER_SRC = `
 precision highp float;
 varying vec2 v_ndc;
-uniform sampler2D u_panorama;
+
+uniform sampler2D u_tex0;
+uniform sampler2D u_tex1;
+uniform sampler2D u_tex2;
+uniform sampler2D u_tex3;
+
 uniform vec3 u_camF;
 uniform vec3 u_camR;
 uniform vec3 u_camU;
 uniform float u_tanHalfFov;
 uniform float u_aspect;
+uniform float u_padFrac;
+uniform vec2 u_texelStep;
+uniform float u_sharpness;
 
 const float PI = 3.14159265358979323846;
+
+vec3 sampleEquirectTile(vec2 uv) {
+  float u = fract(uv.x);
+  float v = clamp(uv.y, 0.0005, 0.9995);
+
+  float scaled = u * 4.0;
+  float sector = floor(scaled);
+  float localFrac = scaled - sector;
+  float tileU = u_padFrac + localFrac * (1.0 - 2.0 * u_padFrac);
+  vec2 tuv = vec2(tileU, v);
+
+  if (sector < 0.5) {
+    return texture2D(u_tex0, tuv).rgb;
+  } else if (sector < 1.5) {
+    return texture2D(u_tex1, tuv).rgb;
+  } else if (sector < 2.5) {
+    return texture2D(u_tex2, tuv).rgb;
+  } else {
+    return texture2D(u_tex3, tuv).rgb;
+  }
+}
 
 void main() {
   vec3 ray = normalize(
@@ -156,10 +190,35 @@ void main() {
   float lon = atan(ray.x, ray.z);
   float lat = asin(clamp(ray.y, -1.0, 1.0));
 
-  float u = fract((lon / (2.0 * PI)) + 0.5);
-  float v = clamp(0.5 - (lat / PI), 0.001, 0.999);
+  vec2 uv = vec2(fract((lon / (2.0 * PI)) + 0.5), clamp(0.5 - (lat / PI), 0.0005, 0.9995));
 
-  gl_FragColor = texture2D(u_panorama, vec2(u, v));
+  vec3 c = sampleEquirectTile(uv);
+
+  if (u_sharpness > 0.01) {
+    // Compensate horizontal step near poles by sec(lat) clamped for stability
+    float cosLat = max(0.25, cos(lat));
+    vec2 stepUV = vec2(u_texelStep.x / cosLat, u_texelStep.y);
+
+    vec3 n = sampleEquirectTile(uv + vec2(0.0, -stepUV.y));
+    vec3 s = sampleEquirectTile(uv + vec2(0.0,  stepUV.y));
+    vec3 e = sampleEquirectTile(uv + vec2( stepUV.x, 0.0));
+    vec3 w = sampleEquirectTile(uv + vec2(-stepUV.x, 0.0));
+
+    // Contrast-Adaptive Sharpening (CAS) — sharpens fine details without edge haloing
+    vec3 minRGB = min(min(min(n, s), min(e, w)), c);
+    vec3 maxRGB = max(max(max(n, s), max(e, w)), c);
+    vec3 amp = sqrt(clamp(min(minRGB, 1.0 - maxRGB) / max(maxRGB, vec3(0.0001)), 0.0, 1.0));
+    vec3 weight = -amp / mix(8.0, 4.6, u_sharpness);
+
+    vec3 sharpened = clamp(
+      (c + (n + s + e + w) * weight) / (1.0 + 4.0 * weight),
+      0.0,
+      1.0
+    );
+    gl_FragColor = vec4(sharpened, 1.0);
+  } else {
+    gl_FragColor = vec4(c, 1.0);
+  }
 }
 `;
 
@@ -177,18 +236,18 @@ function createShader(gl: WebGLRenderingContext, type: number, source: string): 
 
 export function KrpanoViewer({
   panoramaUrl,
-  fallbackPanoramaUrl = DEFAULT_MUSEUM_PANO_URL,
-  sceneName = "scene_sulyap_museum_rotunda",
-  sceneTitle = "SulyapPH 360° Heritage Museum Rotunda",
+  fallbackPanoramaUrl = CALABARZON_12K_PANO_URL,
+  sceneName = "scene_sulyap_calabarzon_12k",
+  sceneTitle = "SulyapPH 12K Ultra-HD Heritage Salon",
   scenes = DEFAULT_MUSEUM_SCENES,
   activeSceneId,
   onSceneChange,
   hotspots,
   selectedHotspotId,
   onSelectHotspot,
-  initialHlookat = 0,
-  initialVlookat = 2,
-  initialFov = 86,
+  initialHlookat = 32,
+  initialVlookat = -2,
+  initialFov = 80,
   targetView,
   autoRotateDefault = false,
   heightClass = "h-[380px] sm:h-[480px]",
@@ -198,7 +257,7 @@ export function KrpanoViewer({
   fallbackPanoramaUrl?: string;
   sceneName?: string;
   sceneTitle?: string;
-  /** Optional multi-scene array (defaults to Room 1 Rotunda + Room 2 Fine Arts Hall) */
+  /** Multi-scene array (defaults to Room 1 12K Salon + Room 2 Rotunda + Room 3 Fine Arts Hall) */
   scenes?: KrpanoSceneConfig[];
   activeSceneId?: string;
   onSceneChange?: (sceneId: string) => void;
@@ -224,7 +283,7 @@ export function KrpanoViewer({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   const [internalSceneId, setInternalSceneId] = useState<string>(
-    activeSceneId ?? scenes[0]?.id ?? "rotunda",
+    activeSceneId ?? scenes[0]?.id ?? "salon12k",
   );
   const currentSceneId = activeSceneId ?? internalSceneId;
   const activeScene = useMemo(
@@ -232,7 +291,7 @@ export function KrpanoViewer({
     [scenes, currentSceneId],
   );
 
-  const resolvedPanoUrl = panoramaUrl ?? activeScene?.panoramaUrl ?? DEFAULT_MUSEUM_PANO_URL;
+  const resolvedPanoUrl = panoramaUrl ?? activeScene?.panoramaUrl ?? CALABARZON_12K_PANO_URL;
   const resolvedHotspots = useMemo(
     () => hotspots ?? activeScene?.hotspots ?? [],
     [hotspots, activeScene],
@@ -243,7 +302,7 @@ export function KrpanoViewer({
   const [cam, setCam] = useState<CameraState>({
     hlookat: wrapDeg180(activeScene?.initialHlookat ?? initialHlookat),
     vlookat: clamp(activeScene?.initialVlookat ?? initialVlookat, -82, 82),
-    fov: clamp(activeScene?.initialFov ?? initialFov, 35, 115),
+    fov: clamp(activeScene?.initialFov ?? initialFov, 28, 115),
   });
   const camRef = useRef<CameraState>(cam);
   camRef.current = cam;
@@ -254,8 +313,11 @@ export function KrpanoViewer({
   });
   const [isDragging, setIsDragging] = useState(false);
   const [autoRotate, setAutoRotate] = useState(autoRotateDefault);
+  const [hdCrisp, setHdCrisp] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [webglReady, setWebglReady] = useState(false);
+  const [isLoadingPano, setIsLoadingPano] = useState(true);
+  const [panoDimensions, setPanoDimensions] = useState<{ w: number; h: number } | null>(null);
   const [activeTexUrl, setActiveTexUrl] = useState(resolvedPanoUrl);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [xmlModalOpen, setXmlModalOpen] = useState(false);
@@ -269,13 +331,15 @@ export function KrpanoViewer({
   } | null>(null);
   const velocityRef = useRef<{ h: number; v: number }>({ h: 0, v: 0 });
   const lookToRef = useRef<LookToAnimation | null>(null);
+  const hdCrispRef = useRef<boolean>(hdCrisp);
+  hdCrispRef.current = hdCrisp;
 
   useEffect(() => {
     setActiveTexUrl(resolvedPanoUrl);
   }, [resolvedPanoUrl]);
 
-  // Smooth krpano lookto(ath, atv, fov) camera interpolation
-  const lookTo = useCallback((ath: number, atv: number, fov = 62, duration = 680) => {
+  // Smooth krpano lookto(ath, atv, fov) camera interpolation (supports deep 28° UHD zoom)
+  const lookTo = useCallback((ath: number, atv: number, fov = 56, duration = 680) => {
     velocityRef.current = { h: 0, v: 0 };
     const current = camRef.current;
     const deltaH = shortestAngleDelta(ath, current.hlookat);
@@ -285,7 +349,7 @@ export function KrpanoViewer({
       startFov: current.fov,
       targetH: current.hlookat + deltaH,
       targetV: clamp(atv, -82, 82),
-      targetFov: clamp(fov, 35, 115),
+      targetFov: clamp(fov, 28, 115),
       startTime: performance.now(),
       duration,
     };
@@ -304,10 +368,10 @@ export function KrpanoViewer({
         lookTo(
           customLook?.ath ?? nextScene.initialHlookat ?? 0,
           customLook?.atv ?? nextScene.initialVlookat ?? 2,
-          customLook?.fov ?? nextScene.initialFov ?? 84,
+          customLook?.fov ?? nextScene.initialFov ?? 82,
           650,
         );
-      }, 160);
+      }, 150);
     },
     [scenes, onSceneChange, lookTo],
   );
@@ -322,7 +386,7 @@ export function KrpanoViewer({
         fov: targetView.fov,
       });
     } else {
-      lookTo(targetView.ath, targetView.atv, targetView.fov ?? 64, 700);
+      lookTo(targetView.ath, targetView.atv, targetView.fov ?? 56, 700);
     }
   }, [targetView, currentSceneId, switchScene, lookTo]);
 
@@ -355,7 +419,7 @@ export function KrpanoViewer({
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
 
-  // Initialize WebGL 360° Equirectangular Spherical Renderer
+  // Initialize Multi-Tile 12K WebGL 360° Equirectangular Spherical Renderer
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -374,6 +438,7 @@ export function KrpanoViewer({
 
     if (!gl) {
       setWebglReady(false);
+      setIsLoadingPano(false);
       return;
     }
 
@@ -381,6 +446,7 @@ export function KrpanoViewer({
     const fs = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SRC);
     if (!vs || !fs) {
       setWebglReady(false);
+      setIsLoadingPano(false);
       return;
     }
 
@@ -391,6 +457,7 @@ export function KrpanoViewer({
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       setWebglReady(false);
+      setIsLoadingPano(false);
       return;
     }
 
@@ -413,36 +480,126 @@ export function KrpanoViewer({
     const uCamU = gl.getUniformLocation(program, "u_camU");
     const uTanHalfFov = gl.getUniformLocation(program, "u_tanHalfFov");
     const uAspect = gl.getUniformLocation(program, "u_aspect");
+    const uPadFrac = gl.getUniformLocation(program, "u_padFrac");
+    const uTexelStep = gl.getUniformLocation(program, "u_texelStep");
+    const uSharpness = gl.getUniformLocation(program, "u_sharpness");
 
-    const texture = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texImage2D(
-      gl.TEXTURE_2D,
-      0,
-      gl.RGBA,
-      1,
-      1,
-      0,
-      gl.RGBA,
-      gl.UNSIGNED_BYTE,
-      new Uint8Array([15, 23, 42, 255]),
-    );
+    const texLocs = [
+      gl.getUniformLocation(program, "u_tex0"),
+      gl.getUniformLocation(program, "u_tex1"),
+      gl.getUniformLocation(program, "u_tex2"),
+      gl.getUniformLocation(program, "u_tex3"),
+    ];
+
+    // Query anisotropic filtering extension for razor-sharp floor/ceiling angles in fullscreen
+    const anisoExt =
+      gl.getExtension("EXT_texture_filter_anisotropic") ||
+      gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic") ||
+      gl.getExtension("MOZ_EXT_texture_filter_anisotropic");
+    const maxAniso = anisoExt
+      ? Math.min(16, gl.getParameter(anisoExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 4)
+      : 1;
+
+    const maxTexSize = (gl.getParameter(gl.MAX_TEXTURE_SIZE) as number) || 4096;
+
+    // Create 4 horizontal sector textures so 12,000 × 6,000 renders at full 1:1 native pixels
+    // even on GPUs whose MAX_TEXTURE_SIZE is 8192!
+    const textures: (WebGLTexture | null)[] = [0, 1, 2, 3].map((unit) => {
+      gl!.activeTexture(gl!.TEXTURE0 + unit);
+      const t = gl!.createTexture();
+      gl!.bindTexture(gl!.TEXTURE_2D, t);
+      gl!.texImage2D(
+        gl!.TEXTURE_2D,
+        0,
+        gl!.RGBA,
+        1,
+        1,
+        0,
+        gl!.RGBA,
+        gl!.UNSIGNED_BYTE,
+        new Uint8Array([15, 23, 42, 255]),
+      );
+      gl!.uniform1i(texLocs[unit] ?? null, unit);
+      return t;
+    });
+
+    let padFracVal = 0;
+    let texelStepVal: [number, number] = [1 / 4096, 1 / 2048];
 
     let cancelled = false;
+    setIsLoadingPano(true);
+
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
       if (cancelled || !gl) return;
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
+      const W = img.naturalWidth || img.width;
+      const H = img.naturalHeight || img.height;
+      setPanoDimensions({ w: W, h: H });
+
+      const sectorW = W / 4;
+      const padPx = Math.max(4, Math.round(sectorW * 0.005));
+      const srcTileW = sectorW + 2 * padPx;
+
+      const dstTileW = Math.min(Math.round(srcTileW), maxTexSize);
+      const dstTileH = Math.min(H, maxTexSize);
+
+      padFracVal = padPx / srcTileW;
+      texelStepVal = [1 / Math.max(1024, dstTileW * 4), 1 / Math.max(512, dstTileH)];
+
+      const tileCanvas = document.createElement("canvas");
+      tileCanvas.width = dstTileW;
+      tileCanvas.height = dstTileH;
+      const ctx = tileCanvas.getContext("2d", { alpha: false });
+
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = "high";
+        const scaleX = dstTileW / srcTileW;
+
+        for (let k = 0; k < 4; k++) {
+          ctx.clearRect(0, 0, dstTileW, dstTileH);
+          const startX = k * sectorW - padPx;
+
+          if (startX < 0) {
+            // Wrap left pad from right edge of equirectangular image (k = 0)
+            const wrapW = -startX;
+            const mainW = srcTileW - wrapW;
+            ctx.drawImage(img, W - wrapW, 0, wrapW, H, 0, 0, wrapW * scaleX, dstTileH);
+            ctx.drawImage(img, 0, 0, mainW, H, wrapW * scaleX, 0, mainW * scaleX, dstTileH);
+          } else if (startX + srcTileW > W) {
+            // Wrap right pad from left edge of equirectangular image (k = 3)
+            const mainW = W - startX;
+            const wrapW = srcTileW - mainW;
+            ctx.drawImage(img, startX, 0, mainW, H, 0, 0, mainW * scaleX, dstTileH);
+            ctx.drawImage(img, 0, 0, wrapW, H, mainW * scaleX, 0, wrapW * scaleX, dstTileH);
+          } else {
+            ctx.drawImage(img, startX, 0, srcTileW, H, 0, 0, dstTileW, dstTileH);
+          }
+
+          gl.activeTexture(gl.TEXTURE0 + k);
+          gl.bindTexture(gl.TEXTURE_2D, textures[k] ?? null);
+          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tileCanvas);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+          if (anisoExt && maxAniso > 1) {
+            gl.texParameterf(gl.TEXTURE_2D, anisoExt.TEXTURE_MAX_ANISOTROPY_EXT, maxAniso);
+          }
+        }
+        // Release temporary 2D canvas memory immediately
+        tileCanvas.width = 1;
+        tileCanvas.height = 1;
+      }
+
       setWebglReady(true);
+      setIsLoadingPano(false);
     };
     img.onerror = () => {
+      setIsLoadingPano(false);
       if (!cancelled && activeTexUrl !== fallbackPanoramaUrl) {
         setActiveTexUrl(fallbackPanoramaUrl);
       }
@@ -460,7 +617,7 @@ export function KrpanoViewer({
         const nextCam: CameraState = {
           hlookat: wrapDeg180(anim.startH + (anim.targetH - anim.startH) * ease),
           vlookat: clamp(anim.startV + (anim.targetV - anim.startV) * ease, -82, 82),
-          fov: clamp(anim.startFov + (anim.targetFov - anim.startFov) * ease, 35, 115),
+          fov: clamp(anim.startFov + (anim.targetFov - anim.startFov) * ease, 28, 115),
         };
         if (t >= 1) {
           lookToRef.current = null;
@@ -482,14 +639,15 @@ export function KrpanoViewer({
         } else if (autoRotate) {
           const nextCam: CameraState = {
             ...camRef.current,
-            hlookat: wrapDeg180(camRef.current.hlookat + 0.18),
+            hlookat: wrapDeg180(camRef.current.hlookat + 0.16),
           };
           camRef.current = nextCam;
           setCam(nextCam);
         }
       }
 
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      // Use full native Retina / 4K devicePixelRatio up to 3.0x so Fullscreen is tack-sharp
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
       const displayW = Math.max(1, Math.floor(canvas.clientWidth * dpr));
       const displayH = Math.max(1, Math.floor(canvas.clientHeight * dpr));
       if (canvas.width !== displayW || canvas.height !== displayH) {
@@ -511,6 +669,9 @@ export function KrpanoViewer({
       gl.uniform3fv(uCamU, Uvec);
       gl.uniform1f(uTanHalfFov, tanHalfFov);
       gl.uniform1f(uAspect, aspect);
+      gl.uniform1f(uPadFrac, padFracVal);
+      gl.uniform2fv(uTexelStep, texelStepVal);
+      gl.uniform1f(uSharpness, hdCrispRef.current ? 0.85 : 0.0);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       rafId = window.requestAnimationFrame(renderLoop);
@@ -521,6 +682,9 @@ export function KrpanoViewer({
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(rafId);
+      textures.forEach((t) => {
+        if (t && gl) gl.deleteTexture(t);
+      });
     };
   }, [activeTexUrl, fallbackPanoramaUrl, autoRotate]);
 
@@ -576,7 +740,7 @@ export function KrpanoViewer({
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     e.preventDefault();
     lookToRef.current = null;
-    const nextFov = clamp(camRef.current.fov + (e.deltaY > 0 ? 5 : -5), 35, 115);
+    const nextFov = clamp(camRef.current.fov + (e.deltaY > 0 ? 4.5 : -4.5), 28, 115);
     const nextCam = { ...camRef.current, fov: nextFov };
     camRef.current = nextCam;
     setCam(nextCam);
@@ -585,7 +749,7 @@ export function KrpanoViewer({
   const nudgeCamera = (dH: number, dV: number, dFov = 0) => {
     setAutoRotate(false);
     const cur = camRef.current;
-    lookTo(cur.hlookat + dH, clamp(cur.vlookat + dV, -82, 82), clamp(cur.fov + dFov, 35, 115), 320);
+    lookTo(cur.hlookat + dH, clamp(cur.vlookat + dV, -82, 82), clamp(cur.fov + dFov, 28, 115), 320);
   };
 
   const toggleFullscreen = () => {
@@ -616,6 +780,8 @@ export function KrpanoViewer({
     window.setTimeout(() => setCopiedXml(false), 1800);
   };
 
+  const is12kActive = (panoDimensions?.w ?? 0) >= 10000 || activeScene?.isUltraHd12k;
+
   return (
     <div
       ref={containerRef}
@@ -629,7 +795,7 @@ export function KrpanoViewer({
       } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
       style={{ touchAction: "none" }}
     >
-      {/* True 360°×180° WebGL Equirectangular Spherical Canvas */}
+      {/* Multi-Tile 12K WebGL Equirectangular Spherical Canvas */}
       <canvas
         ref={canvasRef}
         className={`block h-full w-full transition-opacity duration-200 ${
@@ -645,20 +811,27 @@ export function KrpanoViewer({
           style={{
             backgroundImage: `url(${activeTexUrl})`,
             backgroundPosition: `${50 + (cam.hlookat / 180) * 50}% ${50 - (cam.vlookat / 90) * 45}%`,
-            transform: `scale(${clamp(115 / cam.fov, 1.05, 2.2)})`,
+            transform: `scale(${clamp(115 / cam.fov, 1.05, 2.5)})`,
           }}
         />
+      )}
+
+      {/* Subtle Loading Pill while decoding 72-Megapixel 12K Panorama */}
+      {isLoadingPano && (
+        <div className="pointer-events-none absolute top-14 left-1/2 z-30 -translate-x-1/2 rounded-full border border-[#FCD116]/50 bg-slate-950/85 px-4 py-1.5 text-[11px] font-bold text-[#FCD116] shadow-lg backdrop-blur-md">
+          Loading Ultra-HD 360° Sphere...
+        </div>
       )}
 
       {/* Subtle Vignette for HUD Readability */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/65 via-transparent to-slate-950/35"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/30"
       />
 
-      {/* Top Bar: Multi-Room Switcher + Live Spherical Compass & Pitch Telemetry */}
+      {/* Top Bar: Multi-Room Switcher + Live 12K UHD Resolution & Compass Telemetry */}
       <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex flex-wrap items-center justify-between gap-2 px-3.5">
-        <div className="pointer-events-auto flex flex-wrap items-center gap-1.5 rounded-full border border-white/20 bg-slate-950/80 p-1 text-[11px] font-bold text-white backdrop-blur-md">
+        <div className="pointer-events-auto flex flex-wrap items-center gap-1 rounded-full border border-white/20 bg-slate-950/85 p-1 text-[11px] font-bold text-white backdrop-blur-md">
           {scenes.map((sc) => {
             const on = sc.id === currentSceneId;
             return (
@@ -666,7 +839,7 @@ export function KrpanoViewer({
                 key={sc.id}
                 type="button"
                 onClick={() => switchScene(sc.id)}
-                className="flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-extrabold transition-all"
+                className="flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold transition-all"
                 style={{
                   backgroundColor: on ? C.foil : "transparent",
                   color: on ? C.ink : "#FFFFFF",
@@ -679,15 +852,27 @@ export function KrpanoViewer({
           })}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {panoDimensions ? (
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md"
+              style={{
+                backgroundColor: is12kActive ? "#059669" : "rgba(15, 23, 42, 0.8)",
+                border: is12kActive ? "1px solid #6EE7B7" : "1px solid rgba(255, 255, 255, 0.2)",
+              }}
+            >
+              {is12kActive ? "12K UHD · " : ""}
+              {panoDimensions.w.toLocaleString()}×{panoDimensions.h.toLocaleString()}
+            </span>
+          ) : null}
+
           <span
-            className="inline-flex items-center gap-1.5 rounded-full border border-[#FCD116]/45 bg-slate-950/80 px-3 py-1 text-[11px] font-bold text-[#FCD116] backdrop-blur-md"
+            className="hidden items-center gap-1.5 rounded-full border border-[#FCD116]/45 bg-slate-950/80 px-3 py-1 text-[11px] font-bold text-[#FCD116] backdrop-blur-md sm:inline-flex"
             style={{ fontFamily: F.mono }}
           >
             <Compass className="size-3.5" />
-            {Math.round(wrapDeg360(cam.hlookat))}° {cardinalDirection(cam.hlookat)} · Pitch{" "}
-            {cam.vlookat >= 0 ? `+${Math.round(cam.vlookat)}°` : `${Math.round(cam.vlookat)}°`} ·
-            FOV {Math.round(cam.fov)}°
+            {Math.round(wrapDeg360(cam.hlookat))}° {cardinalDirection(cam.hlookat)} · FOV{" "}
+            {Math.round(cam.fov)}°
           </span>
 
           <button
@@ -696,7 +881,7 @@ export function KrpanoViewer({
             className="pointer-events-auto inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/25 bg-slate-950/80 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md hover:bg-slate-900"
             title="Inspect krpano XML configuration"
           >
-            <Code2 className="size-3.5 text-[#FCD116]" /> krpano XML
+            <Code2 className="size-3.5 text-[#FCD116]" /> XML
           </button>
         </div>
       </div>
@@ -718,7 +903,7 @@ export function KrpanoViewer({
               if (hs.targetSceneId) {
                 switchScene(hs.targetSceneId);
               } else {
-                lookTo(hs.ath, hs.atv, hs.fov ?? 60, 680);
+                lookTo(hs.ath, hs.atv, hs.fov ?? 52, 680);
                 onSelectHotspot?.(hs);
               }
             }}
@@ -773,7 +958,7 @@ export function KrpanoViewer({
       {children}
 
       {/* krpano Floating Control Dock */}
-      <div className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/20 bg-slate-950/80 px-2.5 py-1.5 text-white shadow-2xl backdrop-blur-md">
+      <div className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/20 bg-slate-950/85 px-2.5 py-1.5 text-white shadow-2xl backdrop-blur-md">
         <button
           type="button"
           onClick={() => nudgeCamera(-35, 0)}
@@ -818,7 +1003,7 @@ export function KrpanoViewer({
           onClick={() => nudgeCamera(0, 0, -14)}
           aria-label="Zoom in"
           className="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
-          title="Zoom In"
+          title="Zoom In (down to 28° UHD close-up)"
         >
           <ZoomIn className="size-4" />
         </button>
@@ -836,6 +1021,21 @@ export function KrpanoViewer({
 
         <button
           type="button"
+          onClick={() => setHdCrisp((v) => !v)}
+          className="hidden h-8 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors sm:flex"
+          style={{
+            backgroundColor: hdCrisp ? "rgba(16, 185, 129, 0.25)" : "transparent",
+            border: hdCrisp ? "1px solid #34D399" : "1px solid transparent",
+            color: hdCrisp ? "#A7F3D0" : "#94A3B8",
+          }}
+          title="Toggle Contrast-Adaptive HD Sharpening Filter"
+        >
+          <Sparkles className="size-3.5" />
+          <span>HD Crisp</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => setAutoRotate((v) => !v)}
           className="flex h-8 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors"
           style={{
@@ -845,21 +1045,12 @@ export function KrpanoViewer({
           title="Toggle 360° Auto-Rotation"
         >
           <RotateCw className="size-3.5" />
-          <span className="hidden sm:inline">{autoRotate ? "Pause" : "Auto-Spin"}</span>
+          <span className="hidden sm:inline">{autoRotate ? "Pause" : "Spin"}</span>
         </button>
 
         <button
           type="button"
-          onClick={() => lookTo(0, 54, 72, 700)}
-          className="hidden h-8 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold hover:bg-white/15 sm:flex"
-          title="Look up at the Skylight Vault"
-        >
-          Ceiling ↑
-        </button>
-
-        <button
-          type="button"
-          onClick={() => lookTo(0, 2, 86, 600)}
+          onClick={() => lookTo(0, 2, 82, 600)}
           aria-label="Reset 360 view"
           className="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
           title="Reset View"
@@ -871,10 +1062,11 @@ export function KrpanoViewer({
           type="button"
           onClick={toggleFullscreen}
           aria-label="Toggle fullscreen"
-          className="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
-          title="Fullscreen 360°"
+          className="flex h-8 cursor-pointer items-center gap-1 rounded-full bg-[#0038A8] px-3 text-[11px] font-extrabold text-white hover:bg-[#1D4ED8]"
+          title="Fullscreen 12K Ultra-HD 360°"
         >
-          {isFullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+          {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+          <span className="hidden md:inline">{isFullscreen ? "Exit" : "Fullscreen HD"}</span>
         </button>
       </div>
 
@@ -894,7 +1086,7 @@ export function KrpanoViewer({
                   className="text-[11px] font-extrabold uppercase tracking-wider"
                   style={{ color: C.cover }}
                 >
-                  krpano 1.21 Multi-Scene Configuration
+                  krpano 1.21 Multi-Scene 12K Configuration
                 </span>
                 <h4 className="text-[15px] font-bold" style={{ color: C.ink }}>
                   /krpano/tour.xml ({resolvedSceneTitle})
