@@ -1,10 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowUpDown,
+  Check,
+  ChevronRight,
   Code2,
   Compass,
   Copy,
-  Check,
   DoorOpen,
+  Footprints,
+  Info,
   Maximize2,
   Minimize2,
   MoveDown,
@@ -14,6 +18,7 @@ import {
   RotateCcw,
   RotateCw,
   Sparkles,
+  X,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
@@ -42,6 +47,49 @@ type LookToAnimation = {
   startTime: number;
   duration: number;
 };
+
+type CachedRoomEntry = {
+  preview?: ImageBitmap;
+  tiles?: [ImageBitmap, ImageBitmap, ImageBitmap, ImageBitmap];
+  padFrac: number;
+  w: number;
+  h: number;
+};
+
+// Module-level off-main-thread decoded ImageBitmap cache (instant 0ms room switching!)
+const ROOM_BITMAP_CACHE = new Map<string, CachedRoomEntry>();
+
+function nextAnimationFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+      window.requestAnimationFrame(() => resolve());
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+}
+
+async function fetchBitmap(
+  url: string,
+  signal?: AbortSignal,
+): Promise<ImageBitmap | HTMLImageElement> {
+  if (typeof window !== "undefined" && typeof window.createImageBitmap === "function") {
+    const res = await fetch(url, { signal, cache: "force-cache" });
+    if (!res.ok) throw new Error(`Failed to fetch ${url}`);
+    const blob = await res.blob();
+    return await window.createImageBitmap(blob, {
+      premultiplyAlpha: "none",
+      colorSpaceConversion: "default",
+    });
+  }
+  return await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`Failed image ${url}`));
+    img.src = url;
+  });
+}
 
 function wrapDeg180(deg: number): number {
   let d = ((((deg + 180) % 360) + 360) % 360) - 180;
@@ -117,7 +165,7 @@ function projectHotspotToScreen(
   const nx = xc / (zc * aspect * tanHalfFov);
   const ny = yc / (zc * tanHalfFov);
 
-  if (Math.abs(nx) > 1.18 || Math.abs(ny) > 1.18) {
+  if (Math.abs(nx) > 1.22 || Math.abs(ny) > 1.22) {
     return { x: 0, y: 0, visible: false, depth: zc };
   }
 
@@ -136,7 +184,7 @@ void main() {
 `;
 
 /**
- * Multi-Tile 12K Spherical Equirectangular Fragment Shader
+ * Progressive Instant-Preview + 4-Sector 12K Native GPU Tile Shader
  * + AMD FidelityFX Contrast-Adaptive Sharpening (CAS) for Zero Fullscreen Blur.
  */
 const FRAGMENT_SHADER_SRC = `
@@ -147,6 +195,7 @@ uniform sampler2D u_tex0;
 uniform sampler2D u_tex1;
 uniform sampler2D u_tex2;
 uniform sampler2D u_tex3;
+uniform sampler2D u_previewTex;
 
 uniform vec3 u_camF;
 uniform vec3 u_camR;
@@ -156,12 +205,17 @@ uniform float u_aspect;
 uniform float u_padFrac;
 uniform vec2 u_texelStep;
 uniform float u_sharpness;
+uniform float u_useTiles;
 
 const float PI = 3.14159265358979323846;
 
-vec3 sampleEquirectTile(vec2 uv) {
+vec3 sampleSphere(vec2 uv) {
   float u = fract(uv.x);
   float v = clamp(uv.y, 0.0005, 0.9995);
+
+  if (u_useTiles < 0.5) {
+    return texture2D(u_previewTex, vec2(u, v)).rgb;
+  }
 
   float scaled = u * 4.0;
   float sector = floor(scaled);
@@ -191,24 +245,21 @@ void main() {
   float lat = asin(clamp(ray.y, -1.0, 1.0));
 
   vec2 uv = vec2(fract((lon / (2.0 * PI)) + 0.5), clamp(0.5 - (lat / PI), 0.0005, 0.9995));
+  vec3 c = sampleSphere(uv);
 
-  vec3 c = sampleEquirectTile(uv);
-
-  if (u_sharpness > 0.01) {
-    // Compensate horizontal step near poles by sec(lat) clamped for stability
+  if (u_sharpness > 0.01 && u_useTiles > 0.5) {
     float cosLat = max(0.25, cos(lat));
     vec2 stepUV = vec2(u_texelStep.x / cosLat, u_texelStep.y);
 
-    vec3 n = sampleEquirectTile(uv + vec2(0.0, -stepUV.y));
-    vec3 s = sampleEquirectTile(uv + vec2(0.0,  stepUV.y));
-    vec3 e = sampleEquirectTile(uv + vec2( stepUV.x, 0.0));
-    vec3 w = sampleEquirectTile(uv + vec2(-stepUV.x, 0.0));
+    vec3 n = sampleSphere(uv + vec2(0.0, -stepUV.y));
+    vec3 s = sampleSphere(uv + vec2(0.0,  stepUV.y));
+    vec3 e = sampleSphere(uv + vec2( stepUV.x, 0.0));
+    vec3 w = sampleSphere(uv + vec2(-stepUV.x, 0.0));
 
-    // Contrast-Adaptive Sharpening (CAS) — sharpens fine details without edge haloing
     vec3 minRGB = min(min(min(n, s), min(e, w)), c);
     vec3 maxRGB = max(max(max(n, s), max(e, w)), c);
     vec3 amp = sqrt(clamp(min(minRGB, 1.0 - maxRGB) / max(maxRGB, vec3(0.0001)), 0.0, 1.0));
-    vec3 weight = -amp / mix(8.0, 4.6, u_sharpness);
+    vec3 weight = -amp / mix(8.5, 4.8, u_sharpness);
 
     vec3 sharpened = clamp(
       (c + (n + s + e + w) * weight) / (1.0 + 4.0 * weight),
@@ -234,30 +285,41 @@ function createShader(gl: WebGLRenderingContext, type: number, source: string): 
   return shader;
 }
 
+type GlHandle = {
+  gl: WebGLRenderingContext;
+  textures: (WebGLTexture | null)[];
+  previewTex: WebGLTexture | null;
+  maxAniso: number;
+  anisoExt: EXT_texture_filter_anisotropic | null;
+  maxTexSize: number;
+  padFrac: number;
+  texelStep: [number, number];
+  useTiles: number;
+};
+
 export function KrpanoViewer({
   panoramaUrl,
   fallbackPanoramaUrl = CALABARZON_12K_PANO_URL,
   sceneName = "scene_sulyap_calabarzon_12k",
-  sceneTitle = "SulyapPH 12K Ultra-HD Heritage Salon",
+  sceneTitle = "SulyapPH 12K Ultra-HD Heritage Atrium",
   scenes = DEFAULT_MUSEUM_SCENES,
   activeSceneId,
   onSceneChange,
   hotspots,
   selectedHotspotId,
   onSelectHotspot,
-  initialHlookat = 32,
-  initialVlookat = -2,
+  initialHlookat = 0,
+  initialVlookat = 2,
   initialFov = 80,
   targetView,
   autoRotateDefault = false,
-  heightClass = "h-[380px] sm:h-[480px]",
+  heightClass = "h-[400px] sm:h-[510px]",
   children,
 }: {
   panoramaUrl?: string;
   fallbackPanoramaUrl?: string;
   sceneName?: string;
   sceneTitle?: string;
-  /** Multi-scene array (defaults to Room 1 12K Salon + Room 2 Rotunda + Room 3 Fine Arts Hall) */
   scenes?: KrpanoSceneConfig[];
   activeSceneId?: string;
   onSceneChange?: (sceneId: string) => void;
@@ -267,7 +329,6 @@ export function KrpanoViewer({
   initialHlookat?: number;
   initialVlookat?: number;
   initialFov?: number;
-  /** Optional external camera target { ath, atv, fov, sceneId, key } to trigger smooth krpano lookto() */
   targetView?: {
     ath: number;
     atv: number;
@@ -281,6 +342,7 @@ export function KrpanoViewer({
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const glHandleRef = useRef<GlHandle | null>(null);
 
   const [internalSceneId, setInternalSceneId] = useState<string>(
     activeSceneId ?? scenes[0]?.id ?? "salon12k",
@@ -296,13 +358,14 @@ export function KrpanoViewer({
     () => hotspots ?? activeScene?.hotspots ?? [],
     [hotspots, activeScene],
   );
+  const resolvedFloorPath = useMemo(() => activeScene?.floorPath ?? [], [activeScene]);
   const resolvedSceneName = activeScene?.name ?? sceneName;
   const resolvedSceneTitle = activeScene?.title ?? sceneTitle;
 
   const [cam, setCam] = useState<CameraState>({
     hlookat: wrapDeg180(activeScene?.initialHlookat ?? initialHlookat),
     vlookat: clamp(activeScene?.initialVlookat ?? initialVlookat, -82, 82),
-    fov: clamp(activeScene?.initialFov ?? initialFov, 28, 115),
+    fov: clamp(activeScene?.initialFov ?? initialFov, 20, 115),
   });
   const camRef = useRef<CameraState>(cam);
   camRef.current = cam;
@@ -314,12 +377,15 @@ export function KrpanoViewer({
   const [isDragging, setIsDragging] = useState(false);
   const [autoRotate, setAutoRotate] = useState(autoRotateDefault);
   const [hdCrisp, setHdCrisp] = useState(true);
+  const [showPath, setShowPath] = useState(true);
+  const [pathStepIdx, setPathStepIdx] = useState(0);
+  const [activeArtCard, setActiveArtCard] = useState<KrpanoHotspot | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [webglReady, setWebglReady] = useState(false);
-  const [isLoadingPano, setIsLoadingPano] = useState(true);
+  const [streamingTiles, setStreamingTiles] = useState(false);
   const [panoDimensions, setPanoDimensions] = useState<{ w: number; h: number } | null>(null);
-  const [activeTexUrl, setActiveTexUrl] = useState(resolvedPanoUrl);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [transitionBanner, setTransitionBanner] = useState<string | null>(null);
   const [xmlModalOpen, setXmlModalOpen] = useState(false);
   const [copiedXml, setCopiedXml] = useState(false);
 
@@ -331,15 +397,14 @@ export function KrpanoViewer({
   } | null>(null);
   const velocityRef = useRef<{ h: number; v: number }>({ h: 0, v: 0 });
   const lookToRef = useRef<LookToAnimation | null>(null);
+
+  const autoRotateRef = useRef<boolean>(autoRotate);
+  autoRotateRef.current = autoRotate;
   const hdCrispRef = useRef<boolean>(hdCrisp);
   hdCrispRef.current = hdCrisp;
 
-  useEffect(() => {
-    setActiveTexUrl(resolvedPanoUrl);
-  }, [resolvedPanoUrl]);
-
-  // Smooth krpano lookto(ath, atv, fov) camera interpolation (supports deep 28° UHD zoom)
-  const lookTo = useCallback((ath: number, atv: number, fov = 56, duration = 680) => {
+  // Smooth krpano lookto(ath, atv, fov) camera interpolation (supports deep 20° Macro UHD zoom!)
+  const lookTo = useCallback((ath: number, atv: number, fov = 46, duration = 640) => {
     velocityRef.current = { h: 0, v: 0 };
     const current = camRef.current;
     const deltaH = shortestAngleDelta(ath, current.hlookat);
@@ -349,34 +414,62 @@ export function KrpanoViewer({
       startFov: current.fov,
       targetH: current.hlookat + deltaH,
       targetV: clamp(atv, -82, 82),
-      targetFov: clamp(fov, 28, 115),
+      targetFov: clamp(fov, 20, 115),
       startTime: performance.now(),
       duration,
     };
   }, []);
 
-  // Switch 360° room (krpano loadscene equivalent with smooth blend)
+  // Switch 360° room / floor (supports walking through Doors & climbing/descending Stairs!)
   const switchScene = useCallback(
-    (nextSceneId: string, customLook?: { ath: number; atv: number; fov?: number }) => {
+    (
+      nextSceneId: string,
+      customLook?: { ath: number; atv: number; fov?: number },
+      viaPortal?: { ath: number; atv: number; label: string },
+    ) => {
       const nextScene = scenes.find((s) => s.id === nextSceneId);
       if (!nextScene) return;
-      setIsTransitioning(true);
-      setInternalSceneId(nextSceneId);
-      onSceneChange?.(nextSceneId);
-      window.setTimeout(() => {
-        setIsTransitioning(false);
-        lookTo(
-          customLook?.ath ?? nextScene.initialHlookat ?? 0,
-          customLook?.atv ?? nextScene.initialVlookat ?? 2,
-          customLook?.fov ?? nextScene.initialFov ?? 82,
-          650,
-        );
-      }, 150);
+
+      setActiveArtCard(null);
+      setPathStepIdx(0);
+
+      const performSwitch = () => {
+        setIsTransitioning(true);
+        setInternalSceneId(nextSceneId);
+        onSceneChange?.(nextSceneId);
+
+        const arriveH = customLook?.ath ?? nextScene.initialHlookat ?? 0;
+        const arriveV = customLook?.atv ?? nextScene.initialVlookat ?? 2;
+        const arriveFov = customLook?.fov ?? nextScene.initialFov ?? 80;
+
+        const nextCam: CameraState = {
+          hlookat: wrapDeg180(arriveH),
+          vlookat: clamp(arriveV, -82, 82),
+          fov: clamp(arriveFov + 8, 20, 115),
+        };
+        camRef.current = nextCam;
+        setCam(nextCam);
+
+        window.setTimeout(() => {
+          setIsTransitioning(false);
+          setTransitionBanner(null);
+          lookTo(arriveH, arriveV, arriveFov, 520);
+        }, 160);
+      };
+
+      if (viaPortal) {
+        // Walk toward the door / climb stairs smoothly first!
+        setTransitionBanner(viaPortal.label);
+        lookTo(viaPortal.ath, viaPortal.atv, 44, 300);
+        window.setTimeout(performSwitch, 280);
+      } else {
+        performSwitch();
+      }
     },
     [scenes, onSceneChange, lookTo],
   );
 
-  // Trigger smooth lookto (and optional scene switch) whenever targetView prop changes
+  // Trigger smooth lookto (and optional scene switch) whenever external targetView prop changes
   useEffect(() => {
     if (!targetView) return;
     if (targetView.sceneId && targetView.sceneId !== currentSceneId) {
@@ -386,7 +479,7 @@ export function KrpanoViewer({
         fov: targetView.fov,
       });
     } else {
-      lookTo(targetView.ath, targetView.atv, targetView.fov ?? 56, 700);
+      lookTo(targetView.ath, targetView.atv, targetView.fov ?? 46, 650);
     }
   }, [targetView, currentSceneId, switchScene, lookTo]);
 
@@ -419,7 +512,7 @@ export function KrpanoViewer({
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
 
-  // Initialize Multi-Tile 12K WebGL 360° Equirectangular Spherical Renderer
+  // 1. PERSISTENT WebGL Context & 60–120 FPS Render Loop (Initialized ONCE on mount — NEVER torn down!)
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -429,6 +522,7 @@ export function KrpanoViewer({
       gl =
         (canvas.getContext("webgl", {
           antialias: true,
+          alpha: false,
           powerPreference: "high-performance",
         }) as WebGLRenderingContext | null) ||
         (canvas.getContext("experimental-webgl") as WebGLRenderingContext | null);
@@ -438,26 +532,22 @@ export function KrpanoViewer({
 
     if (!gl) {
       setWebglReady(false);
-      setIsLoadingPano(false);
       return;
     }
 
     const vs = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SRC);
     const fs = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SRC);
-    if (!vs || !fs) {
+    const program = gl.createProgram();
+    if (!vs || !fs || !program) {
       setWebglReady(false);
-      setIsLoadingPano(false);
       return;
     }
 
-    const program = gl.createProgram();
-    if (!program) return;
     gl.attachShader(program, vs);
     gl.attachShader(program, fs);
     gl.linkProgram(program);
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
       setWebglReady(false);
-      setIsLoadingPano(false);
       return;
     }
 
@@ -483,6 +573,7 @@ export function KrpanoViewer({
     const uPadFrac = gl.getUniformLocation(program, "u_padFrac");
     const uTexelStep = gl.getUniformLocation(program, "u_texelStep");
     const uSharpness = gl.getUniformLocation(program, "u_sharpness");
+    const uUseTiles = gl.getUniformLocation(program, "u_useTiles");
 
     const texLocs = [
       gl.getUniformLocation(program, "u_tex0"),
@@ -490,21 +581,19 @@ export function KrpanoViewer({
       gl.getUniformLocation(program, "u_tex2"),
       gl.getUniformLocation(program, "u_tex3"),
     ];
+    const previewLoc = gl.getUniformLocation(program, "u_previewTex");
 
-    // Query anisotropic filtering extension for razor-sharp floor/ceiling angles in fullscreen
-    const anisoExt =
-      gl.getExtension("EXT_texture_filter_anisotropic") ||
+    const anisoExt = (gl.getExtension("EXT_texture_filter_anisotropic") ||
       gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic") ||
-      gl.getExtension("MOZ_EXT_texture_filter_anisotropic");
+      gl.getExtension(
+        "MOZ_EXT_texture_filter_anisotropic",
+      )) as EXT_texture_filter_anisotropic | null;
     const maxAniso = anisoExt
-      ? Math.min(16, gl.getParameter(anisoExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT) || 4)
+      ? Math.min(16, (gl.getParameter(anisoExt.MAX_TEXTURE_MAX_ANISOTROPY_EXT) as number) || 4)
       : 1;
-
     const maxTexSize = (gl.getParameter(gl.MAX_TEXTURE_SIZE) as number) || 4096;
 
-    // Create 4 horizontal sector textures so 12,000 × 6,000 renders at full 1:1 native pixels
-    // even on GPUs whose MAX_TEXTURE_SIZE is 8192!
-    const textures: (WebGLTexture | null)[] = [0, 1, 2, 3].map((unit) => {
+    const initPlaceholderTex = (unit: number, loc: WebGLUniformLocation | null) => {
       gl!.activeTexture(gl!.TEXTURE0 + unit);
       const t = gl!.createTexture();
       gl!.bindTexture(gl!.TEXTURE_2D, t);
@@ -519,134 +608,82 @@ export function KrpanoViewer({
         gl!.UNSIGNED_BYTE,
         new Uint8Array([15, 23, 42, 255]),
       );
-      gl!.uniform1i(texLocs[unit] ?? null, unit);
+      gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_WRAP_S, gl!.CLAMP_TO_EDGE);
+      gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_WRAP_T, gl!.CLAMP_TO_EDGE);
+      gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_MIN_FILTER, gl!.LINEAR);
+      gl!.texParameteri(gl!.TEXTURE_2D, gl!.TEXTURE_MAG_FILTER, gl!.LINEAR);
+      gl!.uniform1i(loc, unit);
       return t;
-    });
+    };
 
-    let padFracVal = 0;
-    let texelStepVal: [number, number] = [1 / 4096, 1 / 2048];
+    const textures = [0, 1, 2, 3].map((u) => initPlaceholderTex(u, texLocs[u] ?? null));
+    const previewTex = initPlaceholderTex(4, previewLoc);
+
+    const handle: GlHandle = {
+      gl,
+      textures,
+      previewTex,
+      maxAniso,
+      anisoExt,
+      maxTexSize,
+      padFrac: 16 / 3032,
+      texelStep: [1 / 12000, 1 / 6000],
+      useTiles: 0,
+    };
+    glHandleRef.current = handle;
+    setWebglReady(true);
 
     let cancelled = false;
-    setIsLoadingPano(true);
-
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      if (cancelled || !gl) return;
-
-      const W = img.naturalWidth || img.width;
-      const H = img.naturalHeight || img.height;
-      setPanoDimensions({ w: W, h: H });
-
-      const sectorW = W / 4;
-      const padPx = Math.max(4, Math.round(sectorW * 0.005));
-      const srcTileW = sectorW + 2 * padPx;
-
-      const dstTileW = Math.min(Math.round(srcTileW), maxTexSize);
-      const dstTileH = Math.min(H, maxTexSize);
-
-      padFracVal = padPx / srcTileW;
-      texelStepVal = [1 / Math.max(1024, dstTileW * 4), 1 / Math.max(512, dstTileH)];
-
-      const tileCanvas = document.createElement("canvas");
-      tileCanvas.width = dstTileW;
-      tileCanvas.height = dstTileH;
-      const ctx = tileCanvas.getContext("2d", { alpha: false });
-
-      if (ctx) {
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = "high";
-        const scaleX = dstTileW / srcTileW;
-
-        for (let k = 0; k < 4; k++) {
-          ctx.clearRect(0, 0, dstTileW, dstTileH);
-          const startX = k * sectorW - padPx;
-
-          if (startX < 0) {
-            // Wrap left pad from right edge of equirectangular image (k = 0)
-            const wrapW = -startX;
-            const mainW = srcTileW - wrapW;
-            ctx.drawImage(img, W - wrapW, 0, wrapW, H, 0, 0, wrapW * scaleX, dstTileH);
-            ctx.drawImage(img, 0, 0, mainW, H, wrapW * scaleX, 0, mainW * scaleX, dstTileH);
-          } else if (startX + srcTileW > W) {
-            // Wrap right pad from left edge of equirectangular image (k = 3)
-            const mainW = W - startX;
-            const wrapW = srcTileW - mainW;
-            ctx.drawImage(img, startX, 0, mainW, H, 0, 0, mainW * scaleX, dstTileH);
-            ctx.drawImage(img, 0, 0, wrapW, H, mainW * scaleX, 0, wrapW * scaleX, dstTileH);
-          } else {
-            ctx.drawImage(img, startX, 0, srcTileW, H, 0, 0, dstTileW, dstTileH);
-          }
-
-          gl.activeTexture(gl.TEXTURE0 + k);
-          gl.bindTexture(gl.TEXTURE_2D, textures[k] ?? null);
-          gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
-          gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, tileCanvas);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-          if (anisoExt && maxAniso > 1) {
-            gl.texParameterf(gl.TEXTURE_2D, anisoExt.TEXTURE_MAX_ANISOTROPY_EXT, maxAniso);
-          }
-        }
-        // Release temporary 2D canvas memory immediately
-        tileCanvas.width = 1;
-        tileCanvas.height = 1;
-      }
-
-      setWebglReady(true);
-      setIsLoadingPano(false);
-    };
-    img.onerror = () => {
-      setIsLoadingPano(false);
-      if (!cancelled && activeTexUrl !== fallbackPanoramaUrl) {
-        setActiveTexUrl(fallbackPanoramaUrl);
-      }
-    };
-    img.src = activeTexUrl;
-
     let rafId = 0;
+    let lastReactSync = 0;
+
     const renderLoop = (now: number) => {
       if (cancelled || !gl) return;
 
+      let moved = false;
       const anim = lookToRef.current;
       if (anim) {
         const t = clamp((now - anim.startTime) / anim.duration, 0, 1);
         const ease = 1 - Math.pow(1 - t, 3);
-        const nextCam: CameraState = {
+        camRef.current = {
           hlookat: wrapDeg180(anim.startH + (anim.targetH - anim.startH) * ease),
           vlookat: clamp(anim.startV + (anim.targetV - anim.startV) * ease, -82, 82),
-          fov: clamp(anim.startFov + (anim.targetFov - anim.startFov) * ease, 28, 115),
+          fov: clamp(anim.startFov + (anim.targetFov - anim.startFov) * ease, 20, 115),
         };
         if (t >= 1) {
           lookToRef.current = null;
+          lastReactSync = 0; // Guarantee exact final sync
         }
-        camRef.current = nextCam;
-        setCam(nextCam);
+        moved = true;
       } else if (!dragRef.current) {
         const vel = velocityRef.current;
         if (Math.abs(vel.h) > 0.01 || Math.abs(vel.v) > 0.01) {
           vel.h *= 0.9;
           vel.v *= 0.9;
-          const nextCam: CameraState = {
+          camRef.current = {
             hlookat: wrapDeg180(camRef.current.hlookat + vel.h),
             vlookat: clamp(camRef.current.vlookat + vel.v, -82, 82),
             fov: camRef.current.fov,
           };
-          camRef.current = nextCam;
-          setCam(nextCam);
-        } else if (autoRotate) {
-          const nextCam: CameraState = {
+          if (Math.abs(vel.h) <= 0.01 && Math.abs(vel.v) <= 0.01) {
+            lastReactSync = 0;
+          }
+          moved = true;
+        } else if (autoRotateRef.current) {
+          camRef.current = {
             ...camRef.current,
-            hlookat: wrapDeg180(camRef.current.hlookat + 0.16),
+            hlookat: wrapDeg180(camRef.current.hlookat + 0.15),
           };
-          camRef.current = nextCam;
-          setCam(nextCam);
+          moved = true;
         }
       }
 
-      // Use full native Retina / 4K devicePixelRatio up to 3.0x so Fullscreen is tack-sharp
+      // Sync React HUD / Hotspot projections smoothly at ~30Hz during automated motion (zero main-thread lag!)
+      if (moved && now - lastReactSync > 30) {
+        lastReactSync = now;
+        setCam({ ...camRef.current });
+      }
+
       const dpr = Math.min(window.devicePixelRatio || 1, 3);
       const displayW = Math.max(1, Math.floor(canvas.clientWidth * dpr));
       const displayH = Math.max(1, Math.floor(canvas.clientHeight * dpr));
@@ -669,9 +706,10 @@ export function KrpanoViewer({
       gl.uniform3fv(uCamU, Uvec);
       gl.uniform1f(uTanHalfFov, tanHalfFov);
       gl.uniform1f(uAspect, aspect);
-      gl.uniform1f(uPadFrac, padFracVal);
-      gl.uniform2fv(uTexelStep, texelStepVal);
-      gl.uniform1f(uSharpness, hdCrispRef.current ? 0.85 : 0.0);
+      gl.uniform1f(uPadFrac, handle.padFrac);
+      gl.uniform2fv(uTexelStep, handle.texelStep);
+      gl.uniform1f(uSharpness, hdCrispRef.current ? 0.72 : 0.0);
+      gl.uniform1f(uUseTiles, handle.useTiles);
 
       gl.drawArrays(gl.TRIANGLES, 0, 6);
       rafId = window.requestAnimationFrame(renderLoop);
@@ -682,14 +720,218 @@ export function KrpanoViewer({
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(rafId);
+      glHandleRef.current = null;
       textures.forEach((t) => {
-        if (t && gl) gl.deleteTexture(t);
+        if (t) gl.deleteTexture(t);
       });
+      if (previewTex) gl.deleteTexture(previewTex);
     };
-  }, [activeTexUrl, fallbackPanoramaUrl, autoRotate]);
+  }, []);
+
+  // 2. ZERO-LAG PROGRESSIVE TEXTURE STREAMER (Instant <35ms Preview + Staggered Off-Thread 12K Tiles!)
+  const activeTileUrls = activeScene?.tileUrls;
+  const activePreviewUrl = activeScene?.previewUrl;
+  const activeTilePadFrac = activeScene?.tilePadFrac ?? 16 / 3032;
+  const activeNativeW = activeScene?.nativeWidth;
+  const activeNativeH = activeScene?.nativeHeight;
+  const useCustomSingleUrl = Boolean(panoramaUrl);
+
+  useEffect(() => {
+    const handle = glHandleRef.current;
+    if (!handle) return;
+    const { gl, textures, previewTex, anisoExt, maxAniso, maxTexSize } = handle;
+
+    const abortCtrl = new AbortController();
+    let aborted = false;
+
+    const uploadToUnit = (
+      unit: number,
+      tex: WebGLTexture | null,
+      source: TexImageSource,
+      wrapRepeatX = false,
+    ) => {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_WRAP_S,
+        wrapRepeatX ? gl.REPEAT : gl.CLAMP_TO_EDGE,
+      );
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      if (anisoExt && maxAniso > 1) {
+        gl.texParameterf(gl.TEXTURE_2D, anisoExt.TEXTURE_MAX_ANISOTROPY_EXT, maxAniso);
+      }
+    };
+
+    const runStream = async () => {
+      const cacheKey =
+        !useCustomSingleUrl && activeTileUrls
+          ? `tiles:${currentSceneId}`
+          : `url:${resolvedPanoUrl}`;
+
+      // Fast path: already decoded in RAM cache -> upload across frames with 0ms decode!
+      const cached = ROOM_BITMAP_CACHE.get(cacheKey);
+      if (cached?.tiles) {
+        if (cached.preview) {
+          uploadToUnit(4, previewTex, cached.preview, true);
+          handle.useTiles = 0;
+        }
+        setPanoDimensions({ w: cached.w, h: cached.h });
+        handle.padFrac = cached.padFrac;
+        handle.texelStep = [1 / cached.w, 1 / cached.h];
+        for (let k = 0; k < 4; k++) {
+          if (aborted) return;
+          uploadToUnit(k, textures[k] ?? null, cached.tiles[k]!);
+          await nextAnimationFrame();
+        }
+        if (!aborted) {
+          handle.useTiles = 1;
+          setStreamingTiles(false);
+        }
+        return;
+      }
+
+      // Progressive Pre-Cut Tile Path (Zero Main-Thread Canvas Slicing!)
+      if (!useCustomSingleUrl && activeTileUrls && activePreviewUrl) {
+        setStreamingTiles(true);
+        try {
+          // Phase A: Instant <35ms 2048x1024 WebP preview sphere!
+          const prevBmp = await fetchBitmap(activePreviewUrl, abortCtrl.signal);
+          if (aborted) return;
+          uploadToUnit(4, previewTex, prevBmp, true);
+          handle.useTiles = 0;
+          const wEst = activeNativeW ?? 12000;
+          const hEst = activeNativeH ?? 6000;
+          setPanoDimensions({ w: wEst, h: hEst });
+
+          // Phase B: Off-main-thread parallel decode of all 4 pre-cut UHD GPU tiles!
+          const decodedTiles = await Promise.all(
+            activeTileUrls.map((u) => fetchBitmap(u, abortCtrl.signal)),
+          );
+          if (aborted) return;
+
+          // Upload ONE tile per animation frame so pan/drag never drops a single frame!
+          for (let k = 0; k < 4; k++) {
+            if (aborted) return;
+            await nextAnimationFrame();
+            if (aborted) return;
+            uploadToUnit(k, textures[k] ?? null, decodedTiles[k]!);
+          }
+
+          if (aborted) return;
+          handle.padFrac = activeTilePadFrac;
+          handle.texelStep = [1 / wEst, 1 / hEst];
+          handle.useTiles = 1;
+          setStreamingTiles(false);
+
+          if (
+            typeof ImageBitmap !== "undefined" &&
+            prevBmp instanceof ImageBitmap &&
+            decodedTiles.every((b): b is ImageBitmap => b instanceof ImageBitmap)
+          ) {
+            if (ROOM_BITMAP_CACHE.size >= 4) {
+              const oldest = ROOM_BITMAP_CACHE.keys().next().value;
+              if (oldest) ROOM_BITMAP_CACHE.delete(oldest);
+            }
+            ROOM_BITMAP_CACHE.set(cacheKey, {
+              preview: prevBmp,
+              tiles: decodedTiles as [ImageBitmap, ImageBitmap, ImageBitmap, ImageBitmap],
+              padFrac: activeTilePadFrac,
+              w: wEst,
+              h: hEst,
+            });
+          }
+          return;
+        } catch {
+          if (aborted) return;
+          // Fall through to single-URL loader if tiles aren't reachable
+        }
+      }
+
+      // Fallback Single-Image Equirectangular Loader (still staggered per frame)
+      setStreamingTiles(true);
+      try {
+        let src: ImageBitmap | HTMLImageElement;
+        try {
+          src = await fetchBitmap(resolvedPanoUrl, abortCtrl.signal);
+        } catch {
+          src = await fetchBitmap(fallbackPanoramaUrl, abortCtrl.signal);
+        }
+        if (aborted) return;
+
+        const W = "naturalWidth" in src ? src.naturalWidth || src.width : src.width;
+        const H = "naturalHeight" in src ? src.naturalHeight || src.height : src.height;
+        setPanoDimensions({ w: W, h: H });
+
+        const sectorW = W / 4;
+        const padPx = Math.max(4, Math.round(sectorW * 0.005));
+        const srcTileW = sectorW + 2 * padPx;
+        const dstTileW = Math.min(Math.round(srcTileW), maxTexSize);
+        const dstTileH = Math.min(H, maxTexSize);
+
+        const tileCanvas = document.createElement("canvas");
+        tileCanvas.width = dstTileW;
+        tileCanvas.height = dstTileH;
+        const ctx = tileCanvas.getContext("2d", { alpha: false });
+        if (ctx) {
+          const scaleX = dstTileW / srcTileW;
+          for (let k = 0; k < 4; k++) {
+            if (aborted) return;
+            await nextAnimationFrame();
+            if (aborted) return;
+            const startX = k * sectorW - padPx;
+            if (startX < 0) {
+              const wrapW = -startX;
+              const mainW = srcTileW - wrapW;
+              ctx.drawImage(src, W - wrapW, 0, wrapW, H, 0, 0, wrapW * scaleX, dstTileH);
+              ctx.drawImage(src, 0, 0, mainW, H, wrapW * scaleX, 0, mainW * scaleX, dstTileH);
+            } else if (startX + srcTileW > W) {
+              const mainW = W - startX;
+              const wrapW = srcTileW - mainW;
+              ctx.drawImage(src, startX, 0, mainW, H, 0, 0, mainW * scaleX, dstTileH);
+              ctx.drawImage(src, 0, 0, wrapW, H, mainW * scaleX, 0, wrapW * scaleX, dstTileH);
+            } else {
+              ctx.drawImage(src, startX, 0, srcTileW, H, 0, 0, dstTileW, dstTileH);
+            }
+            uploadToUnit(k, textures[k] ?? null, tileCanvas);
+          }
+          tileCanvas.width = 1;
+          tileCanvas.height = 1;
+          handle.padFrac = padPx / srcTileW;
+          handle.texelStep = [1 / Math.max(1024, dstTileW * 4), 1 / Math.max(512, dstTileH)];
+          handle.useTiles = 1;
+        }
+      } catch {
+        // Ignore aborted or headless test environment image load errors
+      } finally {
+        if (!aborted) setStreamingTiles(false);
+      }
+    };
+
+    void runStream();
+
+    return () => {
+      aborted = true;
+      abortCtrl.abort();
+    };
+  }, [
+    currentSceneId,
+    resolvedPanoUrl,
+    fallbackPanoramaUrl,
+    useCustomSingleUrl,
+    activeTileUrls,
+    activePreviewUrl,
+    activeTilePadFrac,
+    activeNativeW,
+    activeNativeH,
+  ]);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    if ((e.target as HTMLElement).closest("button")) return;
+    if ((e.target as HTMLElement).closest("button, [data-art-card='true']")) return;
     lookToRef.current = null;
     setAutoRotate(false);
     setIsDragging(true);
@@ -710,7 +952,7 @@ export function KrpanoViewer({
     dragRef.current.lastX = e.clientX;
     dragRef.current.lastY = e.clientY;
 
-    const speed = (camRef.current.fov / 90) * 0.22;
+    const speed = (camRef.current.fov / 90) * 0.21;
     const dH = -dx * speed;
     const dV = dy * speed;
 
@@ -738,9 +980,10 @@ export function KrpanoViewer({
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
+    if ((e.target as HTMLElement).closest("[data-art-card='true']")) return;
     e.preventDefault();
     lookToRef.current = null;
-    const nextFov = clamp(camRef.current.fov + (e.deltaY > 0 ? 4.5 : -4.5), 28, 115);
+    const nextFov = clamp(camRef.current.fov + (e.deltaY > 0 ? 4.5 : -4.5), 20, 115);
     const nextCam = { ...camRef.current, fov: nextFov };
     camRef.current = nextCam;
     setCam(nextCam);
@@ -749,7 +992,7 @@ export function KrpanoViewer({
   const nudgeCamera = (dH: number, dV: number, dFov = 0) => {
     setAutoRotate(false);
     const cur = camRef.current;
-    lookTo(cur.hlookat + dH, clamp(cur.vlookat + dV, -82, 82), clamp(cur.fov + dFov, 28, 115), 320);
+    lookTo(cur.hlookat + dH, clamp(cur.vlookat + dV, -82, 82), clamp(cur.fov + dFov, 20, 115), 300);
   };
 
   const toggleFullscreen = () => {
@@ -762,17 +1005,61 @@ export function KrpanoViewer({
     }
   };
 
-  const generatedXml = useMemo(
-    () =>
-      buildKrpanoXml({
-        sceneName: resolvedSceneName,
-        sceneTitle: resolvedSceneTitle,
-        panoramaUrl: activeTexUrl,
-        cam,
-        hotspots: resolvedHotspots,
-      }),
-    [resolvedSceneName, resolvedSceneTitle, activeTexUrl, cam, resolvedHotspots],
+  const handleHotspotActivate = useCallback(
+    (hs: KrpanoHotspot) => {
+      setAutoRotate(false);
+      if (hs.targetSceneId) {
+        const isStairs = hs.kind === "stairs-up" || hs.kind === "stairs-down";
+        const banner =
+          hs.kind === "stairs-up"
+            ? "Climbing Grand Staircase → 2nd Floor Mezzanine…"
+            : hs.kind === "stairs-down"
+              ? "Descending Staircase → 1F Ground Atrium…"
+              : `Walking Through Doorway → ${hs.title.replace(/→|←/g, "").trim()}…`;
+        switchScene(hs.targetSceneId, hs.arrivalView, {
+          ath: hs.ath,
+          atv: isStairs ? hs.atv : hs.atv,
+          label: banner,
+        });
+      } else {
+        lookTo(hs.ath, hs.atv, hs.fov ?? 38, 620);
+        setActiveArtCard(hs);
+        onSelectHotspot?.(hs);
+      }
+    },
+    [switchScene, lookTo, onSelectHotspot],
   );
+
+  // Ordered interactive path items (artworks + stairs + doors in pathOrder)
+  const orderedPathHotspots = useMemo(() => {
+    const withOrder = resolvedHotspots.filter((h) => typeof h.pathOrder === "number");
+    if (withOrder.length > 0) {
+      return [...withOrder].sort((a, b) => (a.pathOrder ?? 99) - (b.pathOrder ?? 99));
+    }
+    return resolvedHotspots;
+  }, [resolvedHotspots]);
+
+  const stepAlongPath = () => {
+    if (orderedPathHotspots.length === 0) return;
+    const nextIdx = pathStepIdx % orderedPathHotspots.length;
+    const target = orderedPathHotspots[nextIdx];
+    setPathStepIdx((nextIdx + 1) % orderedPathHotspots.length);
+    if (target) {
+      handleHotspotActivate(target);
+    }
+  };
+
+  // Compute XML lazily ONLY when inspector modal is opened (0ms cost during normal viewing!)
+  const generatedXml = useMemo(() => {
+    if (!xmlModalOpen) return "";
+    return buildKrpanoXml({
+      sceneName: resolvedSceneName,
+      sceneTitle: resolvedSceneTitle,
+      panoramaUrl: resolvedPanoUrl,
+      cam,
+      hotspots: resolvedHotspots,
+    });
+  }, [xmlModalOpen, resolvedSceneName, resolvedSceneTitle, resolvedPanoUrl, cam, resolvedHotspots]);
 
   const handleCopyXml = () => {
     navigator.clipboard?.writeText(generatedXml);
@@ -781,6 +1068,16 @@ export function KrpanoViewer({
   };
 
   const is12kActive = (panoDimensions?.w ?? 0) >= 10000 || activeScene?.isUltraHd12k;
+
+  // Project 3D Floor Walking Path points for SVG trail & clickable floor discs
+  const projectedFloorSteps = useMemo(() => {
+    if (!showPath || resolvedFloorPath.length === 0) return [];
+    return resolvedFloorPath.map((fp, i) => ({
+      ...fp,
+      index: i,
+      proj: projectHotspotToScreen(fp.ath, fp.atv, cam, viewport.width, viewport.height),
+    }));
+  }, [showPath, resolvedFloorPath, cam, viewport.width, viewport.height]);
 
   return (
     <div
@@ -799,7 +1096,7 @@ export function KrpanoViewer({
       <canvas
         ref={canvasRef}
         className={`block h-full w-full transition-opacity duration-200 ${
-          isTransitioning ? "opacity-40" : "opacity-100"
+          isTransitioning ? "opacity-35" : "opacity-100"
         }`}
       />
 
@@ -809,43 +1106,135 @@ export function KrpanoViewer({
           aria-hidden="true"
           className="pointer-events-none absolute inset-0 bg-cover bg-center transition-transform duration-75"
           style={{
-            backgroundImage: `url(${activeTexUrl})`,
+            backgroundImage: `url(${activePreviewUrl ?? resolvedPanoUrl})`,
             backgroundPosition: `${50 + (cam.hlookat / 180) * 50}% ${50 - (cam.vlookat / 90) * 45}%`,
             transform: `scale(${clamp(115 / cam.fov, 1.05, 2.5)})`,
           }}
         />
       )}
 
-      {/* Subtle Loading Pill while decoding 72-Megapixel 12K Panorama */}
-      {isLoadingPano && (
-        <div className="pointer-events-none absolute top-14 left-1/2 z-30 -translate-x-1/2 rounded-full border border-[#FCD116]/50 bg-slate-950/85 px-4 py-1.5 text-[11px] font-bold text-[#FCD116] shadow-lg backdrop-blur-md">
-          Loading Ultra-HD 360° Sphere...
-        </div>
-      )}
-
       {/* Subtle Vignette for HUD Readability */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/30"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/60 via-transparent to-slate-950/25"
       />
 
-      {/* Top Bar: Multi-Room Switcher + Live 12K UHD Resolution & Compass Telemetry */}
+      {/* Walk-Through Door / Climb Stairs Transition Banner */}
+      {transitionBanner && (
+        <div className="pointer-events-none absolute top-1/2 left-1/2 z-40 -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-[#FCD116] bg-slate-950/90 px-5 py-2.5 text-[13px] font-extrabold text-[#FCD116] shadow-2xl backdrop-blur-md">
+          {transitionBanner}
+        </div>
+      )}
+
+      {/* 3D Projected SVG Guided Museum Floor Path */}
+      {showPath && projectedFloorSteps.length > 1 && (
+        <svg aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 h-full w-full">
+          {projectedFloorSteps.map((curr, idx) => {
+            const next = projectedFloorSteps[idx + 1];
+            if (!next || !curr.proj.visible || !next.proj.visible) return null;
+            // Avoid drawing segments that wrap wildly across opposite screen edges
+            const dist = Math.hypot(next.proj.x - curr.proj.x, next.proj.y - curr.proj.y);
+            if (dist > viewport.width * 0.72) return null;
+            return (
+              <line
+                key={`fp-line-${idx}`}
+                x1={curr.proj.x}
+                y1={curr.proj.y}
+                x2={next.proj.x}
+                y2={next.proj.y}
+                stroke="#FCD116"
+                strokeOpacity="0.65"
+                strokeWidth="3"
+                strokeDasharray="8 7"
+                strokeLinecap="round"
+              />
+            );
+          })}
+        </svg>
+      )}
+
+      {/* Clickable 3D Perspective Floor Footstep Discs */}
+      {showPath &&
+        projectedFloorSteps.map((fp) => {
+          if (!fp.proj.visible) return null;
+          return (
+            <button
+              key={`floor-step-${fp.index}`}
+              type="button"
+              onClick={() => {
+                setAutoRotate(false);
+                if (fp.targetSceneId) {
+                  const matchingPortal = resolvedHotspots.find(
+                    (h) => h.targetSceneId === fp.targetSceneId,
+                  );
+                  if (matchingPortal) {
+                    handleHotspotActivate(matchingPortal);
+                  } else {
+                    switchScene(fp.targetSceneId);
+                  }
+                  return;
+                }
+                const targetAth = fp.lookAtAth ?? fp.ath;
+                const targetAtv = fp.lookAtAtv ?? 3;
+                // Find matching art piece near lookAtAth to pop open its details plaque too!
+                const nearbyArt = resolvedHotspots.find(
+                  (h) => !h.targetSceneId && Math.abs(shortestAngleDelta(h.ath, targetAth)) < 8,
+                );
+                if (nearbyArt) {
+                  handleHotspotActivate(nearbyArt);
+                } else {
+                  lookTo(targetAth, targetAtv, 54, 580);
+                }
+              }}
+              aria-label={fp.label ?? `Walk to floor waypoint ${fp.index + 1}`}
+              title={fp.label ?? `Walk to Step ${fp.index + 1}`}
+              className="group absolute z-15 cursor-pointer"
+              style={{
+                left: `${fp.proj.x}px`,
+                top: `${fp.proj.y}px`,
+                transform: "translate(-50%, -50%)",
+              }}
+            >
+              <div
+                className="flex size-10 items-center justify-center rounded-full border-2 border-[#FCD116] bg-slate-950/75 text-[#FCD116] shadow-lg transition-transform duration-150 group-hover:scale-125 group-hover:bg-[#FCD116] group-hover:text-slate-950"
+                style={{
+                  transform: "perspective(240px) rotateX(48deg)",
+                  boxShadow: "0 0 18px rgba(252, 209, 22, 0.45)",
+                }}
+              >
+                <Footprints className="size-4" />
+              </div>
+              {fp.label ? (
+                <span className="pointer-events-none absolute bottom-full left-1/2 mb-1 hidden -translate-x-1/2 rounded-full border border-white/25 bg-slate-950/90 px-2.5 py-0.5 text-[10.5px] font-bold whitespace-nowrap text-white shadow-md group-hover:block">
+                  {fp.label}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+
+      {/* Top Bar: Multi-Floor / Multi-Room Switcher + Live 12K UHD Resolution & Compass Telemetry */}
       <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex flex-wrap items-center justify-between gap-2 px-3.5">
         <div className="pointer-events-auto flex flex-wrap items-center gap-1 rounded-full border border-white/20 bg-slate-950/85 p-1 text-[11px] font-bold text-white backdrop-blur-md">
           {scenes.map((sc) => {
             const on = sc.id === currentSceneId;
+            const isUpstairsTab = sc.id.includes("upstairs") || sc.floorLabel?.includes("2F");
             return (
               <button
                 key={sc.id}
                 type="button"
                 onClick={() => switchScene(sc.id)}
-                className="flex cursor-pointer items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-extrabold transition-all"
+                className="flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-extrabold transition-all"
                 style={{
                   backgroundColor: on ? C.foil : "transparent",
                   color: on ? C.ink : "#FFFFFF",
                 }}
               >
-                <DoorOpen className="size-3.5" />
+                {isUpstairsTab ? (
+                  <ArrowUpDown className="size-3" />
+                ) : (
+                  <DoorOpen className="size-3" />
+                )}
                 <span>{sc.shortLabel}</span>
               </button>
             );
@@ -857,17 +1246,18 @@ export function KrpanoViewer({
             <span
               className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md"
               style={{
-                backgroundColor: is12kActive ? "#059669" : "rgba(15, 23, 42, 0.8)",
+                backgroundColor: is12kActive ? "#059669" : "rgba(15, 23, 42, 0.82)",
                 border: is12kActive ? "1px solid #6EE7B7" : "1px solid rgba(255, 255, 255, 0.2)",
               }}
             >
-              {is12kActive ? "12K UHD · " : ""}
-              {panoDimensions.w.toLocaleString()}×{panoDimensions.h.toLocaleString()}
+              {streamingTiles
+                ? "Instant Preview · Streaming UHD…"
+                : `${is12kActive ? "12K NATIVE · " : ""}${panoDimensions.w.toLocaleString()}×${panoDimensions.h.toLocaleString()}`}
             </span>
           ) : null}
 
           <span
-            className="hidden items-center gap-1.5 rounded-full border border-[#FCD116]/45 bg-slate-950/80 px-3 py-1 text-[11px] font-bold text-[#FCD116] backdrop-blur-md sm:inline-flex"
+            className="hidden items-center gap-1.5 rounded-full border border-[#FCD116]/45 bg-slate-950/80 px-3 py-1 text-[11px] font-bold text-[#FCD116] backdrop-blur-md lg:inline-flex"
             style={{ fontFamily: F.mono }}
           >
             <Compass className="size-3.5" />
@@ -886,84 +1276,183 @@ export function KrpanoViewer({
         </div>
       </div>
 
-      {/* 3D Spherical Hotspots Projected onto the 360° Sphere */}
+      {/* 3D Spherical Hotspots: Art Pieces, Doors & Upstairs/Downstairs Stairs */}
       {resolvedHotspots.map((hs, idx) => {
         const proj = projectHotspotToScreen(hs.ath, hs.atv, cam, viewport.width, viewport.height);
         if (!proj.visible) return null;
 
-        const isSelected = hs.id === selectedHotspotId;
-        const isPortal = Boolean(hs.targetSceneId);
+        const isSelected = hs.id === selectedHotspotId || hs.id === activeArtCard?.id;
+        const isStairs = hs.kind === "stairs-up" || hs.kind === "stairs-down";
+        const isDoor = Boolean(hs.targetSceneId) && !isStairs;
+        const isPortal = isStairs || isDoor;
+
+        const bg = isStairs
+          ? "#B45309"
+          : isDoor
+            ? "#059669"
+            : isSelected
+              ? C.foil
+              : "rgba(15, 23, 42, 0.90)";
+        const border = isStairs ? "#FDE68A" : isDoor ? "#A7F3D0" : isSelected ? "#FFFFFF" : C.foil;
+        const textCol = isPortal ? "#FFFFFF" : isSelected ? C.ink : "#FFFFFF";
 
         return (
           <button
             key={hs.id}
             type="button"
-            onClick={() => {
-              setAutoRotate(false);
-              if (hs.targetSceneId) {
-                switchScene(hs.targetSceneId);
-              } else {
-                lookTo(hs.ath, hs.atv, hs.fov ?? 52, 680);
-                onSelectHotspot?.(hs);
-              }
-            }}
+            onClick={() => handleHotspotActivate(hs)}
             aria-label={isPortal ? hs.title : `Art piece ${idx + 1}: ${hs.title}`}
             className="group absolute -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-transform duration-150 hover:scale-110"
             style={{
               left: `${proj.x}px`,
               top: `${proj.y}px`,
-              zIndex: isSelected || isPortal ? 30 : 20,
+              zIndex: isSelected || isPortal ? 30 : 22,
             }}
           >
             <span
               className="pointer-events-none absolute -inset-1.5 animate-ping rounded-full opacity-35"
               style={{
-                backgroundColor: isPortal ? "#10B981" : isSelected ? C.foil : "#FFFFFF",
-                animationDuration: "2.4s",
+                backgroundColor: isStairs
+                  ? "#F59E0B"
+                  : isDoor
+                    ? "#10B981"
+                    : isSelected
+                      ? C.foil
+                      : "#FFFFFF",
+                animationDuration: "2.5s",
               }}
             />
             <div
               className="relative flex items-center gap-2 rounded-full border-2 px-3 py-1.5 shadow-xl backdrop-blur-md"
               style={{
-                backgroundColor: isPortal
-                  ? "#059669"
-                  : isSelected
-                    ? C.foil
-                    : "rgba(15, 23, 42, 0.88)",
-                borderColor: isPortal ? "#A7F3D0" : isSelected ? "#FFFFFF" : C.foil,
-                color: isPortal ? "#FFFFFF" : isSelected ? C.ink : "#FFFFFF",
+                backgroundColor: bg,
+                borderColor: border,
+                color: textCol,
               }}
             >
               <span
                 className="flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold"
                 style={{
                   backgroundColor: isPortal ? "#FFFFFF" : isSelected ? C.cover : C.foil,
-                  color: isPortal ? "#059669" : isSelected ? "#FFFFFF" : C.ink,
+                  color: isStairs ? "#B45309" : isDoor ? "#059669" : isSelected ? "#FFFFFF" : C.ink,
                 }}
               >
                 {hs.badge ?? idx + 1}
               </span>
-              <span
-                className="max-w-[140px] truncate text-[12px] font-bold sm:max-w-[185px]"
-                style={{ fontFamily: F.body }}
-              >
-                {hs.title}
-              </span>
+              <div className="text-left">
+                <div
+                  className="max-w-[145px] truncate text-[12px] font-extrabold sm:max-w-[205px]"
+                  style={{ fontFamily: F.body }}
+                >
+                  {hs.title}
+                </div>
+                {hs.subtitle ? (
+                  <div
+                    className="hidden max-w-[185px] truncate text-[9.5px] font-semibold opacity-90 sm:block"
+                    style={{ fontFamily: F.body }}
+                  >
+                    {hs.subtitle}
+                  </div>
+                ) : null}
+              </div>
             </div>
           </button>
         );
       })}
 
+      {/* In-Viewer Curatorial Art Piece Details Plaque (Appears on Artwork Click — Works in Fullscreen too!) */}
+      {activeArtCard && !activeArtCard.targetSceneId && (
+        <aside
+          data-art-card="true"
+          aria-label={`Artwork details: ${activeArtCard.title}`}
+          className="pointer-events-auto absolute right-3 bottom-16 z-35 w-[calc(100%-1.5rem)] max-w-[360px] rounded-2xl border border-[#CBD5E1] bg-white/96 p-4 shadow-2xl backdrop-blur-md sm:right-4 sm:bottom-16"
+        >
+          <div className="flex items-start justify-between gap-2">
+            <span
+              className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10.5px] font-extrabold uppercase tracking-wider"
+              style={{ backgroundColor: "#EFF6FF", color: C.cover }}
+            >
+              <Info className="size-3" />{" "}
+              {activeArtCard.artDetails?.zone ?? activeScene?.shortLabel ?? "360° Exhibit"}
+            </span>
+            <button
+              type="button"
+              onClick={() => setActiveArtCard(null)}
+              aria-label="Close art piece details"
+              className="flex size-6 cursor-pointer items-center justify-center rounded-full border border-[#CBD5E1] text-[#475569] hover:bg-[#F1F5F9]"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+
+          <h4
+            className="mt-2 text-[17px] leading-snug font-extrabold"
+            style={{ fontFamily: F.display, color: C.ink }}
+          >
+            {activeArtCard.title}
+          </h4>
+
+          <p className="mt-0.5 text-[11.5px] font-bold" style={{ color: C.mute }}>
+            {activeArtCard.artDetails?.period ??
+              activeArtCard.subtitle ??
+              "CALABARZON Heritage Collection"}
+            {activeArtCard.artDetails?.medium ? ` · ${activeArtCard.artDetails.medium}` : ""}
+          </p>
+
+          <p
+            className="mt-2.5 text-[13px] leading-relaxed font-medium"
+            style={{ fontFamily: F.body, color: C.ink }}
+          >
+            {activeArtCard.artDetails?.description ??
+              "Click Macro Zoom to inspect this heritage artwork closely in full 360° spherical projection, or continue along the museum floor path."}
+          </p>
+
+          {activeArtCard.artDetails?.highlight ? (
+            <div className="mt-2 rounded-xl border border-[#FDE68A] bg-[#FFFBEB] px-3 py-1.5 text-[11.5px] font-semibold text-[#92400E]">
+              ✨ {activeArtCard.artDetails.highlight}
+            </div>
+          ) : null}
+
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#E2E8F0] pt-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                const zoomedIn = camRef.current.fov <= 26;
+                lookTo(
+                  activeArtCard.ath,
+                  activeArtCard.atv,
+                  zoomedIn ? (activeArtCard.fov ?? 44) : 22,
+                  520,
+                );
+              }}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-[#EFF6FF] px-2.5 py-1.5 text-[11.5px] font-extrabold text-[#0038A8] hover:bg-[#DBEAFE]"
+            >
+              <ZoomIn className="size-3.5" />
+              {cam.fov <= 26 ? "Frame View" : "Macro Zoom (22°)"}
+            </button>
+
+            <button
+              type="button"
+              onClick={stepAlongPath}
+              className="inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-[11.5px] font-extrabold text-white"
+              style={{ backgroundColor: C.cover }}
+            >
+              Next on Path <ChevronRight className="size-3.5" />
+            </button>
+          </div>
+        </aside>
+      )}
+
       {/* Optional Custom Overlay */}
       {children}
 
-      {/* krpano Floating Control Dock */}
-      <div className="absolute bottom-3 left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-full border border-white/20 bg-slate-950/85 px-2.5 py-1.5 text-white shadow-2xl backdrop-blur-md">
+      {/* krpano Floating Control Dock (Pan, Tilt, UHD Zoom, Floor Path Walk, HD Crisp, Fullscreen) */}
+      <div className="absolute bottom-3 left-1/2 z-30 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-full border border-white/20 bg-slate-950/88 px-2.5 py-1.5 text-white shadow-2xl backdrop-blur-md">
         <button
           type="button"
           onClick={() => nudgeCamera(-35, 0)}
           aria-label="Rotate left"
-          className="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
+          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
           title="Pan Left"
         >
           <MoveLeft className="size-4" />
@@ -972,7 +1461,7 @@ export function KrpanoViewer({
           type="button"
           onClick={() => nudgeCamera(35, 0)}
           aria-label="Rotate right"
-          className="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
+          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
           title="Pan Right"
         >
           <MoveRight className="size-4" />
@@ -981,7 +1470,7 @@ export function KrpanoViewer({
           type="button"
           onClick={() => nudgeCamera(0, 22)}
           aria-label="Tilt up"
-          className="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
+          className="hidden size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15 sm:flex"
           title="Look Up (Ceiling)"
         >
           <MoveUp className="size-4" />
@@ -990,20 +1479,20 @@ export function KrpanoViewer({
           type="button"
           onClick={() => nudgeCamera(0, -22)}
           aria-label="Tilt down"
-          className="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
-          title="Look Down (Floor)"
+          className="hidden size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15 sm:flex"
+          title="Look Down (Floor Path)"
         >
           <MoveDown className="size-4" />
         </button>
 
-        <span className="mx-0.5 h-4 w-px bg-white/20" />
+        <span className="mx-0.5 h-4 w-px shrink-0 bg-white/20" />
 
         <button
           type="button"
           onClick={() => nudgeCamera(0, 0, -14)}
           aria-label="Zoom in"
-          className="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
-          title="Zoom In (down to 28° UHD close-up)"
+          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
+          title="Zoom In (down to 20° Macro UHD)"
         >
           <ZoomIn className="size-4" />
         </button>
@@ -1011,18 +1500,42 @@ export function KrpanoViewer({
           type="button"
           onClick={() => nudgeCamera(0, 0, 14)}
           aria-label="Zoom out"
-          className="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
+          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
           title="Zoom Out"
         >
           <ZoomOut className="size-4" />
         </button>
 
-        <span className="mx-0.5 h-4 w-px bg-white/20" />
+        <span className="mx-0.5 h-4 w-px shrink-0 bg-white/20" />
+
+        <button
+          type="button"
+          onClick={stepAlongPath}
+          className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[#FCD116] px-3 text-[11px] font-extrabold text-[#0F172A] hover:bg-[#FDE047]"
+          title="Walk to the next artwork, staircase, or doorway along the museum path"
+        >
+          <Footprints className="size-3.5" />
+          <span>Walk Path</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowPath((v) => !v)}
+          className="hidden h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors md:flex"
+          style={{
+            backgroundColor: showPath ? "rgba(252, 209, 22, 0.2)" : "transparent",
+            border: showPath ? "1px solid rgba(252, 209, 22, 0.6)" : "1px solid transparent",
+            color: showPath ? "#FDE68A" : "#94A3B8",
+          }}
+          title="Show/Hide 3D Floor Trail"
+        >
+          <span>Trail</span>
+        </button>
 
         <button
           type="button"
           onClick={() => setHdCrisp((v) => !v)}
-          className="hidden h-8 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors sm:flex"
+          className="hidden h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors lg:flex"
           style={{
             backgroundColor: hdCrisp ? "rgba(16, 185, 129, 0.25)" : "transparent",
             border: hdCrisp ? "1px solid #34D399" : "1px solid transparent",
@@ -1037,7 +1550,7 @@ export function KrpanoViewer({
         <button
           type="button"
           onClick={() => setAutoRotate((v) => !v)}
-          className="flex h-8 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors"
+          className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full px-2.5 text-[11px] font-bold transition-colors"
           style={{
             backgroundColor: autoRotate ? C.foil : "transparent",
             color: autoRotate ? C.ink : "#FFFFFF",
@@ -1050,9 +1563,17 @@ export function KrpanoViewer({
 
         <button
           type="button"
-          onClick={() => lookTo(0, 2, 82, 600)}
+          onClick={() => {
+            setActiveArtCard(null);
+            lookTo(
+              activeScene?.initialHlookat ?? 0,
+              activeScene?.initialVlookat ?? 2,
+              activeScene?.initialFov ?? 80,
+              550,
+            );
+          }}
           aria-label="Reset 360 view"
-          className="flex size-8 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
+          className="flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full hover:bg-white/15"
           title="Reset View"
         >
           <RotateCcw className="size-4" />
@@ -1062,7 +1583,7 @@ export function KrpanoViewer({
           type="button"
           onClick={toggleFullscreen}
           aria-label="Toggle fullscreen"
-          className="flex h-8 cursor-pointer items-center gap-1 rounded-full bg-[#0038A8] px-3 text-[11px] font-extrabold text-white hover:bg-[#1D4ED8]"
+          className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[#0038A8] px-3 text-[11px] font-extrabold text-white hover:bg-[#1D4ED8]"
           title="Fullscreen 12K Ultra-HD 360°"
         >
           {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
@@ -1086,7 +1607,7 @@ export function KrpanoViewer({
                   className="text-[11px] font-extrabold uppercase tracking-wider"
                   style={{ color: C.cover }}
                 >
-                  krpano 1.21 Multi-Scene 12K Configuration
+                  krpano 1.21 Multi-Floor 12K Configuration
                 </span>
                 <h4 className="text-[15px] font-bold" style={{ color: C.ink }}>
                   /krpano/tour.xml ({resolvedSceneTitle})

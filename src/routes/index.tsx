@@ -247,12 +247,12 @@ function Index() {
           })}
         </div>
 
-        {/* Live Multi-Room 12K Ultra-HD 360° Museum Virtual Tour Showcase */}
+        {/* Live Multi-Floor 12K Ultra-HD 360° Museum Virtual Tour Showcase */}
         <Sec
-          fil="360° Virtual Museum Walkthrough (3 Rooms · 12K Ultra-HD)"
-          en="Fullscreen-ready 12,000 × 6,000 spherical panorama — drag 360°×180°, zoom in with zero blur, or click 🚪 to walk between rooms"
+          fil="360° Virtual Museum Walkthrough (2 Floors · 4 Rooms · True 12K UHD)"
+          en="Instant-loading 12,000 × 6,000 360° tour — follow the 👣 floor path, click artworks for curatorial details, climb 🪜 stairs upstairs, or walk through 🚪 doors"
         />
-        <KrpanoViewer autoRotateDefault={true} heightClass="h-[380px] sm:h-[500px]" />
+        <KrpanoViewer autoRotateDefault={false} heightClass="h-[400px] sm:h-[520px]" />
 
         {/* 5 Visual Province Cards */}
         <Sec fil="Explore by Province" en="Select any CALABARZON province to view its landmarks" />

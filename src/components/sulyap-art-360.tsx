@@ -5,6 +5,11 @@ import {
   CALABARZON_12K_PANO_URL,
   DEFAULT_MUSEUM_PANO_URL,
   GALLERY_HALL_PANO_URL,
+  GALLERY_TILES,
+  ROTUNDA_TILES,
+  SALON_12K_TILES,
+  UPSTAIRS_12K_PANO_URL,
+  UPSTAIRS_12K_TILES,
   type KrpanoSceneConfig,
 } from "@/lib/krpano-scenes";
 import { getArtPieces360, type ArtPiece360 } from "@/lib/sulyap-art-360";
@@ -12,9 +17,9 @@ import { C, F, conciseText, getCategoryMeta } from "@/lib/sulyap-theme";
 import { KrpanoViewer } from "./krpano-viewer";
 import { Pop } from "./sulyap-ui";
 
-type SceneRoomId = "salon12k" | "rotunda" | "gallery";
+type SceneRoomId = "salon12k" | "upstairs12k" | "rotunda" | "gallery";
 
-// Calibrated 3D spherical vantage points across all 3 connected 360° Museum Rooms
+// Calibrated 3D spherical vantage points across all 4 Rooms & 2 Floors (1F Atrium, 2F Upstairs, Rotunda, Fine Arts)
 const MUSEUM_WING_COORDS: {
   sceneId: SceneRoomId;
   roomBadge: string;
@@ -25,35 +30,35 @@ const MUSEUM_WING_COORDS: {
 }[] = [
   {
     sceneId: "salon12k",
-    roomBadge: "Room 1 · 12K UHD",
-    roomTitle: "Room 1 (12K Heritage Salon)",
-    ath: 41,
-    atv: -6,
-    fov: 46,
+    roomBadge: "1F · 12K Atrium",
+    roomTitle: "1F Ground (12K Grand Atrium)",
+    ath: -30,
+    atv: 3.4,
+    fov: 38,
   },
   {
-    sceneId: "salon12k",
-    roomBadge: "Room 1 · 12K UHD",
-    roomTitle: "Room 1 (12K Heritage Salon)",
-    ath: -153,
-    atv: 12,
-    fov: 48,
+    sceneId: "upstairs12k",
+    roomBadge: "2F · Upstairs 12K",
+    roomTitle: "2F Upstairs (12K Mezzanine Sky Gallery)",
+    ath: 0,
+    atv: 4,
+    fov: 38,
   },
   {
     sceneId: "rotunda",
-    roomBadge: "Room 2 · Rotunda",
-    roomTitle: "Room 2 (Grand Rotunda)",
+    roomBadge: "1F · Rotunda Wing",
+    roomTitle: "1F East Wing (Grand Rotunda)",
     ath: -2,
     atv: 6,
-    fov: 58,
+    fov: 54,
   },
   {
     sceneId: "gallery",
-    roomBadge: "Room 3 · Fine Arts",
-    roomTitle: "Room 3 (Fine Arts Hall)",
+    roomBadge: "1F · Fine Arts",
+    roomTitle: "1F West Wing (Fine Arts Hall)",
     ath: -48,
     atv: 4,
-    fov: 56,
+    fov: 50,
   },
 ];
 
@@ -102,7 +107,7 @@ export function SulyapArt360Map({
   );
   const selectedWing = MUSEUM_WING_COORDS[selectedIndex % MUSEUM_WING_COORDS.length]!;
 
-  // Build the 3 connected 360° krpano rooms (12K Salon -> Rotunda -> Fine Arts Hall) for this destination
+  // Build 4 connected 360° krpano rooms across 2 floors (1F Atrium <-> Stairs <-> 2F Upstairs <-> Doors <-> Rotunda & Gallery)
   const destinationScenes: KrpanoSceneConfig[] = useMemo(() => {
     const p0 = pieces[0];
     const p1 = pieces[1];
@@ -114,46 +119,197 @@ export function SulyapArt360Map({
       {
         id: "salon12k",
         name: `scene_${safeSlug}_salon12k`,
-        shortLabel: "Room 1: 12K Salon (UHD)",
-        title: `${destination.name} — Room 1: 12K Heritage Salon (12,000 × 6,000)`,
+        shortLabel: "1F: 12K Atrium",
+        floorLabel: "1F Ground",
+        title: `${destination.name} — 1F Ground: 12K Grand Atrium`,
         panoramaUrl: CALABARZON_12K_PANO_URL,
+        ...SALON_12K_TILES,
         isUltraHd12k: true,
-        initialHlookat: 34,
-        initialVlookat: -3,
+        initialHlookat: 0,
+        initialVlookat: 2,
         initialFov: 78,
+        floorPath: [
+          {
+            ath: -30,
+            atv: -23,
+            label: `Step 1 · ${p0?.title ?? "Exhibit 1"}`,
+            lookAtAth: -30,
+            lookAtAtv: 3.4,
+          },
+          {
+            ath: 0,
+            atv: -21,
+            label: "Step 2 · Climb Stairs to 2F Mezzanine ↑",
+            lookAtAth: 0,
+            lookAtAtv: 9,
+            targetSceneId: "upstairs12k",
+          },
+          {
+            ath: 90,
+            atv: -22,
+            label: "Step 3 · East Door to Rotunda →",
+            lookAtAth: 90,
+            lookAtAtv: 1,
+            targetSceneId: "rotunda",
+          },
+          {
+            ath: -90,
+            atv: -22,
+            label: "Step 4 · West Door to Fine Arts →",
+            lookAtAth: -90,
+            lookAtAtv: 1,
+            targetSceneId: "gallery",
+          },
+        ],
         hotspots: [
           {
-            id: "portal-12k-to-rotunda",
+            id: "stairs-up-mezzanine",
+            kind: "stairs-up",
+            badge: "🪜",
+            title: "Climb Stairs → 2F Upstairs 12K ↑",
+            subtitle: "Go Upstairs (Exhibit 2)",
+            ath: 0,
+            atv: 9,
+            fov: 50,
+            targetSceneId: "upstairs12k",
+            arrivalView: { ath: 0, atv: 4, fov: 76 },
+            pathOrder: 2,
+          },
+          {
+            id: "door-atrium-to-rotunda",
+            kind: "door",
             badge: "🚪",
-            title: "Enter Grand Rotunda (Room 2) →",
-            ath: -54,
-            atv: -2,
-            fov: 74,
+            title: "East Door → Grand Rotunda →",
+            subtitle: "Walk to Exhibit 3",
+            ath: 90,
+            atv: 1,
+            fov: 50,
             targetSceneId: "rotunda",
+            arrivalView: { ath: -2, atv: 6, fov: 76 },
+            pathOrder: 3,
+          },
+          {
+            id: "door-atrium-to-gallery",
+            kind: "door",
+            badge: "🚪",
+            title: "West Door → Fine Arts Hall →",
+            subtitle: "Walk to Exhibit 4",
+            ath: -90,
+            atv: 1,
+            fov: 50,
+            targetSceneId: "gallery",
+            arrivalView: { ath: -48, atv: 4, fov: 76 },
           },
           ...(p0
             ? [
                 {
                   id: p0.id,
+                  kind: "art" as const,
                   badge: "1",
                   title: p0.title,
                   subtitle: p0.zone,
                   ath: MUSEUM_WING_COORDS[0]!.ath,
                   atv: MUSEUM_WING_COORDS[0]!.atv,
                   fov: MUSEUM_WING_COORDS[0]!.fov,
+                  pathOrder: 1,
+                  artDetails: {
+                    period: p0.period,
+                    medium: p0.medium,
+                    zone: `1F 12K Atrium · ${p0.zone}`,
+                    province: destination.province,
+                    description: p0.details,
+                    highlight:
+                      "Click Macro Zoom (22°) for crystal-clear native 12,000 × 6,000 detail.",
+                  },
                 },
               ]
             : []),
+        ],
+      },
+      {
+        id: "upstairs12k",
+        name: `scene_${safeSlug}_upstairs12k`,
+        shortLabel: "2F: Upstairs 12K",
+        floorLabel: "2F Upstairs",
+        title: `${destination.name} — 2F Upstairs: 12K Mezzanine Sky Gallery`,
+        panoramaUrl: UPSTAIRS_12K_PANO_URL,
+        ...UPSTAIRS_12K_TILES,
+        isUltraHd12k: true,
+        initialHlookat: 0,
+        initialVlookat: 4,
+        initialFov: 76,
+        floorPath: [
+          {
+            ath: 0,
+            atv: -23,
+            label: `Step 1 · ${p1?.title ?? "Exhibit 2"}`,
+            lookAtAth: 0,
+            lookAtAtv: 4,
+          },
+          {
+            ath: 90,
+            atv: -22,
+            label: "Step 2 · Skybridge Door to Rotunda →",
+            lookAtAth: 90,
+            lookAtAtv: 1,
+            targetSceneId: "rotunda",
+          },
+          {
+            ath: 180,
+            atv: -22,
+            label: "Step 3 · Stairs Down to 1F Atrium ↓",
+            lookAtAth: 180,
+            lookAtAtv: -9,
+            targetSceneId: "salon12k",
+          },
+        ],
+        hotspots: [
+          {
+            id: "stairs-down-atrium",
+            kind: "stairs-down",
+            badge: "🪜",
+            title: "Go Downstairs → 1F Atrium ↓",
+            subtitle: "Descend Grand Staircase",
+            ath: 180,
+            atv: -9,
+            fov: 54,
+            targetSceneId: "salon12k",
+            arrivalView: { ath: 180, atv: 0, fov: 78 },
+            pathOrder: 3,
+          },
+          {
+            id: "upstairs-door-rotunda",
+            kind: "door",
+            badge: "🚪",
+            title: "Skybridge Door → Grand Rotunda →",
+            subtitle: "Walk to Exhibit 3",
+            ath: 90,
+            atv: 1,
+            fov: 50,
+            targetSceneId: "rotunda",
+            arrivalView: { ath: -2, atv: 6, fov: 76 },
+            pathOrder: 2,
+          },
           ...(p1
             ? [
                 {
                   id: p1.id,
+                  kind: "art" as const,
                   badge: "2",
                   title: p1.title,
                   subtitle: p1.zone,
                   ath: MUSEUM_WING_COORDS[1]!.ath,
                   atv: MUSEUM_WING_COORDS[1]!.atv,
                   fov: MUSEUM_WING_COORDS[1]!.fov,
+                  pathOrder: 1,
+                  artDetails: {
+                    period: p1.period,
+                    medium: p1.medium,
+                    zone: `2F Upstairs 12K · ${p1.zone}`,
+                    province: destination.province,
+                    description: p1.details,
+                    highlight: "Displayed beneath the 2nd-floor leaded-glass oculus dome.",
+                  },
                 },
               ]
             : []),
@@ -162,32 +318,76 @@ export function SulyapArt360Map({
       {
         id: "rotunda",
         name: `scene_${safeSlug}_rotunda`,
-        shortLabel: "Room 2: Grand Rotunda",
-        title: `${destination.name} — Room 2: Grand Rotunda 360°`,
+        shortLabel: "1F: Rotunda Wing",
+        floorLabel: "1F East Wing",
+        title: `${destination.name} — 1F East Wing: Grand Rotunda 360°`,
         panoramaUrl: DEFAULT_MUSEUM_PANO_URL,
+        ...ROTUNDA_TILES,
         initialHlookat: -2,
         initialVlookat: 4,
-        initialFov: 84,
+        initialFov: 82,
+        floorPath: [
+          {
+            ath: -2,
+            atv: -22,
+            label: `Step 1 · ${p2?.title ?? "Exhibit 3"}`,
+            lookAtAth: -2,
+            lookAtAtv: 6,
+          },
+          {
+            ath: 58,
+            atv: -21,
+            label: "Step 2 · Door to Fine Arts Hall →",
+            lookAtAth: 58,
+            lookAtAtv: -2,
+            targetSceneId: "gallery",
+          },
+        ],
         hotspots: [
           {
             id: "portal-to-gallery",
+            kind: "door",
             badge: "🚪",
-            title: "Enter Fine Arts Hall (Room 3) →",
+            title: "Enter Fine Arts Hall (Exhibit 4) →",
+            subtitle: "East Archway Door",
             ath: 58,
             atv: -2,
-            fov: 76,
+            fov: 54,
             targetSceneId: "gallery",
+            arrivalView: { ath: -48, atv: 4, fov: 76 },
+            pathOrder: 2,
+          },
+          {
+            id: "rotunda-back-atrium",
+            kind: "door",
+            badge: "🚪",
+            title: "← Return to 1F 12K Atrium",
+            subtitle: "West Archway Door",
+            ath: -62,
+            atv: -2,
+            fov: 54,
+            targetSceneId: "salon12k",
+            arrivalView: { ath: -30, atv: 3.4, fov: 76 },
           },
           ...(p2
             ? [
                 {
                   id: p2.id,
+                  kind: "art" as const,
                   badge: "3",
                   title: p2.title,
                   subtitle: p2.zone,
                   ath: MUSEUM_WING_COORDS[2]!.ath,
                   atv: MUSEUM_WING_COORDS[2]!.atv,
                   fov: MUSEUM_WING_COORDS[2]!.fov,
+                  pathOrder: 1,
+                  artDetails: {
+                    period: p2.period,
+                    medium: p2.medium,
+                    zone: `1F Rotunda Wing · ${p2.zone}`,
+                    province: destination.province,
+                    description: p2.details,
+                  },
                 },
               ]
             : []),
@@ -196,39 +396,83 @@ export function SulyapArt360Map({
       {
         id: "gallery",
         name: `scene_${safeSlug}_gallery`,
-        shortLabel: "Room 3: Fine Arts Hall",
-        title: `${destination.name} — Room 3: Fine Arts Hall 360°`,
+        shortLabel: "1F: Fine Arts",
+        floorLabel: "1F West Wing",
+        title: `${destination.name} — 1F West Wing: Fine Arts Hall 360°`,
         panoramaUrl: GALLERY_HALL_PANO_URL,
+        ...GALLERY_TILES,
         initialHlookat: -35,
         initialVlookat: 2,
-        initialFov: 84,
+        initialFov: 82,
+        floorPath: [
+          {
+            ath: -48,
+            atv: -22,
+            label: `Step 1 · ${p3?.title ?? "Exhibit 4"}`,
+            lookAtAth: -48,
+            lookAtAtv: 4,
+          },
+          {
+            ath: 90,
+            atv: -21,
+            label: "Step 2 · Return to 1F 12K Atrium →",
+            lookAtAth: 90,
+            lookAtAtv: -2,
+            targetSceneId: "salon12k",
+          },
+        ],
         hotspots: [
           {
             id: "portal-to-12k",
+            kind: "door",
             badge: "🚪",
-            title: "Return to 12K Salon (Room 1) →",
+            title: "Return to 1F 12K Atrium →",
+            subtitle: "Iron Gate Doorway",
             ath: 90,
             atv: -2,
-            fov: 76,
+            fov: 54,
             targetSceneId: "salon12k",
+            arrivalView: { ath: 0, atv: 4, fov: 78 },
+            pathOrder: 2,
+          },
+          {
+            id: "gallery-stairs-up",
+            kind: "stairs-up",
+            badge: "🪜",
+            title: "North Stairs → 2F Upstairs 12K ↑",
+            subtitle: "Go Upstairs",
+            ath: 0,
+            atv: 1,
+            fov: 54,
+            targetSceneId: "upstairs12k",
+            arrivalView: { ath: 0, atv: 4, fov: 76 },
           },
           ...(p3
             ? [
                 {
                   id: p3.id,
+                  kind: "art" as const,
                   badge: "4",
                   title: p3.title,
                   subtitle: p3.zone,
                   ath: MUSEUM_WING_COORDS[3]!.ath,
                   atv: MUSEUM_WING_COORDS[3]!.atv,
                   fov: MUSEUM_WING_COORDS[3]!.fov,
+                  pathOrder: 1,
+                  artDetails: {
+                    period: p3.period,
+                    medium: p3.medium,
+                    zone: `1F Fine Arts Hall · ${p3.zone}`,
+                    province: destination.province,
+                    description: p3.details,
+                  },
                 },
               ]
             : []),
         ],
       },
     ];
-  }, [destination.slug, destination.name, pieces]);
+  }, [destination.slug, destination.name, destination.province, pieces]);
 
   const focusPiece = (piece: ArtPiece360, idx: number) => {
     const coords = MUSEUM_WING_COORDS[idx % MUSEUM_WING_COORDS.length]!;
@@ -266,10 +510,11 @@ export function SulyapArt360Map({
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold text-white"
             style={{ backgroundColor: C.cover }}
           >
-            <RotateCw className="size-3.5" /> krpano 360° · 12K UHD (3 Rooms)
+            <RotateCw className="size-3.5" /> krpano 360° · 2 Floors / 4 Rooms (12K UHD)
           </span>
           <span className="text-[13px] font-medium" style={{ color: C.mute }}>
-            Drag 360° in 12,000 × 6,000 Ultra-HD, walk across 3 Rooms, or tap hotspots 1–4
+            Click 👣 floor path, 🪜 stairs (Upstairs/Downstairs), 🚪 doors, or art pieces 1–4 for
+            details
           </span>
         </div>
 
@@ -298,17 +543,28 @@ export function SulyapArt360Map({
         </div>
       </div>
 
-      {/* Real Full 360°×180° WebGL Spherical Panorama Stage with 3 Connected Rooms */}
+      {/* Real Full 360°×180° WebGL Spherical Panorama Stage with 2 Floors & 4 Connected Rooms */}
       <KrpanoViewer
         scenes={destinationScenes}
         activeSceneId={activeSceneId}
         onSceneChange={(id) => {
           const nextRoom: SceneRoomId =
-            id === "gallery" ? "gallery" : id === "rotunda" ? "rotunda" : "salon12k";
+            id === "upstairs12k"
+              ? "upstairs12k"
+              : id === "rotunda"
+                ? "rotunda"
+                : id === "gallery"
+                  ? "gallery"
+                  : "salon12k";
           setActiveSceneId(nextRoom);
-          // Highlight the primary artwork in that room
           const targetPiece =
-            nextRoom === "gallery" ? pieces[3] : nextRoom === "rotunda" ? pieces[2] : pieces[0];
+            nextRoom === "upstairs12k"
+              ? pieces[1]
+              : nextRoom === "rotunda"
+                ? pieces[2]
+                : nextRoom === "gallery"
+                  ? pieces[3]
+                  : pieces[0];
           if (targetPiece) {
             setSelectedId(targetPiece.id);
             setExpanded(false);
@@ -324,10 +580,10 @@ export function SulyapArt360Map({
           }
         }}
         targetView={targetView}
-        heightClass={compact ? "h-[320px] sm:h-[380px]" : "h-[380px] sm:h-[480px]"}
+        heightClass={compact ? "h-[340px] sm:h-[400px]" : "h-[400px] sm:h-[510px]"}
       />
 
-      {/* 4 Quick Numbered Artwork Selector Buttons (Rooms 1–3) */}
+      {/* 4 Quick Numbered Artwork Selector Buttons (Spanning 1F Atrium, 2F Upstairs, Rotunda & Fine Arts) */}
       <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {pieces.map((p, idx) => {
           const active = p.id === selectedPiece.id;
@@ -386,7 +642,7 @@ export function SulyapArt360Map({
         </div>
 
         <h4
-          className="mt-2 text-[20px] font-extrabold leading-snug"
+          className="mt-2 text-[20px] leading-snug font-extrabold"
           style={{ fontFamily: F.display, color: C.ink }}
         >
           {selectedPiece.title}
@@ -421,7 +677,7 @@ export function SulyapArt360Map({
             className="inline-flex cursor-pointer items-center gap-1 text-[13px] font-bold hover:underline"
             style={{ color: C.cover }}
           >
-            <ChevronLeft className="size-4" /> Previous Hotspot
+            <ChevronLeft className="size-4" /> Previous Artwork / Room
           </button>
           <button
             type="button"
@@ -429,7 +685,7 @@ export function SulyapArt360Map({
             className="inline-flex cursor-pointer items-center gap-1 text-[13px] font-bold hover:underline"
             style={{ color: C.cover }}
           >
-            Next Hotspot <ChevronRight className="size-4" />
+            Next Artwork / Room <ChevronRight className="size-4" />
           </button>
         </div>
       </Pop>

@@ -1,188 +1,56 @@
-<krpano version="1.21" title="SulyapPH — CALABARZON 3-Room 12K Ultra-HD 360° Heritage Museum Virtual Tour" onstart="startup();">
-
-  <action name="startup" autorun="onstart">
-    if(startscene === null OR !scene[get(startscene)], copy(startscene, scene[0].name); );
-    loadscene(get(startscene), null, MERGE);
-  </action>
-
-  <!-- krpano Control, High-DPI Sharp Rendering & Autorotate Settings -->
+<krpano version="1.21" title="SulyapPH CALABARZON 2-Floor 12K Ultra-HD Virtual Museum">
   <display mipmapping="auto" autofullscreen="false" />
-  <control mousetype="drag2d" touchtype="drag2d" zoomtocursor="true" zoomoutcursor="true" friction="0.88" />
-  <autorotate enabled="false" waittime="2.0" speed="3.2" horizon="0.0" tofov="84.0" />
+  <control mousetype="drag2d" touchtype="drag2d" zoomtocursor="true" friction="0.88" />
+  <autorotate enabled="false" waittime="2.5" speed="3.0" horizon="0.0" tofov="80.0" />
 
-  <!-- Hotspot Shared Style -->
-  <style name="skin_hotspotstyle"
-         scale="0.65"
-         edge="center"
-         distorted="false"
-         onover="tween(scale,0.75,0.15);"
-         onout="tween(scale,0.65,0.15);" />
-
-  <!-- =================================================================== -->
-  <!-- SCENE 1: CALABARZON Heritage Salon — 12,000 × 6,000 (12K Ultra-HD)  -->
-  <!-- =================================================================== -->
-  <scene name="scene_sulyap_calabarzon_12k" title="Room 1: CALABARZON 12K Heritage Salon (12,000×6,000)" onstart="" thumburl="/panoramas/calabarzon-heritage-salon-12k.jpg">
-
-    <view hlookat="32.0"
-          vlookat="-2.0"
-          fovtype="MFOV"
-          fov="82.0"
-          maxpixelzoom="3.0"
-          fovmin="28.0"
-          fovmax="115.0"
-          limitview="auto" />
-
+  <!-- 1F Ground Floor: CALABARZON 12K Grand Atrium (12,000 x 6,000 Native Ray-Cast) -->
+  <scene name="scene_sulyap_calabarzon_12k" title="1F Ground: CALABARZON 12K Grand Atrium (12,000 x 6,000)">
+    <view hlookat="0.0" vlookat="2.0" fovtype="MFOV" fov="80.0" maxpixelzoom="4.0" fovmin="20.0" fovmax="115.0" limitview="auto" />
     <image>
+      <preview url="/panoramas/tiles/salon12k/preview.webp" />
       <sphere url="/panoramas/calabarzon-heritage-salon-12k.jpg" />
     </image>
-
-    <!-- Portal Hotspot to Room 2 (Grand Heritage Rotunda) -->
-    <hotspot name="hs_portal_to_rotunda"
-             style="skin_hotspotstyle"
-             ath="-54.0"
-             atv="-2.0"
-             title="Enter Grand Rotunda (Room 2) →"
-             onclick="loadscene(scene_sulyap_museum_rotunda, null, MERGE, BLEND(0.8));" />
-
-    <!-- 3D Spherical Hotspots in 12K Salon -->
-    <hotspot name="hs_1898_flag_vitrine"
-             style="skin_hotspotstyle"
-             ath="41.0"
-             atv="-7.0"
-             title="1898 Philippine Flag &amp; Katipunan Blades (Cavite)"
-             onclick="lookto(41.0, -7.0, 46.0, smooth(120,60,30));" />
-
-    <hotspot name="hs_taal_banahaw_paintings"
-             style="skin_hotspotstyle"
-             ath="-153.0"
-             atv="12.0"
-             title="Taal Volcano &amp; Mt. Banahaw Masterworks"
-             onclick="lookto(-153.0, 12.0, 46.0, smooth(120,60,30));" />
-
-    <hotspot name="hs_patriot_colonnade"
-             style="skin_hotspotstyle"
-             ath="-79.0"
-             atv="4.0"
-             title="Patriot Portrait Colonnade"
-             onclick="lookto(-79.0, 4.0, 50.0, smooth(120,60,30));" />
-
-    <hotspot name="hs_capiz_windows"
-             style="skin_hotspotstyle"
-             ath="103.0"
-             atv="2.0"
-             title="Bahay na Bato Capiz Shell Windows"
-             onclick="lookto(103.0, 2.0, 52.0, smooth(120,60,30));" />
-
-    <hotspot name="hs_barong_burnay"
-             style="skin_hotspotstyle"
-             ath="139.0"
-             atv="-14.0"
-             title="Batangas Piña Barong &amp; Quezon Pottery"
-             onclick="lookto(139.0, -14.0, 46.0, smooth(120,60,30));" />
-
-    <hotspot name="hs_paete_retablo"
-             style="skin_hotspotstyle"
-             ath="166.0"
-             atv="9.0"
-             title="Carved Paete Baroque Retablo (Laguna)"
-             onclick="lookto(166.0, 9.0, 48.0, smooth(120,60,30));" />
-
+    <hotspot name="hs_stairs_up_mezzanine" style="skin_stairsstyle" ath="0.0" atv="9.0" title="Climb Stairs to 2F Mezzanine Sky Gallery" onclick="loadscene(scene_sulyap_upstairs_mezzanine_12k, null, MERGE, BLEND(0.8));" />
+    <hotspot name="hs_door_rotunda" style="skin_doorstyle" ath="90.0" atv="1.0" title="Enter Grand Rotunda (East Door)" onclick="loadscene(scene_sulyap_museum_rotunda, null, MERGE, BLEND(0.8));" />
+    <hotspot name="hs_door_gallery" style="skin_doorstyle" ath="-90.0" atv="1.0" title="Enter Fine Arts Hall (West Door)" onclick="loadscene(scene_sulyap_fine_arts_hall, null, MERGE, BLEND(0.8));" />
+    <hotspot name="hs_12k_kawit" style="skin_hotspotstyle" ath="-30.0" atv="3.4" title="1898 Kawit Independence Proclamation (Cavite)" onclick="lookto(-30.0, 3.4, 36.0, smooth(120,60,30));" />
+    <hotspot name="hs_12k_taal" style="skin_hotspotstyle" ath="30.0" atv="3.4" title="Golden Sunrise Over Taal Volcano &amp; Lake (Batangas)" onclick="lookto(30.0, 3.4, 36.0, smooth(120,60,30));" />
+    <hotspot name="hs_12k_paete" style="skin_hotspotstyle" ath="59.7" atv="3.4" title="Master Woodcarvers of Paete &amp; Angono (Laguna)" onclick="lookto(59.7, 3.4, 36.0, smooth(120,60,30));" />
+    <hotspot name="hs_12k_pahiyas" style="skin_hotspotstyle" ath="-59.7" atv="3.4" title="Pahiyas Harvest of Lucban &amp; Mt. Banahaw (Quezon)" onclick="lookto(-59.7, 3.4, 36.0, smooth(120,60,30));" />
   </scene>
 
-  <!-- =================================================================== -->
-  <!-- SCENE 2: Grand Heritage Rotunda 360° (/panoramas/museum-rotunda-360.jpg) -->
-  <!-- =================================================================== -->
-  <scene name="scene_sulyap_museum_rotunda" title="Room 2: Grand Heritage Rotunda" onstart="" thumburl="/panoramas/museum-rotunda-360.jpg">
-
-    <view hlookat="0.0"
-          vlookat="2.0"
-          fovtype="MFOV"
-          fov="86.0"
-          maxpixelzoom="2.0"
-          fovmin="35.0"
-          fovmax="115.0"
-          limitview="auto" />
-
+  <!-- 2F Upper Mezzanine: 12K Mezzanine Sky Gallery (12,000 x 6,000 Native Ray-Cast) -->
+  <scene name="scene_sulyap_upstairs_mezzanine_12k" title="2F Upstairs: Mezzanine 12K Sky Gallery (12,000 x 6,000)">
+    <view hlookat="0.0" vlookat="3.0" fovtype="MFOV" fov="78.0" maxpixelzoom="4.0" fovmin="20.0" fovmax="115.0" limitview="auto" />
     <image>
+      <preview url="/panoramas/tiles/upstairs12k/preview.webp" />
+      <sphere url="/panoramas/calabarzon-upstairs-mezzanine-12k.jpg" />
+    </image>
+    <hotspot name="hs_stairs_down_atrium" style="skin_stairsstyle" ath="180.0" atv="-9.0" title="Go Downstairs to 1F Grand Atrium" onclick="loadscene(scene_sulyap_calabarzon_12k, null, MERGE, BLEND(0.8));" />
+    <hotspot name="hs_upstairs_door_rotunda" style="skin_doorstyle" ath="90.0" atv="1.0" title="East Skybridge to Grand Rotunda" onclick="loadscene(scene_sulyap_museum_rotunda, null, MERGE, BLEND(0.8));" />
+    <hotspot name="hs_upstairs_rizal" style="skin_hotspotstyle" ath="-30.0" atv="4.0" title="Young Jose Rizal's Study in Calamba (Laguna)" onclick="lookto(-30.0, 4.0, 35.0, smooth(120,60,30));" />
+    <hotspot name="hs_upstairs_pahiyas" style="skin_hotspotstyle" ath="0.0" atv="4.0" title="Grand Pahiyas &amp; Mount Banahaw Panorama (Quezon)" onclick="lookto(0.0, 4.0, 36.0, smooth(120,60,30));" />
+    <hotspot name="hs_upstairs_gold" style="skin_hotspotstyle" ath="30.0" atv="4.0" title="Royal Tagalog Gold &amp; Pina-Seda Treasury (Batangas)" onclick="lookto(30.0, 4.0, 35.0, smooth(120,60,30));" />
+  </scene>
+
+  <!-- 1F East Wing: Grand Heritage Rotunda -->
+  <scene name="scene_sulyap_museum_rotunda" title="1F East Wing: Grand Heritage Rotunda 360">
+    <view hlookat="0.0" vlookat="2.0" fovtype="MFOV" fov="84.0" maxpixelzoom="4.0" fovmin="20.0" fovmax="115.0" limitview="auto" />
+    <image>
+      <preview url="/panoramas/tiles/rotunda/preview.webp" />
       <sphere url="/panoramas/museum-rotunda-360.jpg" />
     </image>
-
-    <hotspot name="hs_portal_to_gallery"
-             style="skin_hotspotstyle"
-             ath="58.0"
-             atv="-2.0"
-             title="Enter Fine Arts Hall (Room 3) →"
-             onclick="loadscene(scene_sulyap_fine_arts_hall, null, MERGE, BLEND(0.8));" />
-
-    <hotspot name="hs_torch_monument"
-             style="skin_hotspotstyle"
-             ath="-2.0"
-             atv="6.0"
-             title="Inang Bayan Torch Monument"
-             onclick="lookto(-2.0, 6.0, 58.0, smooth(120,60,30));" />
-
-    <hotspot name="hs_revolution_mural"
-             style="skin_hotspotstyle"
-             ath="-130.0"
-             atv="3.0"
-             title="Revolution &amp; Kasaysayan Mural"
-             onclick="lookto(-130.0, 3.0, 56.0, smooth(120,60,30));" />
-
-    <hotspot name="hs_bahay_kubo"
-             style="skin_hotspotstyle"
-             ath="92.0"
-             atv="-2.0"
-             title="Ancestral Bahay Kubo &amp; Bale Model"
-             onclick="lookto(92.0, -2.0, 56.0, smooth(120,60,30));" />
-
-    <hotspot name="hs_gold_vessels"
-             style="skin_hotspotstyle"
-             ath="121.0"
-             atv="-11.0"
-             title="Pre-Colonial Gold &amp; Burial Jars"
-             onclick="lookto(121.0, -11.0, 52.0, smooth(120,60,30));" />
-
+    <hotspot name="hs_rotunda_to_atrium" style="skin_doorstyle" ath="-62.0" atv="-2.0" title="Return to 1F 12K Grand Atrium" onclick="loadscene(scene_sulyap_calabarzon_12k, null, MERGE, BLEND(0.8));" />
+    <hotspot name="hs_rotunda_to_gallery" style="skin_doorstyle" ath="58.0" atv="-2.0" title="Enter Fine Arts Hall" onclick="loadscene(scene_sulyap_fine_arts_hall, null, MERGE, BLEND(0.8));" />
   </scene>
 
-  <!-- =================================================================== -->
-  <!-- SCENE 3: Fine Arts & Masterworks Hall 360° (/panoramas/museum-gallery-hall-360.webp) -->
-  <!-- =================================================================== -->
-  <scene name="scene_sulyap_fine_arts_hall" title="Room 3: Fine Arts &amp; Masterworks Hall" onstart="" thumburl="/panoramas/museum-gallery-hall-360.webp">
-
-    <view hlookat="-18.0"
-          vlookat="2.0"
-          fovtype="MFOV"
-          fov="86.0"
-          maxpixelzoom="2.0"
-          fovmin="35.0"
-          fovmax="115.0"
-          limitview="auto" />
-
+  <!-- 1F West Wing: Fine Arts & Masterworks Hall -->
+  <scene name="scene_sulyap_fine_arts_hall" title="1F West Wing: Fine Arts &amp; Masterworks Hall 360">
+    <view hlookat="-18.0" vlookat="2.0" fovtype="MFOV" fov="84.0" maxpixelzoom="4.0" fovmin="20.0" fovmax="115.0" limitview="auto" />
     <image>
+      <preview url="/panoramas/tiles/gallery/preview.webp" />
       <sphere url="/panoramas/museum-gallery-hall-360.webp" />
     </image>
-
-    <hotspot name="hs_portal_to_12k"
-             style="skin_hotspotstyle"
-             ath="90.0"
-             atv="-2.0"
-             title="Enter 12K Heritage Salon (Room 1) →"
-             onclick="loadscene(scene_sulyap_calabarzon_12k, null, MERGE, BLEND(0.8));" />
-
-    <hotspot name="hs_grand_historical_canvas"
-             style="skin_hotspotstyle"
-             ath="-48.0"
-             atv="4.0"
-             title="Monumental Historical Canvas"
-             onclick="lookto(-48.0, 4.0, 54.0, smooth(120,60,30));" />
-
-    <hotspot name="hs_modernist_gallery"
-             style="skin_hotspotstyle"
-             ath="42.0"
-             atv="4.0"
-             title="Modernist Folk &amp; Cubist Masterworks"
-             onclick="lookto(42.0, 4.0, 56.0, smooth(120,60,30));" />
-
+    <hotspot name="hs_gallery_to_atrium" style="skin_doorstyle" ath="90.0" atv="-2.0" title="Enter 1F 12K Grand Atrium" onclick="loadscene(scene_sulyap_calabarzon_12k, null, MERGE, BLEND(0.8));" />
   </scene>
-
 </krpano>
