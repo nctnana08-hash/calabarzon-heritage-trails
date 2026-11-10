@@ -1,13 +1,5 @@
 import React, { useState } from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-  Alert,
-} from "react-native";
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Image, Alert } from "react-native";
 import { Panorama360Viewer } from "../components/Panorama360Viewer";
 import { NativeDestination } from "../lib/destinations";
 import { useNativeBranding } from "../lib/branding";
@@ -38,12 +30,12 @@ export function PlaceDetailScreen({
       Alert.alert(
         "🎉 Tumpak! (Correct Answer)",
         `You answered correctly and earned the official ${place.name} Passport Stamp!`,
-        [{ text: "Tingnan ang Pasaporte", onPress: () => {} }]
+        [{ text: "Tingnan ang Pasaporte", onPress: () => {} }],
       );
     } else {
       Alert.alert(
         "Maling Sagot (Try Again)",
-        "Review the history section above to find the correct answer and claim your stamp!"
+        "Review the history section above to find the correct answer and claim your stamp!",
       );
     }
   };

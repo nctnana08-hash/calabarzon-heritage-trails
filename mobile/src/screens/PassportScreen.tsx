@@ -1,20 +1,9 @@
 import React from "react";
-import {
-  StyleSheet,
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  Alert,
-} from "react-native";
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, Alert } from "react-native";
 import { useNativeBranding } from "../lib/branding";
 import { CALABARZON_NATIVE_DESTINATIONS } from "../lib/destinations";
 
-export function PassportScreen({
-  stampedIds,
-}: {
-  stampedIds: Set<string>;
-}) {
+export function PassportScreen({ stampedIds }: { stampedIds: Set<string> }) {
   const { branding } = useNativeBranding();
   const total = CALABARZON_NATIVE_DESTINATIONS.length;
   const collected = stampedIds.size;
@@ -24,13 +13,13 @@ export function PassportScreen({
     if (collected === 0) {
       Alert.alert(
         "Walang Stamp (No Stamps Yet)",
-        "Visit heritage places and answer quizzes to collect arrival stamps before claiming your certificate!"
+        "Visit heritage places and answer quizzes to collect arrival stamps before claiming your certificate!",
       );
       return;
     }
     Alert.alert(
       "🎖️ Sertipiko ng Pagkumpleto",
-      `Binabati kita! Nakolekta mo ang ${collected} sa ${total} (${pct}%) opisyal na heritage stamps sa Rehiyon IV-A CALABARZON.`
+      `Binabati kita! Nakolekta mo ang ${collected} sa ${total} (${pct}%) opisyal na heritage stamps sa Rehiyon IV-A CALABARZON.`,
     );
   };
 

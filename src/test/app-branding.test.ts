@@ -36,7 +36,8 @@ describe("App Branding Customization Store", () => {
   });
 
   it("supports custom uploaded logo image and preset emblems", () => {
-    const customDataUrl = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    const customDataUrl =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
     saveStoredBranding({
       ...DEFAULT_BRANDING,
       logoType: "custom",

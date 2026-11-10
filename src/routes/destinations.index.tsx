@@ -61,7 +61,7 @@ function ExplorePage() {
   const view = search.view ?? "list";
 
   return (
-    <div className="flex min-h-screen flex-col" style={{ backgroundColor: C.paper }}>
+    <div className="flex min-h-screen flex-col bg-[#F4F7FB] dark:bg-[#090D16] text-[#0F172A] dark:text-[#F8FAFC] transition-colors">
       <SiteHeader />
 
       <main className="mx-auto w-full max-w-4xl flex-1 px-4 py-8">

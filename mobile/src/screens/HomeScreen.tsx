@@ -103,7 +103,10 @@ export function HomeScreen({
                 onPress={() => setSelectedProvince(p)}
                 style={[
                   styles.filterPill,
-                  active && { backgroundColor: branding.primaryColor, borderColor: branding.primaryColor },
+                  active && {
+                    backgroundColor: branding.primaryColor,
+                    borderColor: branding.primaryColor,
+                  },
                 ]}
               >
                 <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
@@ -141,7 +144,9 @@ export function HomeScreen({
 
               <View style={styles.cardFooter}>
                 <Text style={styles.cardAddress}>📍 {item.address}</Text>
-                <Text style={[styles.exploreLink, { color: branding.primaryColor }]}>Explore →</Text>
+                <Text style={[styles.exploreLink, { color: branding.primaryColor }]}>
+                  Explore →
+                </Text>
               </View>
             </View>
           </TouchableOpacity>

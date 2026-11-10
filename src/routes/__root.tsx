@@ -15,6 +15,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { Btn, Mark, Pop } from "@/components/sulyap-ui";
 import { useAppBranding } from "@/hooks/use-app-branding";
+import { useTheme } from "@/hooks/use-theme";
 import { C, F } from "@/lib/sulyap-theme";
 
 function NotFoundComponent() {
@@ -166,6 +167,7 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const { branding } = useAppBranding();
+  useTheme(); // Hydrates and initializes dark/light mode on root mount
 
   // Sync theme-color and dynamic app branding title
   useEffect(() => {

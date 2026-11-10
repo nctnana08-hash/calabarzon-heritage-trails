@@ -45,7 +45,10 @@ export function SettingsScreen() {
       presetId: preset,
       primaryColor: color,
     });
-    Alert.alert("✅ Branding Na-save!", "Ang pangalan at logo ay live na ipinapakita sa buong app.");
+    Alert.alert(
+      "✅ Branding Na-save!",
+      "Ang pangalan at logo ay live na ipinapakita sa buong app.",
+    );
   };
 
   const handleReset = () => {

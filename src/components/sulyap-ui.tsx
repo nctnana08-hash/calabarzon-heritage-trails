@@ -356,6 +356,7 @@ export function Pop({
         "relative overflow-hidden transition-all duration-200",
         interactive &&
           "hover:-translate-y-0.5 hover:border-[#93C5FD] hover:shadow-lg active:translate-y-0",
+        !isDarkBg && "dark:bg-[#131C31] dark:border-[#22314E] dark:text-[#F8FAFC]",
         className,
       )}
       style={{
