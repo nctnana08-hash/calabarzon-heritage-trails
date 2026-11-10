@@ -135,6 +135,21 @@ function computeCameraBasis(hlookatDeg: number, vlookatDeg: number) {
   return { Rvec, Uvec, Fvec };
 }
 
+/**
+ * krpano-style Max-FOV (MFOV) portrait compensation:
+ * On portrait mobile screens (aspect < 1), locking FOV strictly to the vertical axis
+ * shrinks horizontal FOV into a narrow ~40° "tunnel vision" slice. Boosting tanHalfFov
+ * proportionally when aspect < 1 restores a wide, natural full-room 360° view on any phone
+ * while keeping 3D hotspot and floor-step projection 100% aligned with WebGL shader rays.
+ */
+function computeEffectiveTanHalfFov(fovDeg: number, aspect: number): number {
+  const base = Math.tan((fovDeg * Math.PI) / 360);
+  if (aspect > 0 && aspect < 1) {
+    return base * Math.pow(1 / Math.max(aspect, 0.42), 0.62);
+  }
+  return base;
+}
+
 function projectHotspotToScreen(
   athDeg: number,
   atvDeg: number,
@@ -164,8 +179,8 @@ function projectHotspotToScreen(
   const xc = P[0] * Rvec[0] + P[1] * Rvec[1] + P[2] * Rvec[2];
   const yc = P[0] * Uvec[0] + P[1] * Uvec[1] + P[2] * Uvec[2];
 
-  const tanHalfFov = Math.tan((cam.fov * Math.PI) / 360);
   const aspect = width / height;
+  const tanHalfFov = computeEffectiveTanHalfFov(cam.fov, aspect);
 
   const nx = xc / (zc * aspect * tanHalfFov);
   const ny = yc / (zc * tanHalfFov);
@@ -435,7 +450,12 @@ export function KrpanoViewer({
     origY: number;
   } | null>(null);
 
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  // Universal Hybrid Fullscreen: Native Fullscreen API + Fixed-Viewport 100dvh Stage (for iPhone Safari, iOS Chrome, Android WebViews & iframes!)
+  const [nativeFullscreen, setNativeFullscreen] = useState(false);
+  const [pseudoFullscreen, setPseudoFullscreen] = useState(false);
+  const wasNativeFullscreenRef = useRef(false);
+  const isFullscreen = nativeFullscreen || pseudoFullscreen;
+
   const [webglReady, setWebglReady] = useState(false);
   const [streamingTiles, setStreamingTiles] = useState(false);
   const [panoDimensions, setPanoDimensions] = useState<{ w: number; h: number } | null>(null);
@@ -450,6 +470,8 @@ export function KrpanoViewer({
     velH: number;
     velV: number;
   } | null>(null);
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinchDistRef = useRef<number | null>(null);
   const velocityRef = useRef<{ h: number; v: number }>({ h: 0, v: 0 });
   const lookToRef = useRef<LookToAnimation | null>(null);
 
@@ -576,7 +598,7 @@ export function KrpanoViewer({
     return () => window.removeEventListener("keydown", onKey);
   }, [activeArtCard]);
 
-  // Observe container size for crisp retina WebGL viewport and accurate 3D hotspot coordinates
+  // Observe container & mobile visualViewport size for crisp retina WebGL viewport and accurate 3D hotspot coordinates
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -587,23 +609,81 @@ export function KrpanoViewer({
       }
     };
     updateSize();
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    vv?.addEventListener("resize", updateSize);
+    window.addEventListener("orientationchange", updateSize);
     if (typeof ResizeObserver !== "undefined") {
       const ro = new ResizeObserver(updateSize);
       ro.observe(el);
-      return () => ro.disconnect();
+      return () => {
+        ro.disconnect();
+        vv?.removeEventListener("resize", updateSize);
+        window.removeEventListener("orientationchange", updateSize);
+      };
     }
     window.addEventListener("resize", updateSize);
-    return () => window.removeEventListener("resize", updateSize);
+    return () => {
+      window.removeEventListener("resize", updateSize);
+      vv?.removeEventListener("resize", updateSize);
+      window.removeEventListener("orientationchange", updateSize);
+    };
   }, []);
 
-  // Track fullscreen changes
+  // Track standard + WebKit fullscreen changes & sync OS Escape/Back exit with pseudo-fullscreen
   useEffect(() => {
+    const doc = document as Document & { webkitFullscreenElement?: Element | null };
     const onFs = () => {
-      setIsFullscreen(Boolean(document.fullscreenElement));
+      const active = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement);
+      setNativeFullscreen(active);
+      if (active) {
+        wasNativeFullscreenRef.current = true;
+      } else if (wasNativeFullscreenRef.current) {
+        wasNativeFullscreenRef.current = false;
+        setPseudoFullscreen(false);
+      }
     };
     document.addEventListener("fullscreenchange", onFs);
-    return () => document.removeEventListener("fullscreenchange", onFs);
+    document.addEventListener("webkitfullscreenchange", onFs);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFs);
+      document.removeEventListener("webkitfullscreenchange", onFs);
+    };
   }, []);
+
+  // Lock page scroll while in Fullscreen 360° & re-measure viewport immediately on enter/exit
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raf = window.requestAnimationFrame(() => {
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0) {
+        setViewport({ width: rect.width, height: rect.height });
+      }
+    });
+    if (!isFullscreen) {
+      return () => window.cancelAnimationFrame(raf);
+    }
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    return () => {
+      window.cancelAnimationFrame(raf);
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, [isFullscreen]);
+
+  // Allow Escape key to exit CSS fixed-viewport fullscreen when modals are closed
+  useEffect(() => {
+    if (!pseudoFullscreen || activeArtCard || xmlModalOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setPseudoFullscreen(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [pseudoFullscreen, activeArtCard, xmlModalOpen]);
 
   // 1. PERSISTENT WebGL Context & 60–120 FPS Render Loop (Initialized ONCE on mount — NEVER torn down!)
   useEffect(() => {
@@ -788,8 +868,8 @@ export function KrpanoViewer({
         camRef.current.hlookat,
         camRef.current.vlookat,
       );
-      const tanHalfFov = Math.tan((camRef.current.fov * Math.PI) / 360);
       const aspect = canvas.width / Math.max(1, canvas.height);
+      const tanHalfFov = computeEffectiveTanHalfFov(camRef.current.fov, aspect);
 
       gl.uniform3fv(uCamF, Fvec);
       gl.uniform3fv(uCamR, Rvec);
@@ -1049,18 +1129,53 @@ export function KrpanoViewer({
     if ((e.target as HTMLElement).closest("button, [data-art-card='true']")) return;
     lookToRef.current = null;
     setAutoRotate(false);
-    setIsDragging(true);
-    dragRef.current = {
-      lastX: e.clientX,
-      lastY: e.clientY,
-      velH: 0,
-      velV: 0,
-    };
     velocityRef.current = { h: 0, v: 0 };
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     e.currentTarget.setPointerCapture?.(e.pointerId);
+
+    if (pointersRef.current.size === 2) {
+      const [p0, p1] = Array.from(pointersRef.current.values());
+      if (p0 && p1) {
+        pinchDistRef.current = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+      }
+      dragRef.current = null;
+      return;
+    }
+
+    if (pointersRef.current.size === 1) {
+      pinchDistRef.current = null;
+      setIsDragging(true);
+      dragRef.current = {
+        lastX: e.clientX,
+        lastY: e.clientY,
+        velH: 0,
+        velV: 0,
+      };
+    }
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (pointersRef.current.has(e.pointerId)) {
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    }
+
+    // Smooth 2-finger mobile pinch-to-zoom without camera jump
+    if (pointersRef.current.size >= 2) {
+      const [p0, p1] = Array.from(pointersRef.current.values());
+      if (p0 && p1) {
+        const dist = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+        if (pinchDistRef.current && pinchDistRef.current > 8 && dist > 8) {
+          const scale = pinchDistRef.current / dist;
+          const nextFov = clamp(camRef.current.fov * scale, 18, 115);
+          const nextCam = { ...camRef.current, fov: nextFov };
+          camRef.current = nextCam;
+          setCam(nextCam);
+        }
+        pinchDistRef.current = dist;
+      }
+      return;
+    }
+
     if (!dragRef.current) return;
     const dx = e.clientX - dragRef.current.lastX;
     const dy = e.clientY - dragRef.current.lastY;
@@ -1095,15 +1210,33 @@ export function KrpanoViewer({
     }
   };
 
-  const handlePointerUp = () => {
-    if (dragRef.current) {
-      velocityRef.current = {
-        h: dragRef.current.velH * 0.85,
-        v: dragRef.current.velV * 0.85,
-      };
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    pointersRef.current.delete(e.pointerId);
+    pinchDistRef.current = null;
+
+    if (pointersRef.current.size === 1) {
+      const remaining = Array.from(pointersRef.current.values())[0];
+      if (remaining) {
+        dragRef.current = {
+          lastX: remaining.x,
+          lastY: remaining.y,
+          velH: 0,
+          velV: 0,
+        };
+      }
+      return;
     }
-    dragRef.current = null;
-    setIsDragging(false);
+
+    if (pointersRef.current.size === 0) {
+      if (dragRef.current) {
+        velocityRef.current = {
+          h: dragRef.current.velH * 0.85,
+          v: dragRef.current.velV * 0.85,
+        };
+      }
+      dragRef.current = null;
+      setIsDragging(false);
+    }
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
@@ -1122,13 +1255,42 @@ export function KrpanoViewer({
     lookTo(cur.hlookat + dH, clamp(cur.vlookat + dV, -82, 82), clamp(cur.fov + dFov, 18, 115), 300);
   };
 
+  // Universal Mobile + Desktop Fullscreen Toggle (iOS Safari, Android Chrome, WebViews & iframes!)
   const toggleFullscreen = () => {
-    const el = containerRef.current;
+    const el = containerRef.current as
+      (HTMLDivElement & { webkitRequestFullscreen?: () => Promise<void> | void }) | null;
     if (!el) return;
-    if (!document.fullscreenElement) {
-      el.requestFullscreen?.().catch(() => {});
-    } else {
-      document.exitFullscreen?.().catch(() => {});
+    const doc = document as Document & {
+      webkitFullscreenElement?: Element | null;
+      webkitExitFullscreen?: () => Promise<void> | void;
+    };
+
+    if (isFullscreen) {
+      setPseudoFullscreen(false);
+      if (doc.fullscreenElement && doc.exitFullscreen) {
+        doc.exitFullscreen().catch(() => {});
+      } else if (doc.webkitFullscreenElement && doc.webkitExitFullscreen) {
+        try {
+          void doc.webkitExitFullscreen();
+        } catch {
+          // Ignore WebKit exit errors
+        }
+      }
+      return;
+    }
+
+    // Immediately promote to 100vw × 100dvh fixed viewport (guaranteed on iPhones, WebViews & iframes!)
+    setPseudoFullscreen(true);
+
+    // Also invoke native OS fullscreen when supported by the browser
+    if (typeof el.requestFullscreen === "function") {
+      el.requestFullscreen().catch(() => {});
+    } else if (typeof el.webkitRequestFullscreen === "function") {
+      try {
+        void el.webkitRequestFullscreen();
+      } catch {
+        // Fallback already active via pseudoFullscreen (.krpano-fullscreen-stage)
+      }
     }
   };
 
@@ -1237,9 +1399,12 @@ export function KrpanoViewer({
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
+      onLostPointerCapture={handlePointerUp}
       onWheel={handleWheel}
-      className={`relative w-full overflow-hidden rounded-2xl border border-[#CBD5E1] bg-[#0F172A] select-none shadow-lg ${
-        isFullscreen ? "h-screen w-screen rounded-none border-0" : heightClass
+      className={`w-full overflow-hidden bg-[#0F172A] select-none shadow-lg ${
+        isFullscreen
+          ? "krpano-fullscreen-stage"
+          : `relative ${heightClass} rounded-2xl border border-[#CBD5E1]`
       } ${isDragging ? "cursor-grabbing" : "cursor-grab"}`}
       style={{ touchAction: "none" }}
     >
@@ -1365,9 +1530,12 @@ export function KrpanoViewer({
           );
         })}
 
-      {/* Top Bar: Multi-Room Switcher (16K Grand Tour + Restored 12K Salon + 2F Upstairs + Rotunda + Fine Arts) */}
-      <div className="pointer-events-none absolute inset-x-0 top-3 z-20 flex flex-wrap items-center justify-between gap-2 px-3">
-        <div className="pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-full border border-white/20 bg-slate-950/80 p-1 text-[11px] font-bold text-white backdrop-blur-md">
+      {/* Top Bar: Multi-Room Switcher + Always-Visible Mobile/Desktop Full View Button */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-2.5 z-30 flex items-center justify-between gap-1.5 px-2.5 sm:top-3 sm:flex-wrap sm:gap-2 sm:px-3"
+        style={isFullscreen ? { top: "max(0.75rem, env(safe-area-inset-top))" } : undefined}
+      >
+        <div className="pointer-events-auto flex min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-full border border-white/20 bg-slate-950/82 p-1 text-[11px] font-bold text-white backdrop-blur-md sm:max-w-full sm:flex-initial">
           {scenes.map((sc) => {
             const on = sc.id === currentSceneId;
             const isUpstairsTab = sc.id.includes("upstairs") || sc.floorLabel?.includes("2F");
@@ -1393,10 +1561,10 @@ export function KrpanoViewer({
           })}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex shrink-0 items-center gap-1.5">
           {panoDimensions ? (
             <span
-              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md"
+              className="hidden items-center gap-1 rounded-full px-2.5 py-1 text-[10.5px] font-extrabold uppercase tracking-wider text-white backdrop-blur-md sm:inline-flex"
               style={{
                 backgroundColor: is16kActive
                   ? "#047857"
@@ -1428,10 +1596,29 @@ export function KrpanoViewer({
           <button
             type="button"
             onClick={() => setXmlModalOpen(true)}
-            className="pointer-events-auto inline-flex cursor-pointer items-center gap-1 rounded-full border border-white/25 bg-slate-950/75 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md hover:bg-slate-900"
+            className="pointer-events-auto hidden cursor-pointer items-center gap-1 rounded-full border border-white/25 bg-slate-950/75 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-md hover:bg-slate-900 sm:inline-flex"
             title="Inspect krpano XML configuration"
           >
             <Code2 className="size-3.5 text-[#FCD116]" /> XML
+          </button>
+
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            aria-label={isFullscreen ? "Exit full screen 360 view" : "Open full screen 360 view"}
+            className="pointer-events-auto inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-white/25 px-3 py-1.5 text-[11px] font-extrabold shadow-lg backdrop-blur-md transition-colors"
+            style={{
+              backgroundColor: isFullscreen ? "#CE1126" : "#0038A8",
+              color: "#FFFFFF",
+            }}
+            title={isFullscreen ? "Exit Full Screen 360°" : "Open Full Screen 360° View"}
+          >
+            {isFullscreen ? (
+              <Minimize2 className="size-3.5 shrink-0" />
+            ) : (
+              <Maximize2 className="size-3.5 shrink-0" />
+            )}
+            <span>{isFullscreen ? "Exit Full" : "Full View"}</span>
           </button>
         </div>
       </div>
@@ -1526,6 +1713,14 @@ export function KrpanoViewer({
           aria-label={`High-resolution artwork inspection: ${activeArtCard.title}`}
           onClick={() => setActiveArtCard(null)}
           className="pointer-events-auto absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-slate-950/76 p-3 backdrop-blur-[3px] sm:p-5 md:flex-row md:items-center md:justify-center md:gap-6"
+          style={
+            isFullscreen
+              ? {
+                  paddingTop: "max(0.75rem, env(safe-area-inset-top))",
+                  paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
+                }
+              : undefined
+          }
         >
           {/* Open Floating Whole Art Piece Stage — ZERO Box, ZERO Cropping (object-contain), ZERO Text Overlapping Art! */}
           <div
@@ -1584,7 +1779,9 @@ export function KrpanoViewer({
                 draggable={false}
                 className={`block w-auto max-w-full object-contain transition-transform duration-150 ${
                   isFullscreen
-                    ? "max-h-[76vh]"
+                    ? showArtDetails
+                      ? "max-h-[38dvh] sm:max-h-[52dvh] md:max-h-[76dvh]"
+                      : "max-h-[72dvh] md:max-h-[82dvh]"
                     : showArtDetails
                       ? "max-h-[215px] sm:max-h-[345px]"
                       : "max-h-[270px] sm:max-h-[410px]"
@@ -1649,7 +1846,9 @@ export function KrpanoViewer({
           {showArtDetails && (
             <div
               onClick={(e) => e.stopPropagation()}
-              className="flex max-h-[240px] w-full flex-col justify-between overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-4 text-white shadow-2xl backdrop-blur-xl sm:max-h-[410px] md:w-[335px] md:shrink-0 lg:w-[365px]"
+              className={`flex w-full flex-col justify-between overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-4 text-white shadow-2xl backdrop-blur-xl md:w-[335px] md:shrink-0 lg:w-[365px] ${
+                isFullscreen ? "max-h-[42dvh] md:max-h-[78dvh]" : "max-h-[240px] sm:max-h-[410px]"
+              }`}
             >
               <div>
                 <div className="flex items-start justify-between gap-2">
@@ -1773,7 +1972,10 @@ export function KrpanoViewer({
 
       {/* krpano Floating Control Dock */}
       {!activeArtCard && (
-        <div className="absolute bottom-3 left-1/2 z-30 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-full border border-white/20 bg-slate-950/85 px-2.5 py-1.5 text-white shadow-2xl backdrop-blur-md">
+        <div
+          className="absolute bottom-2.5 left-1/2 z-30 flex max-w-[calc(100%-1rem)] -translate-x-1/2 items-center gap-0.5 overflow-x-auto rounded-full border border-white/20 bg-slate-950/85 px-2 py-1 text-white shadow-2xl backdrop-blur-md sm:bottom-3 sm:gap-1 sm:px-2.5 sm:py-1.5"
+          style={isFullscreen ? { bottom: "max(0.75rem, env(safe-area-inset-bottom))" } : undefined}
+        >
           <button
             type="button"
             onClick={() => nudgeCamera(-35, 0)}
@@ -1911,10 +2113,11 @@ export function KrpanoViewer({
             type="button"
             onClick={toggleFullscreen}
             aria-label="Toggle fullscreen"
-            className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[#0038A8] px-3 text-[11px] font-extrabold text-white hover:bg-[#1D4ED8]"
+            className="flex h-8 shrink-0 cursor-pointer items-center gap-1 rounded-full bg-[#0038A8] px-2.5 text-[11px] font-extrabold text-white hover:bg-[#1D4ED8] sm:px-3"
             title="Fullscreen 16K Ultra-HD 360°"
           >
             {isFullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+            <span className="inline md:hidden">{isFullscreen ? "Exit" : "Full"}</span>
             <span className="hidden md:inline">{isFullscreen ? "Exit" : "Fullscreen 16K"}</span>
           </button>
         </div>
