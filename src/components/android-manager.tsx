@@ -213,6 +213,63 @@ export function AndroidManager() {
           </div>
         </div>
       </Pop>
+
+      {/* React Native Mobile Project Overview */}
+      <Pop className="p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E8F0] pb-3">
+          <div className="flex items-center gap-2">
+            <Terminal className="size-4 text-[#0038A8]" />
+            <h3
+              className="text-[17px] font-extrabold text-[#1E293B]"
+              style={{ fontFamily: F.display }}
+            >
+              React Native Mobile Codebase &amp; Developer Tools
+            </h3>
+          </div>
+          <span className="rounded-full bg-[#EFF6FF] px-2.5 py-0.5 text-[11px] font-bold text-[#0038A8]">
+            React Native 0.76+
+          </span>
+        </div>
+
+        <p className="mt-3 text-[13.5px] leading-relaxed text-[#64748B]">
+          In addition to the standalone downloadable <code>.apk</code>, the full{" "}
+          <strong>React Native</strong> cross-platform application source code is available in the{" "}
+          <code>mobile/</code> workspace directory, featuring:
+        </p>
+
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+            <p className="text-[12px] font-bold text-[#0038A8]">🌀 360° Panorama Viewer</p>
+            <p className="mt-1 text-[11.5px] text-[#64748B]">
+              <code>mobile/src/components/Panorama360Viewer.tsx</code> WebGL sphere engine with
+              touch pan, tilt, and pinch-zoom.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+            <p className="text-[12px] font-bold text-[#0038A8]">🎨 Dynamic Branding Sync</p>
+            <p className="mt-1 text-[11.5px] text-[#64748B]">
+              <code>mobile/src/screens/SettingsScreen.tsx</code> customizes app name, logo,
+              thumbnail, and colors live.
+            </p>
+          </div>
+
+          <div className="rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3">
+            <p className="text-[12px] font-bold text-[#0038A8]">🛂 e-Passport &amp; Field Quiz</p>
+            <p className="mt-1 text-[11.5px] text-[#64748B]">
+              <code>mobile/src/screens/PassportScreen.tsx</code> collects 19 stamps and issues
+              completion certificates.
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl bg-[#0F172A] p-3.5 text-white font-mono text-[12px]">
+          <p className="text-[#94A3B8]"># Run React Native Mobile App locally</p>
+          <p className="mt-1 text-[#38BDF8]">cd mobile</p>
+          <p className="text-[#38BDF8]">npm install</p>
+          <p className="text-[#4ADE80]">npm run android</p>
+        </div>
+      </Pop>
     </div>
   );
 }
