@@ -24,7 +24,14 @@ export const Route = createFileRoute("/destinations/")({
     q: typeof search["q"] === "string" ? search["q"] : undefined,
     category: typeof search["category"] === "string" ? search["category"] : undefined,
     province: typeof search["province"] === "string" ? search["province"] : undefined,
-    view: search["view"] === "map" ? "map" : search["view"] === "passport" ? "passport" : "list",
+    view:
+      search["view"] === "map"
+        ? "map"
+        : search["view"] === "passport"
+          ? "passport"
+          : search["view"] === "list"
+            ? "list"
+            : undefined,
   }),
   head: () => ({
     meta: [

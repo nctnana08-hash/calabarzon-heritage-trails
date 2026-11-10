@@ -165,6 +165,20 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  // Recover seamlessly if a new Vercel deployment invalidates lazy chunk hashes in an open tab
+  useEffect(() => {
+    const onPreloadError = (event: Event) => {
+      const key = `sulyap-chunk-reload:${window.location.pathname}`;
+      if (!window.sessionStorage.getItem(key)) {
+        event.preventDefault();
+        window.sessionStorage.setItem(key, "1");
+        window.location.reload();
+      }
+    };
+    window.addEventListener("vite:preloadError", onPreloadError);
+    return () => window.removeEventListener("vite:preloadError", onPreloadError);
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <div className="min-h-screen pb-20 md:pb-0" style={{ color: C.ink }}>

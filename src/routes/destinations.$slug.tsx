@@ -31,13 +31,26 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { useDeleteDestination, useDestination } from "@/hooks/use-destinations";
+import { useDeleteDestination, useDestination, useDestinations } from "@/hooks/use-destinations";
 import { getDestinationProgress, markToured, useSulyapProgress } from "@/lib/sulyap-data";
 import { C, F, conciseText, getCategoryMeta } from "@/lib/sulyap-theme";
 
 type DetailTab = "overview" | "art360" | "tour" | "quiz";
 
+type DetailSearch = {
+  tab?: DetailTab | undefined;
+};
+
 export const Route = createFileRoute("/destinations/$slug")({
+  validateSearch: (search: Record<string, unknown>): DetailSearch => ({
+    tab:
+      search["tab"] === "art360" ||
+      search["tab"] === "tour" ||
+      search["tab"] === "quiz" ||
+      search["tab"] === "overview"
+        ? search["tab"]
+        : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Place Details | SulyapPH" },
@@ -52,18 +65,28 @@ export const Route = createFileRoute("/destinations/$slug")({
 
 function DestinationDetail() {
   const { slug } = Route.useParams();
+  const search = Route.useSearch();
   const navigate = useNavigate();
   const { data: destination, isPending, isError, error } = useDestination(slug);
+  const { data: allDestinations = [] } = useDestinations();
   const progress = useSulyapProgress();
   const deleteMutation = useDeleteDestination();
 
-  const [tab, setTab] = useState<DetailTab>("overview");
+  const tab: DetailTab = search.tab ?? "overview";
+  const setTab = (nextTab: DetailTab) => {
+    void navigate({
+      to: "/destinations/$slug",
+      params: { slug },
+      search: nextTab === "overview" ? {} : { tab: nextTab },
+      replace: true,
+    });
+  };
+
   const [expanded, setExpanded] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
 
   useEffect(() => {
-    setTab("overview");
     setExpanded(false);
   }, [slug]);
 
@@ -442,17 +465,58 @@ function DestinationDetail() {
                   </div>
                 )}
 
+                {/* Quick Place Switcher Inside 360° Modes */}
+                {(tab === "art360" || tab === "tour") && allDestinations.length > 1 && (
+                  <div className="mt-4 flex items-center gap-2 overflow-x-auto rounded-2xl border border-[#CBD5E1] bg-white px-3 py-2 shadow-2xs">
+                    <span
+                      className="shrink-0 text-[11px] font-extrabold uppercase tracking-wider"
+                      style={{ color: C.cover }}
+                    >
+                      Switch Place in 360°:
+                    </span>
+                    {allDestinations.map((d) => {
+                      const activePlace = d.slug === destination.slug;
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          onClick={() => {
+                            if (activePlace) return;
+                            void navigate({
+                              to: "/destinations/$slug",
+                              params: { slug: d.slug },
+                              search: { tab },
+                            });
+                          }}
+                          className="shrink-0 cursor-pointer rounded-full px-3 py-1 text-[12px] font-bold transition-colors"
+                          style={{
+                            backgroundColor: activePlace ? C.cover : "#F1F5F9",
+                            color: activePlace ? "#FFFFFF" : C.ink,
+                          }}
+                        >
+                          {d.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+
                 {/* Tab 2: 360° Art & Relics */}
                 {tab === "art360" && (
-                  <div className="mt-5">
-                    <SulyapArt360Map destination={destination} onBack={() => setTab("overview")} />
+                  <div className="mt-4">
+                    <SulyapArt360Map
+                      key={destination.slug}
+                      destination={destination}
+                      onBack={() => setTab("overview")}
+                    />
                   </div>
                 )}
 
                 {/* Tab 3: Virtual Tour */}
                 {tab === "tour" && (
-                  <div className="mt-5">
+                  <div className="mt-4">
                     <SulyapTour
+                      key={destination.slug}
                       destination={destination}
                       onBack={() => setTab("overview")}
                       onStartQuiz={() => setTab("quiz")}
@@ -464,6 +528,7 @@ function DestinationDetail() {
                 {tab === "quiz" && (
                   <div className="mt-5">
                     <SulyapQuiz
+                      key={destination.slug}
                       destination={destination}
                       onBack={() => setTab("overview")}
                       onReviewTour={() => setTab("tour")}

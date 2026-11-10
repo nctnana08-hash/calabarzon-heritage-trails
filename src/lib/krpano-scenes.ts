@@ -106,17 +106,17 @@ export type KrpanoHotspotKind = "art" | "door" | "stairs-up" | "stairs-down" | "
 
 export type KrpanoArtDetails = {
   /** Dedicated 1,600×1,000 Ultra-HD close-up image brought forward uncropped when clicked */
-  imageUrl?: string;
-  filTitle?: string;
-  artist?: string;
+  imageUrl?: string | undefined;
+  filTitle?: string | undefined;
+  artist?: string | undefined;
   period: string;
   medium: string;
-  dimensions?: string;
+  dimensions?: string | undefined;
   zone: string;
-  province?: string;
+  province?: string | undefined;
   description: string;
-  highlight?: string;
-  conservationNote?: string;
+  highlight?: string | undefined;
+  conservationNote?: string | undefined;
 };
 
 export type KrpanoHotspot = {

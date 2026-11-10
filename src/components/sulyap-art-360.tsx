@@ -92,7 +92,7 @@ export function SulyapArt360Map({
     atv: number;
     fov: number;
     sceneId: string;
-    openHotspotId?: string;
+    openHotspotId?: string | undefined;
     key: string;
   } | null>(null);
 

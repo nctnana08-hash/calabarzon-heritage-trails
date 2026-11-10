@@ -50,20 +50,6 @@ type LookToAnimation = {
   duration: number;
 };
 
-type CachedRoomEntry = {
-  mode: 1 | 2;
-  preview?: ImageBitmap;
-  tiles: ImageBitmap[];
-  padFracX: number;
-  padFracY: number;
-  tilePixelSize: [number, number];
-  w: number;
-  h: number;
-};
-
-// Module-level off-main-thread decoded ImageBitmap cache (instant 0ms room switching!)
-const ROOM_BITMAP_CACHE = new Map<string, CachedRoomEntry>();
-
 function nextAnimationFrame(): Promise<void> {
   return new Promise((resolve) => {
     if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
@@ -74,24 +60,71 @@ function nextAnimationFrame(): Promise<void> {
   });
 }
 
-async function fetchBitmap(
-  url: string,
+function releaseBitmap(src: ImageBitmap | HTMLImageElement | null | undefined): void {
+  if (!src) return;
+  if (typeof ImageBitmap !== "undefined" && src instanceof ImageBitmap) {
+    try {
+      src.close();
+    } catch {
+      // Already closed
+    }
+  } else if ("src" in src) {
+    src.src = "";
+  }
+}
+
+function computeSafeTileDim(maxGlTexSize: number): number {
+  if (typeof window === "undefined") return Math.min(4096, maxGlTexSize);
+  const nav = navigator as Navigator & { deviceMemory?: number };
+  const isCoarseOrCompact =
+    window.innerWidth < 900 ||
+    (typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches);
+  const mem = nav.deviceMemory;
+
+  // Mobile phones / tablets: 2048px per tile (8,192×4,096 8K sphere = 128 MB VRAM vs 520 MB)
+  // Prevents mobile Safari/Chrome Jetsam tab reloads & desktop OOM ("Can't open this page")
+  if (isCoarseOrCompact || (typeof mem === "number" && mem <= 4)) {
+    return Math.min(2048, maxGlTexSize);
+  }
+  if (typeof mem === "number" && mem <= 6) {
+    return Math.min(3072, maxGlTexSize);
+  }
+  return Math.min(4096, maxGlTexSize);
+}
+
+async function fetchTileBlob(url: string, signal?: AbortSignal): Promise<Blob> {
+  const res = await fetch(
+    url,
+    signal ? { signal, cache: "force-cache" } : { cache: "force-cache" },
+  );
+  if (!res.ok) throw new Error(`Failed to fetch ${url}`);
+  return await res.blob();
+}
+
+async function decodeBlobOrUrl(
+  blobOrUrl: Blob | string,
   signal?: AbortSignal,
 ): Promise<ImageBitmap | HTMLImageElement> {
   if (typeof window !== "undefined" && typeof window.createImageBitmap === "function") {
-    const res = await fetch(url, { signal, cache: "force-cache" });
-    if (!res.ok) throw new Error(`Failed to fetch ${url}`);
-    const blob = await res.blob();
+    const blob = typeof blobOrUrl === "string" ? await fetchTileBlob(blobOrUrl, signal) : blobOrUrl;
     return await window.createImageBitmap(blob, {
       premultiplyAlpha: "none",
       colorSpaceConversion: "default",
     });
   }
+  const url = typeof blobOrUrl === "string" ? blobOrUrl : URL.createObjectURL(blobOrUrl);
+  const revoke = typeof blobOrUrl !== "string";
   return await new Promise<HTMLImageElement>((resolve, reject) => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`Failed image ${url}`));
+    img.onload = () => {
+      if (revoke) URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      if (revoke) URL.revokeObjectURL(url);
+      reject(new Error("Failed image decode"));
+    };
     img.src = url;
   });
 }
@@ -387,10 +420,10 @@ export function KrpanoViewer({
   targetView?: {
     ath: number;
     atv: number;
-    fov?: number;
-    sceneId?: string;
-    openHotspotId?: string;
-    key?: string | number;
+    fov?: number | undefined;
+    sceneId?: string | undefined;
+    openHotspotId?: string | undefined;
+    key?: string | number | undefined;
   } | null;
   autoRotateDefault?: boolean;
   heightClass?: string;
@@ -575,7 +608,7 @@ export function KrpanoViewer({
       switchScene(targetView.sceneId, {
         ath: targetView.ath,
         atv: targetView.atv,
-        fov: targetView.fov,
+        ...(targetView.fov !== undefined ? { fov: targetView.fov } : {}),
       });
       if (openId) {
         window.setTimeout(() => maybeOpenArt(targetView.sceneId!), 210);
@@ -887,36 +920,89 @@ export function KrpanoViewer({
       rafId = window.requestAnimationFrame(renderLoop);
     };
 
+    const onContextLost = (e: Event) => {
+      e.preventDefault();
+      cancelled = true;
+      window.cancelAnimationFrame(rafId);
+      setWebglReady(false);
+    };
+    canvas.addEventListener("webglcontextlost", onContextLost);
+
     rafId = window.requestAnimationFrame(renderLoop);
 
     return () => {
       cancelled = true;
       window.cancelAnimationFrame(rafId);
+      canvas.removeEventListener("webglcontextlost", onContextLost);
       glHandleRef.current = null;
-      textures.forEach((t) => {
-        if (t) gl.deleteTexture(t);
+      textures.forEach((t, u) => {
+        if (t) {
+          gl.activeTexture(gl.TEXTURE0 + u);
+          gl.bindTexture(gl.TEXTURE_2D, t);
+          gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.RGBA,
+            1,
+            1,
+            0,
+            gl.RGBA,
+            gl.UNSIGNED_BYTE,
+            new Uint8Array([0, 0, 0, 255]),
+          );
+          gl.deleteTexture(t);
+        }
       });
+      if (posBuffer) gl.deleteBuffer(posBuffer);
+      gl.detachShader(program, vs);
+      gl.detachShader(program, fs);
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+      gl.deleteProgram(program);
+      canvas.width = 1;
+      canvas.height = 1;
     };
   }, []);
 
-  // 2. ZERO-LAG PROGRESSIVE 16K / 12K / 6K TEXTURE STREAMER (Instant <35ms Preview + Staggered Off-Thread Tiles!)
+  // 2. ZERO-LEAK PROGRESSIVE 16K / 12K / 8K TEXTURE STREAMER
+  // Immediately frees ImageBitmap RAM via .close() after each GPU upload & shrinks inactive units to 1×1!
   const activeGridTileUrls = activeScene?.gridTileUrls;
   const activeTileUrls = activeScene?.tileUrls;
   const activePreviewUrl = activeScene?.previewUrl;
   const activeTilePadFracX = activeScene?.tilePadFrac ?? 16 / 4032;
   const activeTilePadFracY = activeScene?.tilePadFracY ?? activeTilePadFracX;
-  const activeTilePixelSize = activeScene?.tilePixelSize;
+  const tilePixelW = activeScene?.tilePixelSize?.[0];
+  const tilePixelH = activeScene?.tilePixelSize?.[1];
   const activeNativeW = activeScene?.nativeWidth;
   const activeNativeH = activeScene?.nativeHeight;
   const useCustomSingleUrl = Boolean(panoramaUrl);
+  const gridTilesKey = activeGridTileUrls ? activeGridTileUrls.join("|") : "";
+  const sectorTilesKey = activeTileUrls ? activeTileUrls.join("|") : "";
 
   useEffect(() => {
     const handle = glHandleRef.current;
     if (!handle) return;
     const { gl, textures, anisoExt, maxAniso, maxTexSize } = handle;
+    const safeTileDim = computeSafeTileDim(maxTexSize);
 
     const abortCtrl = new AbortController();
     let aborted = false;
+
+    const shrinkUnitTo1x1 = (unit: number, tex: WebGLTexture | null) => {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA,
+        1,
+        1,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        new Uint8Array([15, 23, 42, 255]),
+      );
+    };
 
     const uploadToUnit = (
       unit: number,
@@ -942,116 +1028,130 @@ export function KrpanoViewer({
     };
 
     const runStream = async () => {
-      const hasPreSliced = !useCustomSingleUrl && (activeGridTileUrls || activeTileUrls);
-      const cacheKey = hasPreSliced ? `tiles:${currentSceneId}` : `url:${resolvedPanoUrl}`;
-
-      // Fast path: already decoded in RAM cache -> flicker-free upload across frames!
-      const cached = ROOM_BITMAP_CACHE.get(cacheKey);
-      if (cached) {
-        if (cached.preview) {
-          uploadToUnit(0, textures[0] ?? null, cached.preview, true);
-          handle.tileMode = 0;
-        }
-        setPanoDimensions({ w: cached.w, h: cached.h });
-        for (let k = cached.tiles.length - 1; k >= 1; k--) {
-          if (aborted) return;
-          uploadToUnit(k, textures[k] ?? null, cached.tiles[k]!);
-          await nextAnimationFrame();
-        }
-        if (aborted) return;
-        uploadToUnit(0, textures[0] ?? null, cached.tiles[0]!);
-        handle.padFracX = cached.padFracX;
-        handle.padFracY = cached.padFracY;
-        handle.tilePixelSize = cached.tilePixelSize;
-        handle.texelStep = [1 / cached.w, 1 / cached.h];
-        handle.tileMode = cached.mode;
-        setStreamingTiles(false);
-        return;
-      }
-
-      // Progressive Pre-Cut 8-Tile (16K/12K) or 4-Tile (6K) Streamer
-      const urlsToLoad = !useCustomSingleUrl ? (activeGridTileUrls ?? activeTileUrls) : undefined;
-      const targetMode: 1 | 2 = activeGridTileUrls ? 2 : 1;
+      const urlsToLoad = !useCustomSingleUrl
+        ? gridTilesKey
+          ? gridTilesKey.split("|")
+          : sectorTilesKey
+            ? sectorTilesKey.split("|")
+            : undefined
+        : undefined;
+      const targetMode: 1 | 2 = gridTilesKey ? 2 : 1;
 
       if (urlsToLoad && activePreviewUrl) {
         setStreamingTiles(true);
+        let scaleCanvas = null as HTMLCanvasElement | null;
         try {
-          // Phase A: Instant <35ms 2048x1024 WebP preview sphere in u_tex0!
-          const prevBmp = await fetchBitmap(activePreviewUrl, abortCtrl.signal);
-          if (aborted) return;
+          // Phase A: Instant 2048×1024 preview sphere in u_tex0 + immediately release 455 MB of old room tiles!
+          const prevBmp = await decodeBlobOrUrl(activePreviewUrl, abortCtrl.signal);
+          if (aborted) {
+            releaseBitmap(prevBmp);
+            return;
+          }
           uploadToUnit(0, textures[0] ?? null, prevBmp, true);
+          releaseBitmap(prevBmp);
           handle.tileMode = 0;
+
+          for (let u = 1; u < 8; u++) {
+            shrinkUnitTo1x1(u, textures[u] ?? null);
+          }
+
           const wEst = activeNativeW ?? (targetMode === 2 ? 16000 : 6000);
           const hEst = activeNativeH ?? Math.round(wEst / 2);
           setPanoDimensions({ w: wEst, h: hEst });
 
-          // Phase B: Off-main-thread parallel decode of all 8 (or 4) pre-sliced GPU tiles!
-          const decodedTiles = await Promise.all(
-            urlsToLoad.map((u) => fetchBitmap(u, abortCtrl.signal)),
+          // Phase B: Fetch compressed ~1 MB blobs (HTTP/CDN cached), then decode -> upload -> .close() ONE tile at a time!
+          const compressedBlobs = await Promise.all(
+            urlsToLoad.map((u) => fetchTileBlob(u, abortCtrl.signal)),
           );
           if (aborted) return;
 
-          // Upload units N-1..1 first while u_tex0 keeps rendering preview.webp without any flicker!
-          for (let k = decodedTiles.length - 1; k >= 1; k--) {
+          let uploadedSize: [number, number] =
+            tilePixelW && tilePixelH ? [tilePixelW, tilePixelH] : [safeTileDim, safeTileDim];
+
+          const decodeUploadAndFreeTile = async (k: number) => {
+            const bmp = await decodeBlobOrUrl(compressedBlobs[k]!, abortCtrl.signal);
+            if (aborted) {
+              releaseBitmap(bmp);
+              return false;
+            }
+            const srcW = "naturalWidth" in bmp ? bmp.naturalWidth || bmp.width : bmp.width;
+            const srcH = "naturalHeight" in bmp ? bmp.naturalHeight || bmp.height : bmp.height;
+
+            if (srcW > safeTileDim || srcH > safeTileDim) {
+              const scale = safeTileDim / Math.max(srcW, srcH);
+              const dstW = Math.max(1, Math.round(srcW * scale));
+              const dstH = Math.max(1, Math.round(srcH * scale));
+              if (!scaleCanvas) scaleCanvas = document.createElement("canvas");
+              scaleCanvas.width = dstW;
+              scaleCanvas.height = dstH;
+              const sCtx = scaleCanvas.getContext("2d", { alpha: false });
+              if (sCtx) {
+                sCtx.drawImage(bmp, 0, 0, dstW, dstH);
+                releaseBitmap(bmp);
+                uploadToUnit(k, textures[k] ?? null, scaleCanvas);
+                uploadedSize = [dstW, dstH];
+                return true;
+              }
+            }
+
+            uploadToUnit(k, textures[k] ?? null, bmp);
+            uploadedSize = [srcW, srcH];
+            releaseBitmap(bmp);
+            return true;
+          };
+
+          // Upload units N-1..1 first while u_tex0 renders preview.webp seamlessly
+          for (let k = compressedBlobs.length - 1; k >= 1; k--) {
             if (aborted) return;
             await nextAnimationFrame();
             if (aborted) return;
-            uploadToUnit(k, textures[k] ?? null, decodedTiles[k]!);
+            const ok = await decodeUploadAndFreeTile(k);
+            if (!ok) return;
           }
 
           if (aborted) return;
           await nextAnimationFrame();
           if (aborted) return;
 
-          // Final frame: upload tile 0 and atomically flip shader to full 16K/12K/6K native mode!
-          uploadToUnit(0, textures[0] ?? null, decodedTiles[0]!);
-          const inferredTileSize: [number, number] = activeTilePixelSize ?? [
-            decodedTiles[0]!.width,
-            decodedTiles[0]!.height,
-          ];
+          // Final frame: upload tile 0, release its bitmap, and atomically flip shader to full crisp mode!
+          const ok0 = await decodeUploadAndFreeTile(0);
+          if (!ok0) return;
+
           handle.padFracX = activeTilePadFracX;
           handle.padFracY = activeTilePadFracY;
-          handle.tilePixelSize = inferredTileSize;
-          handle.texelStep = [1 / wEst, 1 / hEst];
+          handle.tilePixelSize = uploadedSize;
+          handle.texelStep = [
+            1 / Math.max(1024, uploadedSize[0] * 4),
+            1 / Math.max(512, uploadedSize[1] * (targetMode === 2 ? 2 : 1)),
+          ];
           handle.tileMode = targetMode;
           setStreamingTiles(false);
-
-          if (
-            typeof ImageBitmap !== "undefined" &&
-            prevBmp instanceof ImageBitmap &&
-            decodedTiles.every((b): b is ImageBitmap => b instanceof ImageBitmap)
-          ) {
-            if (ROOM_BITMAP_CACHE.size >= 5) {
-              const oldest = ROOM_BITMAP_CACHE.keys().next().value;
-              if (oldest) ROOM_BITMAP_CACHE.delete(oldest);
-            }
-            ROOM_BITMAP_CACHE.set(cacheKey, {
-              mode: targetMode,
-              preview: prevBmp,
-              tiles: decodedTiles,
-              padFracX: activeTilePadFracX,
-              padFracY: activeTilePadFracY,
-              tilePixelSize: inferredTileSize,
-              w: wEst,
-              h: hEst,
-            });
-          }
           return;
         } catch {
           if (aborted) return;
+        } finally {
+          if (scaleCanvas) {
+            scaleCanvas.width = 1;
+            scaleCanvas.height = 1;
+          }
         }
       }
 
-      // Fallback Single-Image Equirectangular Loader
+      // Fallback Single-Image Equirectangular Loader (with immediate ImageBitmap cleanup)
       setStreamingTiles(true);
+      let src: ImageBitmap | HTMLImageElement | null = null;
+      const tileCanvas = typeof document !== "undefined" ? document.createElement("canvas") : null;
       try {
-        let src: ImageBitmap | HTMLImageElement;
         try {
-          src = await fetchBitmap(resolvedPanoUrl, abortCtrl.signal);
+          src = await decodeBlobOrUrl(resolvedPanoUrl, abortCtrl.signal);
         } catch {
-          src = await fetchBitmap(fallbackPanoramaUrl, abortCtrl.signal);
+          src = await decodeBlobOrUrl(fallbackPanoramaUrl, abortCtrl.signal);
         }
         if (aborted) return;
+
+        for (let u = 4; u < 8; u++) {
+          shrinkUnitTo1x1(u, textures[u] ?? null);
+        }
 
         const W = "naturalWidth" in src ? src.naturalWidth || src.width : src.width;
         const H = "naturalHeight" in src ? src.naturalHeight || src.height : src.height;
@@ -1060,46 +1160,50 @@ export function KrpanoViewer({
         const sectorW = W / 4;
         const padPx = Math.max(4, Math.round(sectorW * 0.005));
         const srcTileW = sectorW + 2 * padPx;
-        const dstTileW = Math.min(Math.round(srcTileW), maxTexSize);
-        const dstTileH = Math.min(H, maxTexSize);
+        const dstTileW = Math.min(Math.round(srcTileW), safeTileDim);
+        const dstTileH = Math.min(H, safeTileDim);
 
-        const tileCanvas = document.createElement("canvas");
-        tileCanvas.width = dstTileW;
-        tileCanvas.height = dstTileH;
-        const ctx = tileCanvas.getContext("2d", { alpha: false });
-        if (ctx) {
-          const scaleX = dstTileW / srcTileW;
-          for (let k = 3; k >= 0; k--) {
-            if (aborted) return;
-            await nextAnimationFrame();
-            if (aborted) return;
-            const startX = k * sectorW - padPx;
-            if (startX < 0) {
-              const wrapW = -startX;
-              const mainW = srcTileW - wrapW;
-              ctx.drawImage(src, W - wrapW, 0, wrapW, H, 0, 0, wrapW * scaleX, dstTileH);
-              ctx.drawImage(src, 0, 0, mainW, H, wrapW * scaleX, 0, mainW * scaleX, dstTileH);
-            } else if (startX + srcTileW > W) {
-              const mainW = W - startX;
-              const wrapW = srcTileW - mainW;
-              ctx.drawImage(src, startX, 0, mainW, H, 0, 0, mainW * scaleX, dstTileH);
-              ctx.drawImage(src, 0, 0, wrapW, H, mainW * scaleX, 0, wrapW * scaleX, dstTileH);
-            } else {
-              ctx.drawImage(src, startX, 0, srcTileW, H, 0, 0, dstTileW, dstTileH);
+        if (tileCanvas) {
+          tileCanvas.width = dstTileW;
+          tileCanvas.height = dstTileH;
+          const ctx = tileCanvas.getContext("2d", { alpha: false });
+          if (ctx) {
+            const scaleX = dstTileW / srcTileW;
+            for (let k = 3; k >= 0; k--) {
+              if (aborted) return;
+              await nextAnimationFrame();
+              if (aborted) return;
+              const startX = k * sectorW - padPx;
+              if (startX < 0) {
+                const wrapW = -startX;
+                const mainW = srcTileW - wrapW;
+                ctx.drawImage(src, W - wrapW, 0, wrapW, H, 0, 0, wrapW * scaleX, dstTileH);
+                ctx.drawImage(src, 0, 0, mainW, H, wrapW * scaleX, 0, mainW * scaleX, dstTileH);
+              } else if (startX + srcTileW > W) {
+                const mainW = W - startX;
+                const wrapW = srcTileW - mainW;
+                ctx.drawImage(src, startX, 0, mainW, H, 0, 0, mainW * scaleX, dstTileH);
+                ctx.drawImage(src, 0, 0, wrapW, H, mainW * scaleX, 0, wrapW * scaleX, dstTileH);
+              } else {
+                ctx.drawImage(src, startX, 0, srcTileW, H, 0, 0, dstTileW, dstTileH);
+              }
+              uploadToUnit(k, textures[k] ?? null, tileCanvas);
             }
-            uploadToUnit(k, textures[k] ?? null, tileCanvas);
+            handle.padFracX = padPx / srcTileW;
+            handle.padFracY = 0;
+            handle.tilePixelSize = [dstTileW, dstTileH];
+            handle.texelStep = [1 / Math.max(1024, dstTileW * 4), 1 / Math.max(512, dstTileH)];
+            handle.tileMode = 1;
           }
-          tileCanvas.width = 1;
-          tileCanvas.height = 1;
-          handle.padFracX = padPx / srcTileW;
-          handle.padFracY = 0;
-          handle.tilePixelSize = [dstTileW, dstTileH];
-          handle.texelStep = [1 / Math.max(1024, dstTileW * 4), 1 / Math.max(512, dstTileH)];
-          handle.tileMode = 1;
         }
       } catch {
         // Ignore aborted or headless test environment image load errors
       } finally {
+        releaseBitmap(src);
+        if (tileCanvas) {
+          tileCanvas.width = 1;
+          tileCanvas.height = 1;
+        }
         if (!aborted) setStreamingTiles(false);
       }
     };
@@ -1115,12 +1219,13 @@ export function KrpanoViewer({
     resolvedPanoUrl,
     fallbackPanoramaUrl,
     useCustomSingleUrl,
-    activeGridTileUrls,
-    activeTileUrls,
+    gridTilesKey,
+    sectorTilesKey,
     activePreviewUrl,
     activeTilePadFracX,
     activeTilePadFracY,
-    activeTilePixelSize,
+    tilePixelW,
+    tilePixelH,
     activeNativeW,
     activeNativeH,
   ]);
