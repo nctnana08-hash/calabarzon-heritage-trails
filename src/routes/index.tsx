@@ -1,11 +1,23 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Award, BookOpenCheck, Compass, Eye, Map, MapPin, ShieldCheck } from "lucide-react";
+import {
+  Award,
+  BookOpenCheck,
+  Compass,
+  Eye,
+  Map,
+  MapPin,
+  ShieldCheck,
+  Smartphone,
+} from "lucide-react";
+import { useState } from "react";
 
 import { SiteHeader, MobileBottomNav } from "@/components/site-nav";
 import { DestinationCard } from "@/components/destination-card";
 import { KrpanoViewer } from "@/components/krpano-viewer";
+import { AndroidDownloadModal } from "@/components/android-download-modal";
 import { Banig, Label, Pop, Sec, Stamp } from "@/components/sulyap-ui";
 import { useDestinations } from "@/hooks/use-destinations";
+import { useAppBranding } from "@/hooks/use-app-branding";
 import { PROVINCES } from "@/lib/destinations";
 import { isDestinationToured, useSulyapProgress } from "@/lib/sulyap-data";
 import { C, F, PROVINCE_TONES } from "@/lib/sulyap-theme";
@@ -27,7 +39,9 @@ export const Route = createFileRoute("/")({
 function Index() {
   const navigate = useNavigate();
   const { data: destinations, isPending, isError, error } = useDestinations();
+  const { branding } = useAppBranding();
   const progress = useSulyapProgress();
+  const [appModalOpen, setAppModalOpen] = useState(false);
 
   const ds = destinations ?? [];
   const has = (d: (typeof ds)[number]) => isDestinationToured(d, progress);
@@ -117,6 +131,15 @@ function Index() {
                     }}
                   >
                     <Map className="size-4" /> Interactive Map
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setAppModalOpen(true)}
+                    className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-white/30 bg-white/15 px-4 py-3 text-[14px] font-extrabold text-white backdrop-blur-xs transition-colors hover:bg-white/25"
+                    style={{ fontFamily: F.body }}
+                  >
+                    <Smartphone className="size-4" /> Download Android App (.APK)
                   </button>
                 </div>
               </div>
@@ -330,7 +353,10 @@ function Index() {
       </main>
 
       <footer className="mx-auto max-w-6xl px-4 py-8 text-center">
-        <Label>SulyapPH · CALABARZON Digital Heritage Portal &amp; e-Passport</Label>
+        <Label>
+          {branding.appName}
+          {branding.appBadge ? ` ${branding.appBadge}` : ""} · {branding.appTagline}
+        </Label>
         {isError ? (
           <p className="mt-1 text-[12px]" style={{ color: C.red }}>
             {error.message}
@@ -338,6 +364,7 @@ function Index() {
         ) : null}
       </footer>
 
+      <AndroidDownloadModal open={appModalOpen} onOpenChange={setAppModalOpen} />
       <MobileBottomNav />
     </div>
   );

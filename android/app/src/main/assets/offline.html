@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Offline — SulyapPH</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #F8FAFC;
+      color: #0F172A;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      text-align: center;
+    }
+    .tricolor {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #0038A8 0%, #0038A8 48%, #FCD116 48%, #FCD116 52%, #CE1126 52%, #CE1126 100%);
+    }
+    .card {
+      background: #FFFFFF;
+      border: 1px solid #E2E8F0;
+      border-radius: 24px;
+      padding: 32px 24px;
+      max-width: 420px;
+      width: 100%;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #FEF3C7;
+      color: #B45309;
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      color: #0038A8;
+      margin-bottom: 8px;
+    }
+    p {
+      font-size: 14px;
+      color: #64748B;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      background: #0038A8;
+      color: #FFFFFF;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 14px;
+      border-radius: 14px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(0, 56, 168, 0.25);
+    }
+    .btn:active { transform: scale(0.98); }
+    .footer {
+      margin-top: 16px;
+      font-size: 11px;
+      color: #94A3B8;
+    }
+  </style>
+</head>
+<body>
+  <div class="tricolor"></div>
+  <div class="card">
+    <div style="font-size: 48px; margin-bottom: 12px;">🇵🇭</div>
+    <div class="badge">Offline Mode · Walang Internet</div>
+    <h1>Kasalukuyang Offline</h1>
+    <p>
+      Hindi maabot ang online server sa ngayon. Ang iyong mga na-stamp na pasaporte at naka-cache na 360° virtual tours ay mananatiling ligtas sa iyong device.
+    </p>
+    <button class="btn" onclick="window.location.reload()">Subukang Muli (Retry Connection)</button>
+    <div class="footer">SulyapPH · CALABARZON Cultural Heritage App</div>
+  </div>
+</body>
+</html>

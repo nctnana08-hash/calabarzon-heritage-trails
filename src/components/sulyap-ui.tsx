@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { MapPin, Check, Sparkles, Compass } from "lucide-react";
 import { imageUrl, type Destination } from "@/lib/destinations";
+import { type LogoPresetId, getStoredBranding } from "@/lib/app-branding";
 import { getEnrichment } from "@/lib/sulyap-data";
 import { C, F, getCategoryMeta, onColor, seedFromId } from "@/lib/sulyap-theme";
 import { cn } from "@/lib/utils";
@@ -170,9 +171,116 @@ export const Banig = React.memo(function Banig({
 });
 
 /**
- * eGovPH-Inspired Philippine Sun & Heritage Emblem.
+ * eGovPH-Inspired Philippine Sun & Heritage Emblem, with support for customizable logos & presets.
  */
-export const Mark = React.memo(function Mark({ size = 36 }: { size?: number }) {
+export const Mark = React.memo(function Mark({
+  size = 36,
+  customLogoUrl,
+  presetId,
+  className,
+}: {
+  size?: number | undefined;
+  customLogoUrl?: string | null | undefined;
+  presetId?: LogoPresetId | undefined;
+  className?: string | undefined;
+}) {
+  const [activeLogo, setActiveLogo] = useState<string | null>(customLogoUrl ?? null);
+  const [activePreset, setActivePreset] = useState<LogoPresetId>(presetId ?? "sun");
+  const [imgError, setImgError] = useState(false);
+
+  useEffect(() => {
+    if (customLogoUrl !== undefined) {
+      setActiveLogo(customLogoUrl);
+      setImgError(false);
+      return;
+    }
+    const branding = getStoredBranding();
+    setActiveLogo(branding.logoType === "custom" ? branding.customLogoUrl : null);
+    setActivePreset(presetId ?? branding.presetId);
+    setImgError(false);
+  }, [customLogoUrl, presetId]);
+
+  if (activeLogo && !imgError) {
+    return (
+      <img
+        src={activeLogo}
+        alt="App Logo"
+        width={size}
+        height={size}
+        onError={() => setImgError(true)}
+        className={cn(
+          "shrink-0 rounded-xl object-cover shadow-2xs border border-[#CBD5E1]",
+          className,
+        )}
+        style={{ width: size, height: size }}
+      />
+    );
+  }
+
+  if (activePreset === "carabao") {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 44 44"
+        aria-label="Tamaraw emblem"
+        role="img"
+        className={cn("shrink-0", className)}
+      >
+        <rect x="2" y="2" width="40" height="40" rx="12" fill="#1E3A8A" />
+        <path d="M 6,36 L 38,36 A 6,6 0 0,1 32,42 L 12,42 A 6,6 0 0,1 6,36 Z" fill="#FCD116" />
+        {/* Stylized Horns & Silhouette */}
+        <path
+          d="M 12,14 Q 15,9 22,11 Q 29,9 32,14 Q 30,17 26,17 Q 27,21 28,26 Q 22,30 16,26 Q 17,21 18,17 Q 14,17 12,14 Z"
+          fill="#FCD116"
+        />
+        <circle cx="19" cy="21" r="1.5" fill="#1E3A8A" />
+        <circle cx="25" cy="21" r="1.5" fill="#1E3A8A" />
+      </svg>
+    );
+  }
+
+  if (activePreset === "church") {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 44 44"
+        aria-label="Colonial church belfry emblem"
+        role="img"
+        className={cn("shrink-0", className)}
+      >
+        <rect x="2" y="2" width="40" height="40" rx="12" fill="#1E293B" />
+        <path d="M 6,36 L 38,36 A 6,6 0 0,1 32,42 L 12,42 A 6,6 0 0,1 6,36 Z" fill="#CE1126" />
+        {/* Stone Belfry Silhouette */}
+        <polygon points="22,7 28,14 16,14" fill="#FCD116" />
+        <rect x="18" y="14" width="8" height="12" rx="2" fill="#F8FAFC" />
+        <rect x="20.5" y="17" width="3" height="5" rx="1.5" fill="#1E293B" />
+        <rect x="14" y="26" width="16" height="7" rx="1" fill="#CBD5E1" />
+      </svg>
+    );
+  }
+
+  if (activePreset === "flag") {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 44 44"
+        aria-label="Philippine flag heritage crest"
+        role="img"
+        className={cn("shrink-0", className)}
+      >
+        <rect x="2" y="2" width="40" height="40" rx="12" fill="#0F172A" />
+        <path d="M 2,14 L 42,14 L 42,22 L 2,22 Z" fill="#0038A8" />
+        <path d="M 2,22 L 42,22 L 42,30 L 2,30 Z" fill="#CE1126" />
+        <polygon points="2,14 22,22 2,30" fill="#FFFFFF" />
+        <circle cx="8" cy="22" r="2.5" fill="#FCD116" />
+      </svg>
+    );
+  }
+
+  // Default: Philippine Sun Emblem
   return (
     <svg
       width={size}
@@ -180,7 +288,7 @@ export const Mark = React.memo(function Mark({ size = 36 }: { size?: number }) {
       viewBox="0 0 44 44"
       aria-label="Sulyap emblem"
       role="img"
-      className="shrink-0"
+      className={cn("shrink-0", className)}
     >
       <defs>
         <linearGradient id="egov-mark-bg" x1="0" y1="0" x2="1" y2="1">

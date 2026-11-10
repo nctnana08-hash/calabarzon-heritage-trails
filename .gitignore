@@ -31,3 +31,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Android builds
+build-android/
+android/*.keystore

@@ -14,6 +14,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { Btn, Mark, Pop } from "@/components/sulyap-ui";
+import { useAppBranding } from "@/hooks/use-app-branding";
 import { C, F } from "@/lib/sulyap-theme";
 
 function NotFoundComponent() {
@@ -164,6 +165,17 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const { branding } = useAppBranding();
+
+  // Sync theme-color and dynamic app branding title
+  useEffect(() => {
+    if (typeof document !== "undefined") {
+      const themeMeta = document.querySelector('meta[name="theme-color"]');
+      if (themeMeta && branding.primaryColor) {
+        themeMeta.setAttribute("content", branding.primaryColor);
+      }
+    }
+  }, [branding]);
 
   // Recover seamlessly if a new Vercel deployment invalidates lazy chunk hashes in an open tab
   useEffect(() => {
