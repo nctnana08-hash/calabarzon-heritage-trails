@@ -104,8 +104,10 @@ export function PanoramaTourBuilder({
     PRESET_PANORAMAS[0]?.previewUrl || "",
   );
   const [newSceneFile, setNewSceneFile] = useState<File | null>(null);
+  const [isPreparingPanorama, setIsPreparingPanorama] = useState(false);
   const [uploadStage, setUploadStage] = useState<string | null>(null);
   const [uploadValidation, setUploadValidation] = useState<string | null>(null);
+  const [uploadValidationIsValid, setUploadValidationIsValid] = useState<boolean | null>(null);
   const [artworkUploadStage, setArtworkUploadStage] = useState<string | null>(null);
 
   // Quick helper to start a new tour
@@ -421,15 +423,23 @@ export function PanoramaTourBuilder({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsPreparingPanorama(true);
+    setNewSceneFile(null);
+    setUploadValidation(null);
+    setUploadValidationIsValid(null);
     const objectUrl = URL.createObjectURL(file);
     const img = new Image();
     img.onload = async () => {
       const check = validatePanoramaDimensions(img.naturalWidth, img.naturalHeight);
       setUploadValidation(check.message);
+      setUploadValidationIsValid(check.valid);
       if (!check.valid) {
+        setNewSceneFile(file);
+        setNewScenePanoUrl(objectUrl);
+        setNewScenePreviewUrl(objectUrl);
         toast.warning(check.message);
-      } else {
-        toast.success(check.message);
+        setIsPreparingPanorama(false);
+        return;
       }
 
       try {
@@ -437,10 +447,19 @@ export function PanoramaTourBuilder({
         setNewSceneFile(file);
         setNewScenePanoUrl(objectUrl);
         setNewScenePreviewUrl(previewUrl);
+        toast.success(check.message);
       } catch {
+        setNewSceneFile(file);
         setNewScenePanoUrl(objectUrl);
         setNewScenePreviewUrl(objectUrl);
+      } finally {
+        setIsPreparingPanorama(false);
       }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      setIsPreparingPanorama(false);
+      toast.error("The selected panorama could not be read. Choose a JPG or WebP image.");
     };
     img.src = objectUrl;
   };
@@ -967,7 +986,9 @@ export function PanoramaTourBuilder({
                   const found = PRESET_PANORAMAS.find((p) => p.url === e.target.value);
                   setNewScenePanoUrl(e.target.value);
                   setNewSceneFile(null);
+                  setIsPreparingPanorama(false);
                   setUploadValidation(null);
+                  setUploadValidationIsValid(null);
                   if (found) setNewScenePreviewUrl(found.previewUrl);
                 }}
                 className="mt-1 w-full rounded-xl border border-[#CBD5E1] dark:border-[#334155] bg-white dark:bg-[#1E293B] px-3 py-2 text-[13px]"
@@ -993,10 +1014,18 @@ export function PanoramaTourBuilder({
                 className="mt-2 text-[11px] text-[#64748B]"
               />
               {uploadValidation && (
-                <p className="mt-1 text-[11px] font-bold text-[#16A34A]">{uploadValidation}</p>
+                <p
+                  className={`mt-1 text-[11px] font-bold ${uploadValidationIsValid ? "text-[#16A34A]" : "text-[#DC2626]"}`}
+                >
+                  {uploadValidation}
+                </p>
               )}
               {uploadStage ? (
                 <p className="mt-2 text-[11px] font-bold text-[#0038A8]">{uploadStage}</p>
+              ) : isPreparingPanorama ? (
+                <p className="mt-2 text-[11px] font-bold text-[#0038A8]">
+                  Preparing your uploaded panorama…
+                </p>
               ) : null}
             </div>
           </div>
@@ -1012,10 +1041,10 @@ export function PanoramaTourBuilder({
             <button
               type="button"
               onClick={() => void handleAddNewScene()}
-              disabled={Boolean(uploadStage)}
+              disabled={Boolean(uploadStage) || isPreparingPanorama}
               className="cursor-pointer rounded-xl bg-[#0038A8] px-4 py-2 text-[13px] font-bold text-white hover:bg-[#002366]"
             >
-              Add Room
+              {isPreparingPanorama ? "Preparing…" : "Add Room"}
             </button>
           </DialogFooter>
         </DialogContent>

@@ -364,6 +364,7 @@ export async function getToursForDestination(destinationSlug: string): Promise<P
     .select(TOUR_SELECT)
     .eq("destination_slug", destinationSlug)
     .eq("status", "published")
+    .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false });
   throwIfError(error);
   return ((data ?? []) as unknown as TourQueryRow[]).map(normalizeTour);
@@ -423,7 +424,10 @@ export async function uploadPanoramaAssets(
   if (!validation.valid) throw new Error(validation.message);
 
   const extension = file.type === "image/webp" ? "webp" : "jpg";
-  const basePath = `tours/${tourId}/scenes/${sceneId}`;
+  // Keep each upload immutable so browser/proxy caches can never return an older panorama
+  // when an administrator replaces the image on an existing room.
+  const uploadId = crypto.randomUUID();
+  const basePath = `tours/${tourId}/scenes/${sceneId}/${uploadId}`;
   const originalPath = `${basePath}/original.${extension}`;
   const previewPath = `${basePath}/preview.webp`;
 

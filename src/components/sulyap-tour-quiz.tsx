@@ -720,7 +720,7 @@ function PublishedPanoramaTour({
   onStartQuiz: () => void;
 }) {
   const scenes = useMemo(() => convertDynamicTourToKrpanoScenes(tour, []), [tour]);
-  const [activeSceneId, setActiveSceneId] = useState(scenes[0]?.id ?? "");
+  const [activeSceneId, setActiveSceneId] = useState(scenes[scenes.length - 1]?.id ?? "");
   const [done, setDone] = useState(false);
 
   const finishTour = () => {
