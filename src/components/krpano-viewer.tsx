@@ -477,6 +477,9 @@ export function KrpanoViewer({
 
   // Foreground unboxed artwork inspection + disappearing wall pin so name NEVER covers the art piece!
   const [activeArtCard, setActiveArtCard] = useState<KrpanoHotspot | null>(null);
+  const [quizStep, setQuizStep] = useState(0);
+  const [quizAnswer, setQuizAnswer] = useState<number | null>(null);
+  const [quizScore, setQuizScore] = useState(0);
   const [hiddenArtPinId, setHiddenArtPinId] = useState<string | null>(null);
   const hiddenArtAnchorRef = useRef<{ ath: number; atv: number } | null>(null);
   const [showArtDetails, setShowArtDetails] = useState<boolean>(true);
@@ -1452,9 +1455,17 @@ export function KrpanoViewer({
         setArtPan({ x: 0, y: 0 });
         setShowArtDetails(true);
         // Hide the wall hotspot badge/name immediately so it NEVER overlaps the art piece!
-        setHiddenArtPinId(hs.id);
-        hiddenArtAnchorRef.current = { ath: targetAth, atv: targetAtv };
+        if (hs.quizQuestions?.length) {
+          setHiddenArtPinId(null);
+          hiddenArtAnchorRef.current = null;
+        } else {
+          setHiddenArtPinId(hs.id);
+          hiddenArtAnchorRef.current = { ath: targetAth, atv: targetAtv };
+        }
         setActiveArtCard(hs);
+        setQuizStep(0);
+        setQuizAnswer(null);
+        setQuizScore(0);
         onSelectHotspot?.(hs);
       }
     },
@@ -1463,7 +1474,7 @@ export function KrpanoViewer({
 
   // Art-only hotspots in current room for Previous / Next High-Res Artwork cycling
   const roomArtHotspots = useMemo(
-    () => resolvedHotspots.filter((h) => !h.targetSceneId),
+    () => resolvedHotspots.filter((h) => !h.targetSceneId && !h.quizQuestions?.length),
     [resolvedHotspots],
   );
 
@@ -1526,6 +1537,9 @@ export function KrpanoViewer({
       proj: projectHotspotToScreen(fp.ath, fp.atv, cam, viewport.width, viewport.height),
     }));
   }, [showPath, resolvedFloorPath, cam, viewport.width, viewport.height]);
+
+  const activeQuizQuestions = activeArtCard?.quizQuestions ?? [];
+  const activeQuizQuestion = activeQuizQuestions[quizStep];
 
   return (
     <div
@@ -1845,7 +1859,11 @@ export function KrpanoViewer({
           data-art-card="true"
           role="dialog"
           aria-modal="true"
-          aria-label={`High-resolution artwork inspection: ${activeArtCard.title}`}
+          aria-label={
+            activeArtCard.quizQuestions?.length
+              ? `Panorama quiz: ${activeArtCard.title}`
+              : `High-resolution artwork inspection: ${activeArtCard.title}`
+          }
           onClick={() => setActiveArtCard(null)}
           className="pointer-events-auto absolute inset-0 z-40 flex flex-col items-center justify-center gap-3 overflow-y-auto bg-slate-950/76 p-3 backdrop-blur-[3px] sm:p-5 md:flex-row md:items-center md:justify-center md:gap-6"
           style={
@@ -1857,217 +1875,352 @@ export function KrpanoViewer({
               : undefined
           }
         >
-          {/* Open Floating Whole Art Piece Stage — ZERO Box, ZERO Cropping (object-contain), ZERO Text Overlapping Art! */}
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className={`flex flex-col items-center justify-center transition-all duration-200 ${
-              showArtDetails ? "w-full md:flex-1" : "w-full max-w-5xl"
-            }`}
-          >
+          {/* Keep the panorama behind quizzes; artwork hotspots retain their full-size artwork stage. */}
+          {!activeArtCard.quizQuestions?.length && (
             <div
-              onPointerDown={(e) => {
-                if (artZoom <= 1) return;
-                e.stopPropagation();
-                artDragRef.current = {
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  origX: artPan.x,
-                  origY: artPan.y,
-                };
-                e.currentTarget.setPointerCapture?.(e.pointerId);
-              }}
-              onPointerMove={(e) => {
-                if (!artDragRef.current || artZoom <= 1) return;
-                e.stopPropagation();
-                const dx = e.clientX - artDragRef.current.startX;
-                const dy = e.clientY - artDragRef.current.startY;
-                const maxPan = 160 * (artZoom - 1);
-                setArtPan({
-                  x: clamp(artDragRef.current.origX + dx, -maxPan, maxPan),
-                  y: clamp(artDragRef.current.origY + dy, -maxPan, maxPan),
-                });
-              }}
-              onPointerUp={() => {
-                artDragRef.current = null;
-              }}
-              onPointerCancel={() => {
-                artDragRef.current = null;
-              }}
-              onDoubleClick={() => {
-                if (artZoom > 1) {
-                  setArtZoom(1);
-                  setArtPan({ x: 0, y: 0 });
-                } else {
-                  setArtZoom(2.2);
-                }
-              }}
-              className={`relative flex items-center justify-center overflow-hidden rounded-lg shadow-[0_28px_70px_rgba(0,0,0,0.92)] ring-1 ring-[#FCD116]/45 ${
-                artZoom > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
+              onClick={(e) => e.stopPropagation()}
+              className={`flex flex-col items-center justify-center transition-all duration-200 ${
+                showArtDetails ? "w-full md:flex-1" : "w-full max-w-5xl"
               }`}
             >
-              <img
-                src={
-                  activeArtCard.artDetails?.imageUrl ??
-                  "/panoramas/artworks/kawit-proclamation-hd.webp"
-                }
-                alt={activeArtCard.title}
-                draggable={false}
-                className={`block w-auto max-w-full object-contain transition-transform duration-150 ${
-                  isFullscreen
-                    ? showArtDetails
-                      ? "max-h-[38dvh] sm:max-h-[52dvh] md:max-h-[76dvh]"
-                      : "max-h-[72dvh] md:max-h-[82dvh]"
-                    : showArtDetails
-                      ? "max-h-[215px] sm:max-h-[345px]"
-                      : "max-h-[270px] sm:max-h-[410px]"
-                }`}
-                style={{
-                  transform: `scale(${artZoom}) translate(${artPan.x / artZoom}px, ${artPan.y / artZoom}px)`,
+              <div
+                onPointerDown={(e) => {
+                  if (artZoom <= 1) return;
+                  e.stopPropagation();
+                  artDragRef.current = {
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    origX: artPan.x,
+                    origY: artPan.y,
+                  };
+                  e.currentTarget.setPointerCapture?.(e.pointerId);
                 }}
-              />
-            </div>
-
-            {/* Minimal Floating Glass Controls BELOW the Artwork — Never Overlapping the Painting! */}
-            <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/15 bg-slate-950/82 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl backdrop-blur-md">
-              {[
-                { z: 1, label: "1× Whole Art" },
-                { z: 2, label: "2× Detail" },
-                { z: 3.2, label: "3.2× Macro" },
-              ].map((opt) => {
-                const activeZ = Math.abs(artZoom - opt.z) < 0.1;
-                return (
-                  <button
-                    key={opt.label}
-                    type="button"
-                    onClick={() => {
-                      setArtZoom(opt.z);
-                      if (opt.z === 1) setArtPan({ x: 0, y: 0 });
-                    }}
-                    className="cursor-pointer rounded-full px-2.5 py-0.5 transition-colors"
-                    style={{
-                      backgroundColor: activeZ ? C.foil : "transparent",
-                      color: activeZ ? C.ink : "#E2E8F0",
-                    }}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-
-              <span className="h-3.5 w-px bg-white/20" />
-
-              <button
-                type="button"
-                onClick={() => setShowArtDetails((v) => !v)}
-                className="inline-flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-0.5 text-slate-200 hover:bg-white/10"
+                onPointerMove={(e) => {
+                  if (!artDragRef.current || artZoom <= 1) return;
+                  e.stopPropagation();
+                  const dx = e.clientX - artDragRef.current.startX;
+                  const dy = e.clientY - artDragRef.current.startY;
+                  const maxPan = 160 * (artZoom - 1);
+                  setArtPan({
+                    x: clamp(artDragRef.current.origX + dx, -maxPan, maxPan),
+                    y: clamp(artDragRef.current.origY + dy, -maxPan, maxPan),
+                  });
+                }}
+                onPointerUp={() => {
+                  artDragRef.current = null;
+                }}
+                onPointerCancel={() => {
+                  artDragRef.current = null;
+                }}
+                onDoubleClick={() => {
+                  if (artZoom > 1) {
+                    setArtZoom(1);
+                    setArtPan({ x: 0, y: 0 });
+                  } else {
+                    setArtZoom(2.2);
+                  }
+                }}
+                className={`relative flex items-center justify-center overflow-hidden rounded-lg shadow-[0_28px_70px_rgba(0,0,0,0.92)] ring-1 ring-[#FCD116]/45 ${
+                  artZoom > 1 ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
+                }`}
               >
-                {showArtDetails ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
-                <span>{showArtDetails ? "Pure Art Only" : "Show Details"}</span>
-              </button>
+                <img
+                  src={
+                    activeArtCard.artDetails?.imageUrl ??
+                    "/panoramas/artworks/kawit-proclamation-hd.webp"
+                  }
+                  alt={activeArtCard.title}
+                  draggable={false}
+                  className={`block w-auto max-w-full object-contain transition-transform duration-150 ${
+                    isFullscreen
+                      ? showArtDetails
+                        ? "max-h-[38dvh] sm:max-h-[52dvh] md:max-h-[76dvh]"
+                        : "max-h-[72dvh] md:max-h-[82dvh]"
+                      : showArtDetails
+                        ? "max-h-[215px] sm:max-h-[345px]"
+                        : "max-h-[270px] sm:max-h-[410px]"
+                  }`}
+                  style={{
+                    transform: `scale(${artZoom}) translate(${artPan.x / artZoom}px, ${artPan.y / artZoom}px)`,
+                  }}
+                />
+              </div>
 
-              {!showArtDetails && (
+              {/* Minimal Floating Glass Controls BELOW the Artwork — Never Overlapping the Painting! */}
+              <div className="mt-2.5 flex flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/15 bg-slate-950/82 px-2.5 py-1 text-[11px] font-bold text-white shadow-xl backdrop-blur-md">
+                {[
+                  { z: 1, label: "1× Whole Art" },
+                  { z: 2, label: "2× Detail" },
+                  { z: 3.2, label: "3.2× Macro" },
+                ].map((opt) => {
+                  const activeZ = Math.abs(artZoom - opt.z) < 0.1;
+                  return (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => {
+                        setArtZoom(opt.z);
+                        if (opt.z === 1) setArtPan({ x: 0, y: 0 });
+                      }}
+                      className="cursor-pointer rounded-full px-2.5 py-0.5 transition-colors"
+                      style={{
+                        backgroundColor: activeZ ? C.foil : "transparent",
+                        color: activeZ ? C.ink : "#E2E8F0",
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+
+                <span className="h-3.5 w-px bg-white/20" />
+
                 <button
                   type="button"
-                  onClick={() => setActiveArtCard(null)}
-                  className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-white hover:bg-white/25"
+                  onClick={() => setShowArtDetails((v) => !v)}
+                  className="inline-flex cursor-pointer items-center gap-1 rounded-full px-2.5 py-0.5 text-slate-200 hover:bg-white/10"
                 >
-                  <X className="size-3" /> 360°
+                  {showArtDetails ? <EyeOff className="size-3" /> : <Eye className="size-3" />}
+                  <span>{showArtDetails ? "Pure Art Only" : "Show Details"}</span>
                 </button>
-              )}
+
+                {!showArtDetails && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveArtCard(null)}
+                    className="inline-flex cursor-pointer items-center gap-1 rounded-full bg-white/15 px-2.5 py-0.5 text-white hover:bg-white/25"
+                  >
+                    <X className="size-3" /> 360°
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Sleek Translucent Side Details Drawer — Artwork Name & Description Live ONLY Here (Zero Overlap!) */}
           {showArtDetails && (
             <div
               onClick={(e) => e.stopPropagation()}
-              className={`flex w-full flex-col justify-between overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-4 text-white shadow-2xl backdrop-blur-xl md:w-[335px] md:shrink-0 lg:w-[365px] ${
+              className={`flex w-full flex-col justify-between overflow-y-auto rounded-2xl border border-white/15 bg-slate-950/88 p-4 text-white shadow-2xl backdrop-blur-xl ${
+                activeArtCard.quizQuestions?.length
+                  ? "max-w-xl"
+                  : "md:w-[335px] md:shrink-0 lg:w-[365px]"
+              } ${
                 isFullscreen ? "max-h-[42dvh] md:max-h-[78dvh]" : "max-h-[240px] sm:max-h-[410px]"
               }`}
             >
-              <div>
-                <div className="flex items-start justify-between gap-2">
-                  <span className="inline-flex items-center gap-1 rounded-full border border-[#FCD116]/35 bg-[#FCD116]/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#FCD116]">
-                    {activeArtCard.artDetails?.zone ?? activeScene?.shortLabel ?? "Curated Exhibit"}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setActiveArtCard(null)}
-                    aria-label="Close art piece spotlight"
-                    className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/20 text-slate-300 hover:bg-white/15 hover:text-white"
-                  >
-                    <X className="size-3.5" />
-                  </button>
-                </div>
-
-                <h4
-                  className="mt-2 text-[17px] leading-snug font-extrabold text-white sm:text-[19px]"
-                  style={{ fontFamily: F.display }}
-                >
-                  {activeArtCard.title}
-                </h4>
-
-                {activeArtCard.artDetails?.filTitle ? (
-                  <p className="mt-0.5 text-[12px] font-medium italic text-[#93C5FD]">
-                    “{activeArtCard.artDetails.filTitle}”
-                  </p>
-                ) : null}
-
-                <div className="mt-2.5 space-y-1 border-y border-white/10 py-2 text-[11.5px] text-slate-300">
-                  {activeArtCard.artDetails?.artist ? (
+              {activeQuizQuestions.length ? (
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between gap-2">
                     <div>
-                      <span className="font-bold text-slate-400">Artist / Maker: </span>
-                      <span className="font-semibold text-white">
-                        {activeArtCard.artDetails.artist}
+                      <span className="inline-flex items-center rounded-full border border-[#FCD116]/35 bg-[#FCD116]/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#FCD116]">
+                        Panorama Quiz
                       </span>
+                      <h4
+                        className="mt-2 text-[19px] font-extrabold text-white"
+                        style={{ fontFamily: F.display }}
+                      >
+                        {activeArtCard.title}
+                      </h4>
+                      <p className="mt-1 text-[12px] text-slate-300">
+                        {activeQuizQuestions.length} question
+                        {activeQuizQuestions.length === 1 ? "" : "s"} ·{" "}
+                        {activeScene?.shortLabel ?? "Heritage tour"}
+                      </p>
                     </div>
-                  ) : null}
-                  <div>
-                    <span className="font-bold text-slate-400">Period: </span>
-                    <span className="font-semibold text-white">
-                      {activeArtCard.artDetails?.period ??
-                        activeArtCard.subtitle ??
-                        "CALABARZON Heritage Collection"}
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveArtCard(null)}
+                      aria-label="Close quiz"
+                      className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/20 text-slate-300 hover:bg-white/15 hover:text-white"
+                    >
+                      <X className="size-3.5" />
+                    </button>
                   </div>
-                  {activeArtCard.artDetails?.medium ? (
+
+                  {activeQuizQuestion ? (
                     <div>
-                      <span className="font-bold text-slate-400">Medium: </span>
-                      <span className="font-semibold text-white">
-                        {activeArtCard.artDetails.medium}
-                      </span>
+                      <div className="mb-2 flex items-center justify-between text-[11px] font-bold text-slate-300">
+                        <span>
+                          Question {quizStep + 1} of {activeQuizQuestions.length}
+                        </span>
+                        <span>
+                          Score {quizScore}/{activeQuizQuestions.length}
+                        </span>
+                      </div>
+                      <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-white/15">
+                        <div
+                          className="h-full rounded-full bg-[#FCD116] transition-all"
+                          style={{
+                            width: `${((quizStep + 1) / activeQuizQuestions.length) * 100}%`,
+                          }}
+                        />
+                      </div>
+                      <p className="text-[14px] font-bold leading-relaxed text-white">
+                        {activeQuizQuestion.q}
+                      </p>
+                      <div className="mt-3 grid gap-2">
+                        {activeQuizQuestion.options.map((option, optionIndex) => {
+                          const isCorrect = optionIndex === activeQuizQuestion.answer;
+                          const isPicked = quizAnswer === optionIndex;
+                          return (
+                            <button
+                              key={`${quizStep}-${optionIndex}`}
+                              type="button"
+                              disabled={quizAnswer !== null}
+                              onClick={() => {
+                                setQuizAnswer(optionIndex);
+                                if (isCorrect) setQuizScore((score) => score + 1);
+                              }}
+                              className={`cursor-pointer rounded-lg border px-3 py-2 text-left text-[12.5px] font-semibold transition disabled:cursor-default ${
+                                quizAnswer !== null && isCorrect
+                                  ? "border-emerald-400 bg-emerald-500/20 text-emerald-100"
+                                  : isPicked
+                                    ? "border-rose-400 bg-rose-500/20 text-rose-100"
+                                    : "border-white/15 bg-white/5 text-slate-100 hover:bg-white/10"
+                              }`}
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {quizAnswer !== null && (
+                        <div className="mt-3 rounded-lg border border-white/10 bg-white/5 p-3">
+                          <p
+                            className={`text-[12px] font-extrabold ${quizAnswer === activeQuizQuestion.answer ? "text-emerald-300" : "text-rose-300"}`}
+                          >
+                            {quizAnswer === activeQuizQuestion.answer
+                              ? "Correct!"
+                              : `Correct answer: ${activeQuizQuestion.options[activeQuizQuestion.answer]}`}
+                          </p>
+                          <p className="mt-1 text-[11.5px] leading-relaxed text-slate-200">
+                            {activeQuizQuestion.explanation}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQuizStep((step) => step + 1);
+                              setQuizAnswer(null);
+                            }}
+                            className="mt-3 rounded-full px-3.5 py-1.5 text-[11.5px] font-extrabold"
+                            style={{ backgroundColor: C.foil, color: C.ink }}
+                          >
+                            {quizStep + 1 === activeQuizQuestions.length
+                              ? "See result"
+                              : "Next question"}
+                          </button>
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <div className="rounded-xl border border-[#FCD116]/25 bg-[#FCD116]/10 p-5 text-center">
+                      <p className="text-[16px] font-extrabold text-white">Quiz complete</p>
+                      <p className="mt-1 text-[13px] text-slate-200">
+                        You scored {quizScore} out of {activeQuizQuestions.length}.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setQuizStep(0);
+                          setQuizAnswer(null);
+                          setQuizScore(0);
+                        }}
+                        className="mt-4 rounded-full px-3.5 py-1.5 text-[11.5px] font-extrabold"
+                        style={{ backgroundColor: C.foil, color: C.ink }}
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#FCD116]/35 bg-[#FCD116]/15 px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider text-[#FCD116]">
+                      {activeArtCard.artDetails?.zone ??
+                        activeScene?.shortLabel ??
+                        "Curated Exhibit"}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setActiveArtCard(null)}
+                      aria-label="Close art piece spotlight"
+                      className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full border border-white/20 text-slate-300 hover:bg-white/15 hover:text-white"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+
+                  <h4
+                    className="mt-2 text-[17px] leading-snug font-extrabold text-white sm:text-[19px]"
+                    style={{ fontFamily: F.display }}
+                  >
+                    {activeArtCard.title}
+                  </h4>
+
+                  {activeArtCard.artDetails?.filTitle ? (
+                    <p className="mt-0.5 text-[12px] font-medium italic text-[#93C5FD]">
+                      “{activeArtCard.artDetails.filTitle}”
+                    </p>
                   ) : null}
-                  {activeArtCard.artDetails?.dimensions ? (
+
+                  <div className="mt-2.5 space-y-1 border-y border-white/10 py-2 text-[11.5px] text-slate-300">
+                    {activeArtCard.artDetails?.artist ? (
+                      <div>
+                        <span className="font-bold text-slate-400">Artist / Maker: </span>
+                        <span className="font-semibold text-white">
+                          {activeArtCard.artDetails.artist}
+                        </span>
+                      </div>
+                    ) : null}
                     <div>
-                      <span className="font-bold text-slate-400">Scale: </span>
+                      <span className="font-bold text-slate-400">Period: </span>
                       <span className="font-semibold text-white">
-                        {activeArtCard.artDetails.dimensions}
+                        {activeArtCard.artDetails?.period ??
+                          activeArtCard.subtitle ??
+                          "CALABARZON Heritage Collection"}
                       </span>
                     </div>
+                    {activeArtCard.artDetails?.medium ? (
+                      <div>
+                        <span className="font-bold text-slate-400">Medium: </span>
+                        <span className="font-semibold text-white">
+                          {activeArtCard.artDetails.medium}
+                        </span>
+                      </div>
+                    ) : null}
+                    {activeArtCard.artDetails?.dimensions ? (
+                      <div>
+                        <span className="font-bold text-slate-400">Scale: </span>
+                        <span className="font-semibold text-white">
+                          {activeArtCard.artDetails.dimensions}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <p
+                    className="mt-2.5 text-[13px] leading-relaxed text-slate-200"
+                    style={{ fontFamily: F.body }}
+                  >
+                    {activeArtCard.artDetails?.description ??
+                      "Inspect the entire uncropped artwork in high resolution, or step back to continue exploring the 360° room."}
+                  </p>
+
+                  {activeArtCard.artDetails?.conservationNote ||
+                  activeArtCard.artDetails?.highlight ? (
+                    <p className="mt-2 text-[11.5px] font-medium text-[#FDE68A]">
+                      ✦{" "}
+                      {activeArtCard.artDetails.conservationNote ??
+                        activeArtCard.artDetails.highlight}
+                    </p>
                   ) : null}
                 </div>
-
-                <p
-                  className="mt-2.5 text-[13px] leading-relaxed text-slate-200"
-                  style={{ fontFamily: F.body }}
-                >
-                  {activeArtCard.artDetails?.description ??
-                    "Inspect the entire uncropped artwork in high resolution, or step back to continue exploring the 360° room."}
-                </p>
-
-                {activeArtCard.artDetails?.conservationNote ||
-                activeArtCard.artDetails?.highlight ? (
-                  <p className="mt-2 text-[11.5px] font-medium text-[#FDE68A]">
-                    ✦{" "}
-                    {activeArtCard.artDetails.conservationNote ??
-                      activeArtCard.artDetails.highlight}
-                  </p>
-                ) : null}
-              </div>
+              )}
 
               <div className="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-white/10 pt-3">
-                {roomArtHotspots.length > 1 ? (
+                {roomArtHotspots.length > 1 && !activeQuizQuestions.length ? (
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"

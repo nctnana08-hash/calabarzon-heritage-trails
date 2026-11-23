@@ -37,6 +37,7 @@ import { useDestinations } from "@/hooks/use-destinations";
 import { KrpanoViewer } from "@/components/krpano-viewer";
 import { Pop, Mark, Btn, Label } from "@/components/sulyap-ui";
 import { C, F } from "@/lib/sulyap-theme";
+import { getQuestionsForDestination, type QuizQuestion } from "@/lib/sulyap-data";
 import {
   Dialog,
   DialogContent,
@@ -185,6 +186,24 @@ export function PanoramaTourBuilder({
   const handleSaveHotspot = () => {
     if (!editingHotspot || !activeTour || !currentScene) return;
 
+    if (editingHotspot.hotspot_type === "info") {
+      const questions = editingHotspot.metadata?.quizQuestions ?? [];
+      if (
+        questions.length === 0 ||
+        questions.some(
+          (question) =>
+            !question.q.trim() ||
+            question.options.some((option) => !option.trim()) ||
+            !question.explanation.trim(),
+        )
+      ) {
+        toast.error(
+          "Finish every quiz question, all four choices, and its explanation before saving.",
+        );
+        return;
+      }
+    }
+
     const fullHotspot: PanoramaHotspot = {
       id: editingHotspot.id || crypto.randomUUID(),
       scene_id: currentScene.id,
@@ -218,6 +237,63 @@ export function PanoramaTourBuilder({
     setHotspotModalOpen(false);
     setEditingHotspot(null);
     toast.success("Marker & artwork details saved to room.");
+  };
+
+  const updateQuizQuestions = (questions: QuizQuestion[]) => {
+    if (!editingHotspot) return;
+    setEditingHotspot({
+      ...editingHotspot,
+      metadata: {
+        ...editingHotspot.metadata,
+        badge: "❓",
+        quizQuestions: questions,
+        quizQuestionCount: questions.length,
+      },
+    });
+  };
+
+  const resizeQuizQuestions = (count: number) => {
+    if (!editingHotspot) return;
+    const nextCount = Math.max(1, Math.min(20, Math.round(count)));
+    const questions = [...(editingHotspot.metadata?.quizQuestions ?? [])];
+    while (questions.length < nextCount) {
+      questions.push({ q: "", options: ["", "", "", ""], answer: 0, explanation: "" });
+    }
+    updateQuizQuestions(questions.slice(0, nextCount));
+  };
+
+  const autoGenerateQuizQuestions = () => {
+    if (!editingHotspot || !activeTour) return;
+    const destination = destinations.find((item) => item.slug === activeTour.destination_slug);
+    if (!destination) {
+      toast.error("Choose a destination before generating its quiz.");
+      return;
+    }
+    const count = Math.max(
+      1,
+      Math.min(
+        20,
+        editingHotspot.metadata?.quizQuestionCount ??
+          editingHotspot.metadata?.quizQuestions?.length ??
+          4,
+      ),
+    );
+    const generated = getQuestionsForDestination(destination);
+    const questions = Array.from({ length: count }, (_, index) => {
+      const question = generated[index];
+      return question
+        ? { ...question, options: [...question.options] as QuizQuestion["options"] }
+        : {
+            q: "",
+            options: ["", "", "", ""] as QuizQuestion["options"],
+            answer: 0,
+            explanation: "",
+          };
+    });
+    updateQuizQuestions(questions);
+    toast.success(
+      `Loaded ${Math.min(count, generated.length)} questions from ${destination.name}; add the remaining ${Math.max(0, count - generated.length)} manually.`,
+    );
   };
 
   const handleDeleteHotspot = (hotspotId: string) => {
@@ -724,11 +800,13 @@ export function PanoramaTourBuilder({
                     >
                       <div className="min-w-0">
                         <span className="text-[11px]">
-                          {hs.hotspot_type === "door"
-                            ? "🚪 Room Door"
-                            : hs.hotspot_type === "stairs-up"
-                              ? "🪜 Stairs"
-                              : "🖼️ Artwork"}
+                          {hs.hotspot_type === "info"
+                            ? `❓ Quiz · ${hs.metadata.quizQuestions?.length ?? 0} questions`
+                            : hs.hotspot_type === "door"
+                              ? "🚪 Room Door"
+                              : hs.hotspot_type === "stairs-up"
+                                ? "🪜 Stairs"
+                                : "🖼️ Artwork"}
                         </span>
                         <p className="truncate text-[13px] font-bold text-[#1E293B] dark:text-[#F8FAFC]">
                           {hs.title}
@@ -794,7 +872,7 @@ export function PanoramaTourBuilder({
                   setPinMode(next);
                   if (next) {
                     toast.info(
-                      "Placement Mode Active: Click anywhere on the panorama to position an artwork or door marker.",
+                      "Placement Mode Active: Click the exact point on the panorama for an artwork, room, or quiz marker.",
                     );
                   }
                 }}
@@ -805,7 +883,7 @@ export function PanoramaTourBuilder({
                 }`}
               >
                 <MapPin className="size-4" />
-                <span>{pinMode ? "Click Anywhere to Place..." : "📍 Add Artwork Marker"}</span>
+                <span>{pinMode ? "Click Anywhere to Place..." : "📍 Add Marker or Quiz"}</span>
               </button>
             </div>
 
@@ -948,9 +1026,11 @@ export function PanoramaTourBuilder({
         <DialogContent className="max-h-[90vh] overflow-y-auto max-w-xl bg-white dark:bg-[#131C31] border-[#CBD5E1] dark:border-[#22314E]">
           <DialogHeader>
             <DialogTitle className="text-[18px] font-bold text-[#0F172A] dark:text-[#F8FAFC]">
-              {editingHotspot?.hotspot_type === "door"
-                ? "Edit Room Transition Door"
-                : "Edit Artwork Marker & Description"}
+              {editingHotspot?.hotspot_type === "info"
+                ? "Edit Panorama Quiz"
+                : editingHotspot?.hotspot_type === "door"
+                  ? "Edit Room Transition Door"
+                  : "Edit Artwork Marker & Description"}
             </DialogTitle>
           </DialogHeader>
 
@@ -961,7 +1041,7 @@ export function PanoramaTourBuilder({
                 <label className="text-[12px] font-bold text-[#1E293B] dark:text-[#F8FAFC]">
                   Marker Type
                 </label>
-                <div className="mt-1 grid grid-cols-3 gap-2">
+                <div className="mt-1 grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <button
                     type="button"
                     onClick={() => setEditingHotspot({ ...editingHotspot, hotspot_type: "art" })}
@@ -998,6 +1078,47 @@ export function PanoramaTourBuilder({
                     }`}
                   >
                     🪜 Stairs
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const destination = destinations.find(
+                        (item) => item.slug === activeTour?.destination_slug,
+                      );
+                      const existingQuestions = editingHotspot.metadata?.quizQuestions;
+                      const seedQuestions = destination
+                        ? getQuestionsForDestination(destination)
+                        : [];
+                      setEditingHotspot({
+                        ...editingHotspot,
+                        hotspot_type: "info",
+                        title:
+                          editingHotspot.hotspot_type === "art"
+                            ? "Heritage Quick Quiz"
+                            : editingHotspot.title || "Heritage Quick Quiz",
+                        subtitle:
+                          editingHotspot.hotspot_type === "art"
+                            ? "Tap to answer questions"
+                            : editingHotspot.subtitle || "Tap to answer questions",
+                        metadata: {
+                          ...editingHotspot.metadata,
+                          badge: "❓",
+                          quizQuestions: existingQuestions ?? seedQuestions,
+                          quizQuestionCount:
+                            editingHotspot.metadata?.quizQuestionCount ??
+                            existingQuestions?.length ??
+                            seedQuestions.length,
+                        },
+                      });
+                    }}
+                    className={`cursor-pointer rounded-xl border p-2.5 text-center text-[12px] font-bold transition ${
+                      editingHotspot.hotspot_type === "info"
+                        ? "border-[#0038A8] bg-[#EFF6FF] text-[#0038A8] dark:bg-[#1E3A8A]/30 dark:text-[#93C5FD]"
+                        : "border-[#CBD5E1] dark:border-[#334155] text-[#64748B]"
+                    }`}
+                  >
+                    ❓ Quiz
                   </button>
                 </div>
               </div>
@@ -1061,6 +1182,151 @@ export function PanoramaTourBuilder({
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {editingHotspot.hotspot_type === "info" && (
+                <div className="space-y-3 border-t border-[#E2E8F0] pt-3 dark:border-[#334155]">
+                  <div className="flex flex-wrap items-end justify-between gap-3">
+                    <div>
+                      <h4 className="text-[13.5px] font-extrabold text-[#0038A8] dark:text-[#93C5FD]">
+                        Questions at this panorama point
+                      </h4>
+                      <p className="mt-1 max-w-md text-[11.5px] text-[#64748B]">
+                        Generate from this destination’s saved heritage quiz, then edit any question
+                        or add your own.
+                      </p>
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <label className="text-[11.5px] font-bold text-[#64748B]">
+                        Question count
+                        <input
+                          type="number"
+                          min={1}
+                          max={20}
+                          value={
+                            editingHotspot.metadata?.quizQuestionCount ??
+                            editingHotspot.metadata?.quizQuestions?.length ??
+                            4
+                          }
+                          onChange={(event) => resizeQuizQuestions(Number(event.target.value) || 1)}
+                          className="mt-1 block w-20 rounded-lg border border-[#CBD5E1] bg-white px-2 py-1.5 text-[13px] text-[#1E293B] dark:border-[#334155] dark:bg-[#1E293B] dark:text-white"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={autoGenerateQuizQuestions}
+                        className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-[#0038A8] px-3 py-2 text-[11.5px] font-bold text-white hover:bg-[#002366]"
+                      >
+                        <Sparkles className="size-3.5" /> Generate
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {(editingHotspot.metadata?.quizQuestions ?? []).map(
+                      (question, questionIndex) => (
+                        <section
+                          key={`${editingHotspot.id}-quiz-${questionIndex}`}
+                          className="space-y-2 rounded-xl border border-[#E2E8F0] bg-[#F8FAFC] p-3 dark:border-[#334155] dark:bg-[#1E293B]"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[12px] font-extrabold text-[#1E293B] dark:text-white">
+                              Question {questionIndex + 1}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                updateQuizQuestions(
+                                  (editingHotspot.metadata?.quizQuestions ?? []).filter(
+                                    (_, index) => index !== questionIndex,
+                                  ),
+                                )
+                              }
+                              disabled={(editingHotspot.metadata?.quizQuestions?.length ?? 0) <= 1}
+                              className="cursor-pointer rounded-md p-1 text-[#EF4444] hover:bg-[#FEE2E2] disabled:cursor-not-allowed disabled:opacity-40"
+                              aria-label={`Remove question ${questionIndex + 1}`}
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
+                          <textarea
+                            value={question.q}
+                            onChange={(event) => {
+                              const next = [...(editingHotspot.metadata?.quizQuestions ?? [])];
+                              next[questionIndex] = { ...question, q: event.target.value };
+                              updateQuizQuestions(next);
+                            }}
+                            placeholder="Write the question"
+                            rows={2}
+                            className="w-full rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-2 text-[12.5px] dark:border-[#334155] dark:bg-[#0F172A] dark:text-white"
+                          />
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {question.options.map((option, optionIndex) => (
+                              <label key={optionIndex} className="flex items-center gap-2">
+                                <input
+                                  type="radio"
+                                  name={`quiz-answer-${editingHotspot.id}-${questionIndex}`}
+                                  checked={question.answer === optionIndex}
+                                  onChange={() => {
+                                    const next = [
+                                      ...(editingHotspot.metadata?.quizQuestions ?? []),
+                                    ];
+                                    next[questionIndex] = { ...question, answer: optionIndex };
+                                    updateQuizQuestions(next);
+                                  }}
+                                  aria-label={`Mark choice ${optionIndex + 1} as correct`}
+                                />
+                                <input
+                                  value={option}
+                                  onChange={(event) => {
+                                    const next = [
+                                      ...(editingHotspot.metadata?.quizQuestions ?? []),
+                                    ];
+                                    const options = [
+                                      ...question.options,
+                                    ] as QuizQuestion["options"];
+                                    options[optionIndex] = event.target.value;
+                                    next[questionIndex] = { ...question, options };
+                                    updateQuizQuestions(next);
+                                  }}
+                                  placeholder={`Choice ${optionIndex + 1}`}
+                                  className="min-w-0 flex-1 rounded-lg border border-[#CBD5E1] bg-white px-2 py-1.5 text-[12px] dark:border-[#334155] dark:bg-[#0F172A] dark:text-white"
+                                />
+                              </label>
+                            ))}
+                          </div>
+                          <textarea
+                            value={question.explanation}
+                            onChange={(event) => {
+                              const next = [...(editingHotspot.metadata?.quizQuestions ?? [])];
+                              next[questionIndex] = {
+                                ...question,
+                                explanation: event.target.value,
+                              };
+                              updateQuizQuestions(next);
+                            }}
+                            placeholder="Explain the answer"
+                            rows={2}
+                            className="w-full rounded-lg border border-[#CBD5E1] bg-white px-2.5 py-2 text-[12px] dark:border-[#334155] dark:bg-[#0F172A] dark:text-white"
+                          />
+                          <p className="text-[10.5px] text-[#64748B]">
+                            Select the radio button beside the correct choice.
+                          </p>
+                        </section>
+                      ),
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      resizeQuizQuestions((editingHotspot.metadata?.quizQuestions?.length ?? 0) + 1)
+                    }
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-[#CBD5E1] px-3 py-2 text-[11.5px] font-bold text-[#0038A8] hover:bg-[#EFF6FF] dark:border-[#334155] dark:text-[#93C5FD]"
+                  >
+                    <Plus className="size-3.5" /> Add question manually
+                  </button>
                 </div>
               )}
 

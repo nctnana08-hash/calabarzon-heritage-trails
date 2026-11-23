@@ -102,7 +102,14 @@ export const GALLERY_TILES = {
   nativeHeight: 3000,
 };
 
-export type KrpanoHotspotKind = "art" | "door" | "stairs-up" | "stairs-down" | "path";
+export type KrpanoHotspotKind = "art" | "door" | "stairs-up" | "stairs-down" | "path" | "info";
+
+export type KrpanoQuizQuestion = {
+  q: string;
+  options: [string, string, string, string];
+  answer: number;
+  explanation: string;
+};
 
 export type KrpanoArtDetails = {
   /** Dedicated 1,600×1,000 Ultra-HD close-up image brought forward uncropped when clicked */
@@ -141,6 +148,8 @@ export type KrpanoHotspot = {
   arrivalView?: { ath: number; atv: number; fov?: number | undefined } | undefined;
   /** Rich curatorial details & Ultra-HD foreground image shown when clicked */
   artDetails?: KrpanoArtDetails | undefined;
+  /** Questions shown when a visitor opens a quiz hotspot in the panorama */
+  quizQuestions?: KrpanoQuizQuestion[] | undefined;
   /** Optional sequential order (1, 2, 3...) along the guided floor path */
   pathOrder?: number | undefined;
 };

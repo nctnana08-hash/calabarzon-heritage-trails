@@ -4,6 +4,7 @@ import {
   type KrpanoArtDetails,
   type EightTileTuple,
   type KrpanoHotspot,
+  type KrpanoQuizQuestion,
   type KrpanoHotspotKind,
   type KrpanoSceneConfig,
 } from "./krpano-scenes";
@@ -73,6 +74,8 @@ export interface PanoramaHotspot {
     fov?: number;
     arrivalView?: { ath: number; atv: number; fov?: number };
     pathOrder?: number;
+    quizQuestions?: KrpanoQuizQuestion[];
+    quizQuestionCount?: number;
   };
   artwork?: PanoramaArtwork | null;
   created_at?: string;
@@ -278,6 +281,7 @@ export function convertDynamicTourToKrpanoScenes(
         arrivalView: hs.metadata.arrivalView,
         pathOrder: hs.metadata.pathOrder,
         artDetails,
+        quizQuestions: hs.metadata.quizQuestions,
       };
     });
 
