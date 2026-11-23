@@ -33,6 +33,7 @@ import {
 } from "@/lib/krpano-scenes";
 import { screenToSpherical } from "@/lib/panorama-builder";
 import { C, F } from "@/lib/sulyap-theme";
+import { supabase } from "@/integrations/supabase/client";
 
 type CameraState = {
   hlookat: number;
@@ -94,12 +95,28 @@ function computeSafeTileDim(maxGlTexSize: number): number {
 }
 
 async function fetchTileBlob(url: string, signal?: AbortSignal): Promise<Blob> {
-  const res = await fetch(
-    url,
-    signal ? { signal, cache: "force-cache" } : { cache: "force-cache" },
-  );
-  if (!res.ok) throw new Error(`Failed to fetch ${url}`);
-  return await res.blob();
+  try {
+    const res = await fetch(url, { signal, cache: "no-cache" });
+    if (!res.ok) throw new Error(`Image request failed (HTTP ${res.status}).`);
+    const blob = await res.blob();
+    if (!blob.type.startsWith("image/"))
+      throw new Error("The image server returned a non-image response.");
+    return blob;
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    // Preview hosts and embedded apps may not serve the same-origin server
+    // route. Download the identical private object using the configured client.
+    const prefix = "/api/public/images/panorama-assets/";
+    if (!url.startsWith(prefix)) throw error;
+    const path = url.slice(prefix.length);
+    const { data, error: storageError } = await supabase.storage
+      .from("panorama-assets")
+      .download(path);
+    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    if (storageError || !data)
+      throw new Error(storageError?.message ?? "The stored panorama is unavailable.");
+    return data;
+  }
 }
 
 async function decodeBlobOrUrl(
@@ -132,9 +149,8 @@ async function decodeBlobOrUrl(
       return await loadImageElement(URL.createObjectURL(blob), true);
     }
   }
-  const url = typeof blobOrUrl === "string" ? blobOrUrl : URL.createObjectURL(blobOrUrl);
-  const revoke = typeof blobOrUrl !== "string";
-  return await loadImageElement(url, revoke);
+  const blob = typeof blobOrUrl === "string" ? await fetchTileBlob(blobOrUrl, signal) : blobOrUrl;
+  return await loadImageElement(URL.createObjectURL(blob), true);
 }
 
 function wrapDeg180(deg: number): number {
@@ -507,7 +523,7 @@ export function KrpanoViewer({
 
   const [webglReady, setWebglReady] = useState(false);
   const [streamingTiles, setStreamingTiles] = useState(false);
-  const [panoramaLoadError, setPanoramaLoadError] = useState(false);
+  const [panoramaLoadError, setPanoramaLoadError] = useState<string | null>(null);
   const [panoDimensions, setPanoDimensions] = useState<{ w: number; h: number } | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionBanner, setTransitionBanner] = useState<string | null>(null);
@@ -1045,7 +1061,7 @@ export function KrpanoViewer({
     };
 
     const runStream = async () => {
-      setPanoramaLoadError(false);
+      setPanoramaLoadError(null);
       const urlsToLoad = !useCustomSingleUrl
         ? gridTilesKey
           ? gridTilesKey.split("|")
@@ -1228,8 +1244,9 @@ export function KrpanoViewer({
             handle.tileMode = 1;
           }
         }
-      } catch {
-        if (!aborted) setPanoramaLoadError(true);
+      } catch (error) {
+        if (!aborted)
+          setPanoramaLoadError(error instanceof Error ? error.message : "Image rendering failed.");
       } finally {
         releaseBitmap(src);
         if (tileCanvas) {
@@ -1606,8 +1623,7 @@ export function KrpanoViewer({
           role="alert"
           className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-slate-950/90 p-6 text-center text-sm font-bold text-white"
         >
-          This uploaded 360° panorama could not be loaded. Please upload it again and republish the
-          tour.
+          This panorama could not be displayed: {panoramaLoadError}
         </div>
       )}
 
