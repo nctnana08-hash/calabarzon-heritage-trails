@@ -106,28 +106,35 @@ async function decodeBlobOrUrl(
   blobOrUrl: Blob | string,
   signal?: AbortSignal,
 ): Promise<ImageBitmap | HTMLImageElement> {
+  const loadImageElement = (url: string, revoke: boolean) =>
+    new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        if (revoke) URL.revokeObjectURL(url);
+        resolve(img);
+      };
+      img.onerror = () => {
+        if (revoke) URL.revokeObjectURL(url);
+        reject(new Error("Failed image decode"));
+      };
+      img.src = url;
+    });
+
   if (typeof window !== "undefined" && typeof window.createImageBitmap === "function") {
     const blob = typeof blobOrUrl === "string" ? await fetchTileBlob(blobOrUrl, signal) : blobOrUrl;
-    return await window.createImageBitmap(blob, {
-      premultiplyAlpha: "none",
-      colorSpaceConversion: "default",
-    });
+    try {
+      return await window.createImageBitmap(blob, {
+        premultiplyAlpha: "none",
+        colorSpaceConversion: "default",
+      });
+    } catch {
+      return await loadImageElement(URL.createObjectURL(blob), true);
+    }
   }
   const url = typeof blobOrUrl === "string" ? blobOrUrl : URL.createObjectURL(blobOrUrl);
   const revoke = typeof blobOrUrl !== "string";
-  return await new Promise<HTMLImageElement>((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => {
-      if (revoke) URL.revokeObjectURL(url);
-      resolve(img);
-    };
-    img.onerror = () => {
-      if (revoke) URL.revokeObjectURL(url);
-      reject(new Error("Failed image decode"));
-    };
-    img.src = url;
-  });
+  return await loadImageElement(url, revoke);
 }
 
 function wrapDeg180(deg: number): number {
