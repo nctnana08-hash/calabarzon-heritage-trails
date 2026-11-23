@@ -35,7 +35,7 @@ import android.widget.Toast;
 
 public class MainActivity extends Activity {
 
-    private static final String DEFAULT_URL = "https://calabarzon-heritage-trails.vercel.app";
+    private static final String DEFAULT_URL = "https://calabarzon-heritage-trails.lovable.app";
     private static final int PERMISSION_REQUEST_LOCATION = 1001;
 
     private WebView mWebView;

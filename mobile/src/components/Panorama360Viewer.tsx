@@ -14,7 +14,7 @@ export function Panorama360Viewer({
 }: PanoramaViewerProps) {
   const fullPanoUrl = useMemo(() => {
     if (panoramaUrl.startsWith("http")) return panoramaUrl;
-    return `https://calabarzon-heritage-trails.vercel.app${panoramaUrl}`;
+    return `https://calabarzon-heritage-trails.lovable.app${panoramaUrl}`;
   }, [panoramaUrl]);
 
   // Hardware-accelerated WebGL 360 Sphere Viewer with touch controls, inertia, and pinch-zoom
