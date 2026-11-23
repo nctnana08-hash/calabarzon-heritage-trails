@@ -1162,9 +1162,22 @@ export function KrpanoViewer({
       try {
         try {
           src = await decodeBlobOrUrl(resolvedPanoUrl, abortCtrl.signal);
-        } catch {
-          if (!fallbackPanoramaUrl) throw new Error("Uploaded panorama failed to load.");
-          src = await decodeBlobOrUrl(fallbackPanoramaUrl, abortCtrl.signal);
+        } catch (originalError) {
+          // Every uploaded room has a generated 2048x1024 preview. Use that as a
+          // real recovery source when a phone/WebView cannot decode the original
+          // full-resolution file (common with very large JPEG panoramas).
+          if (activePreviewUrl && activePreviewUrl !== resolvedPanoUrl) {
+            try {
+              src = await decodeBlobOrUrl(activePreviewUrl, abortCtrl.signal);
+            } catch {
+              if (!fallbackPanoramaUrl) throw originalError;
+              src = await decodeBlobOrUrl(fallbackPanoramaUrl, abortCtrl.signal);
+            }
+          } else if (fallbackPanoramaUrl) {
+            src = await decodeBlobOrUrl(fallbackPanoramaUrl, abortCtrl.signal);
+          } else {
+            throw originalError;
+          }
         }
         if (aborted) return;
 
