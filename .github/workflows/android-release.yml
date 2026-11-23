@@ -57,10 +57,11 @@ jobs:
           cache-provider: basic
 
       - name: Build Android validation APK and AAB
-        run: >-
-          gradle :app:assembleDebug :app:bundleDebug
-          -PsulyapVersionCode=${{ github.run_number + 1 }}
-          -PsulyapVersionName=0.${{ github.run_number }}-validation
+        run: |
+          version_code=$((GITHUB_RUN_NUMBER + 1))
+          gradle :app:assembleDebug :app:bundleDebug \
+            -PsulyapVersionCode="$version_code" \
+            -PsulyapVersionName="0.${GITHUB_RUN_NUMBER}-validation"
 
       - name: Collect validation artifacts
         run: |
