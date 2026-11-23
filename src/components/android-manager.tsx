@@ -32,7 +32,10 @@ export function AndroidManager() {
 
   useEffect(() => {
     const controller = new AbortController();
-    void fetch(manifestUrl, { signal: controller.signal })
+    void fetch(`${manifestUrl}?_=${Date.now()}`, {
+      signal: controller.signal,
+      cache: "no-store",
+    })
       .then((response) =>
         response.ok ? response.json() : Promise.reject(new Error("manifest unavailable")),
       )

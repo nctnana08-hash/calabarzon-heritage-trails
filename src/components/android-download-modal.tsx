@@ -62,7 +62,8 @@ export function AndroidDownloadModal({
   useEffect(() => {
     if (!open) return;
     const controller = new AbortController();
-    void fetch(LATEST_MANIFEST_URL, { signal: controller.signal })
+    const manifestUrl = `${LATEST_MANIFEST_URL}?_=${Date.now()}`;
+    void fetch(manifestUrl, { signal: controller.signal, cache: "no-store" })
       .then((response) => {
         if (!response.ok) throw new Error("Release manifest unavailable");
         return response.json() as Promise<ReleaseManifest>;
@@ -79,13 +80,16 @@ export function AndroidDownloadModal({
     setDownloading(true);
     const link = document.createElement("a");
     link.href = apkPath;
-    link.download = `${branding.appName.toLowerCase().replace(/\s+/g, "-")}-heritage-${release?.versionName ?? "latest"}.apk`;
+    link.rel = "noopener noreferrer";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    toast.success("Android APK download started!", {
-      description: "Check your browser Downloads or notification bar.",
-    });
+    toast.success(
+      `Downloading ${branding.appName} ${release ? `v${release.versionName}` : "latest"}`,
+      {
+        description: "Your browser should save the latest signed APK.",
+      },
+    );
     setDownloading(false);
   };
 

@@ -69,11 +69,15 @@ final class UpdateManager {
     void checkForUpdates(boolean requestedByUser) {
         executor.execute(() -> {
             try {
-                HttpURLConnection connection = (HttpURLConnection) new URL(MANIFEST_URL).openConnection();
+                HttpURLConnection connection = (HttpURLConnection) new URL(
+                    MANIFEST_URL + "?_=" + System.currentTimeMillis()
+                ).openConnection();
                 connection.setConnectTimeout(15000);
                 connection.setReadTimeout(15000);
                 connection.setRequestProperty("Accept", "application/json");
                 connection.setRequestProperty("User-Agent", "SulyapHeritageAndroid");
+                connection.setRequestProperty("Cache-Control", "no-cache, no-store");
+                connection.setRequestProperty("Pragma", "no-cache");
                 if (connection.getResponseCode() < 200 || connection.getResponseCode() >= 300) {
                     throw new IllegalStateException("Update service returned " + connection.getResponseCode());
                 }
