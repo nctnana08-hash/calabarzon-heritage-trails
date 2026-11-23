@@ -822,7 +822,10 @@ export function PanoramaTourBuilder({
               <div className="relative">
                 <KrpanoViewer
                   key={currentScene.id}
-                  panoramaUrl={currentScene.original_image_path}
+                  panoramaUrl={
+                    panoramaAssetUrl(currentScene.original_image_path) ??
+                    currentScene.original_image_path
+                  }
                   {...(PRESET_PANORAMAS[0]?.url
                     ? { fallbackPanoramaUrl: PRESET_PANORAMAS[0].url }
                     : {})}
