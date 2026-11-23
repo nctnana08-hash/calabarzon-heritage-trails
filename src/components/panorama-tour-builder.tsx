@@ -9,7 +9,6 @@ import {
   Sparkles,
   Layers,
   ArrowRight,
-  Upload,
   DoorOpen,
   HelpCircle,
   X,
@@ -25,7 +24,6 @@ import {
   type PanoramaHotspot,
   type PanoramaArtwork,
   type PanoramaHotspotKind,
-  validatePanoramaDimensions,
   convertDynamicTourToKrpanoScenes,
   uploadPanoramaAssets,
   uploadArtworkImage,
@@ -33,6 +31,7 @@ import {
 } from "@/lib/panorama-builder";
 import { usePanoramaTours } from "@/hooks/use-panorama-builder";
 import { useDestinations } from "@/hooks/use-destinations";
+import { PanoramaUploadGuide } from "@/components/panorama-upload-guide";
 import { KrpanoViewer } from "@/components/krpano-viewer";
 import { Pop, Mark, Btn, Label } from "@/components/sulyap-ui";
 import { C, F } from "@/lib/sulyap-theme";
@@ -67,16 +66,12 @@ export function PanoramaTourBuilder({
   const [newSceneFile, setNewSceneFile] = useState<File | null>(null);
   const [isPreparingPanorama, setIsPreparingPanorama] = useState(false);
   const [uploadStage, setUploadStage] = useState<string | null>(null);
-  const [uploadValidation, setUploadValidation] = useState<string | null>(null);
-  const [uploadValidationIsValid, setUploadValidationIsValid] = useState<boolean | null>(null);
   const [artworkUploadStage, setArtworkUploadStage] = useState<string | null>(null);
 
   const openNewSceneModal = () => {
     setNewSceneTitle("");
     setNewSceneLabel("");
     setNewSceneFile(null);
-    setUploadValidation(null);
-    setUploadValidationIsValid(null);
     setUploadStage(null);
     setIsPreparingPanorama(false);
     setNewSceneModalOpen(true);
@@ -361,8 +356,6 @@ export function PanoramaTourBuilder({
     setNewSceneTitle("");
     setNewSceneLabel("");
     setNewSceneFile(null);
-    setUploadValidation(null);
-    setUploadValidationIsValid(null);
     setUploadStage(null);
     toast.success(`Room "${newScene.title}" added to tour!`);
   };
@@ -387,48 +380,6 @@ export function PanoramaTourBuilder({
     } catch {
       // error handled in hook toast
     }
-  };
-
-  // Handle panorama image upload from user device
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.type !== "image/jpeg" && file.type !== "image/webp") {
-      setNewSceneFile(null);
-      setUploadValidationIsValid(false);
-      setUploadValidation("Choose a JPG or WebP equirectangular panorama.");
-      toast.error("Choose a JPG or WebP equirectangular panorama.");
-      e.target.value = "";
-      return;
-    }
-
-    setIsPreparingPanorama(true);
-    setNewSceneFile(null);
-    setUploadValidation(null);
-    setUploadValidationIsValid(null);
-    const objectUrl = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const check = validatePanoramaDimensions(img.naturalWidth, img.naturalHeight);
-      setUploadValidation(check.message);
-      setUploadValidationIsValid(check.valid);
-      if (!check.valid) {
-        toast.warning(check.message);
-        setIsPreparingPanorama(false);
-        return;
-      }
-
-      setNewSceneFile(file);
-      setIsPreparingPanorama(false);
-      toast.success(check.message);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      setIsPreparingPanorama(false);
-      toast.error("The selected panorama could not be read. Choose a JPG or WebP image.");
-    };
-    img.src = objectUrl;
   };
 
   const handleArtworkImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -901,8 +852,13 @@ export function PanoramaTourBuilder({
       </div>
 
       {/* MODAL 1: Add New Room/Scene */}
-      <Dialog open={newSceneModalOpen} onOpenChange={setNewSceneModalOpen}>
-        <DialogContent className="max-w-md bg-white dark:bg-[#131C31] border-[#CBD5E1] dark:border-[#22314E]">
+      <Dialog
+        open={newSceneModalOpen}
+        onOpenChange={(open) => {
+          if (!uploadStage) setNewSceneModalOpen(open);
+        }}
+      >
+        <DialogContent className="max-h-[90dvh] overflow-y-auto max-w-lg bg-white dark:bg-[#131C31] border-[#CBD5E1] dark:border-[#22314E]">
           <DialogHeader>
             <DialogTitle className="text-[18px] font-bold text-[#0F172A] dark:text-[#F8FAFC]">
               Add New 360° Room or Area
@@ -936,46 +892,24 @@ export function PanoramaTourBuilder({
               />
             </div>
 
-            {/* Upload the exact panorama that this room will use. */}
-            <div className="rounded-xl border border-dashed border-[#CBD5E1] dark:border-[#334155] p-3 text-center">
-              <Upload className="mx-auto size-5 text-[#0038A8] opacity-70" />
-              <p className="mt-1 text-[12px] font-bold text-[#1E293B] dark:text-[#F8FAFC]">
-                Upload this room’s 360° panorama (.jpg or .webp)
-              </p>
-              <p className="mt-1 text-[11px] text-[#64748B]">
-                A new panorama upload is required. No sample or previous panorama will be used.
-              </p>
-              <input
-                type="file"
-                accept="image/jpeg,image/webp"
-                onChange={handleFileUpload}
-                className="mt-2 text-[11px] text-[#64748B]"
+            {newSceneModalOpen && (
+              <PanoramaUploadGuide
+                onFile={setNewSceneFile}
+                onBusy={setIsPreparingPanorama}
+                disabled={Boolean(uploadStage)}
               />
-              {newSceneFile && (
-                <p className="mt-1 text-[11px] font-semibold text-[#0038A8] dark:text-[#93C5FD]">
-                  Selected upload: {newSceneFile.name}
-                </p>
-              )}
-              {uploadValidation && (
-                <p
-                  className={`mt-1 text-[11px] font-bold ${uploadValidationIsValid ? "text-[#16A34A]" : "text-[#DC2626]"}`}
-                >
-                  {uploadValidation}
-                </p>
-              )}
-              {uploadStage ? (
-                <p className="mt-2 text-[11px] font-bold text-[#0038A8]">{uploadStage}</p>
-              ) : isPreparingPanorama ? (
-                <p className="mt-2 text-[11px] font-bold text-[#0038A8]">
-                  Preparing your uploaded panorama…
-                </p>
-              ) : null}
-            </div>
+            )}
+            {uploadStage && (
+              <p role="status" className="text-xs font-semibold">
+                {uploadStage}
+              </p>
+            )}
           </div>
 
           <DialogFooter>
             <button
               type="button"
+              disabled={Boolean(uploadStage)}
               onClick={() => setNewSceneModalOpen(false)}
               className="cursor-pointer rounded-xl px-4 py-2 text-[13px] font-bold text-[#64748B]"
             >
@@ -991,7 +925,7 @@ export function PanoramaTourBuilder({
                 ? "Checking upload…"
                 : newSceneFile
                   ? "Upload & Add Room"
-                  : "Upload panorama first"}
+                  : "Select & confirm panorama first"}
             </button>
           </DialogFooter>
         </DialogContent>
