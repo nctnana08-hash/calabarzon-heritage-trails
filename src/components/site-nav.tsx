@@ -13,7 +13,7 @@ import {
   User,
   Shield,
 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AndroidDownloadModal } from "@/components/android-download-modal";
 import { AuthModal } from "@/components/auth-modal";
 import { useAppBranding } from "@/hooks/use-app-branding";
@@ -22,6 +22,15 @@ import { useAuth } from "@/hooks/use-auth";
 import { useSulyapProgress } from "@/lib/sulyap-data";
 import { C, F } from "@/lib/sulyap-theme";
 import { Mark } from "./sulyap-ui";
+
+declare global {
+  interface Window {
+    SulyapAndroid?: {
+      checkForUpdates: () => void;
+      getVersionName: () => string;
+    };
+  }
+}
 
 type NavItem = {
   label: string;
@@ -84,6 +93,12 @@ export function SiteHeader() {
   const [appModalOpen, setAppModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [installedAppVersion, setInstalledAppVersion] = useState<string | null>(null);
+
+  useEffect(() => {
+    const version = window.SulyapAndroid?.getVersionName();
+    if (version) setInstalledAppVersion(version);
+  }, []);
 
   const stampedCount = Object.values(progress).filter((p) => p?.toured === 1).length;
 
@@ -215,6 +230,11 @@ export function SiteHeader() {
                     <p className="truncate text-[11px] text-[#64748B] dark:text-[#94A3B8]">
                       {user.email}
                     </p>
+                    {installedAppVersion ? (
+                      <p className="mt-1 text-[11px] font-semibold text-[#64748B] dark:text-[#94A3B8]">
+                        Sulyap app version {installedAppVersion}
+                      </p>
+                    ) : null}
                     {user.province ? (
                       <p className="mt-1 text-[11px] font-semibold text-[#0038A8] dark:text-[#93C5FD]">
                         📍 {user.province} Passport Holder

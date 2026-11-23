@@ -44,6 +44,8 @@ const LATEST_MANIFEST_URL =
   "https://github.com/nctnana08-hash/calabarzon-heritage-trails/releases/latest/download/latest.json";
 const LATEST_APK_URL =
   "https://github.com/nctnana08-hash/calabarzon-heritage-trails/releases/latest/download/sulyap-release.apk";
+const LATEST_RELEASE_PAGE =
+  "https://github.com/nctnana08-hash/calabarzon-heritage-trails/releases/latest";
 
 export function AndroidDownloadModal({
   open,
@@ -211,6 +213,19 @@ export function AndroidDownloadModal({
             <Download className="size-5" />
             <span>{downloading ? "Starting Download..." : "Download Android App (.APK)"}</span>
           </button>
+
+          <p className="text-center text-[12px] text-[#64748B]">
+            If the download does not start,{" "}
+            <a
+              href={LATEST_RELEASE_PAGE}
+              target="_blank"
+              rel="noreferrer"
+              className="font-bold text-[#0038A8] underline"
+            >
+              open the latest release page
+            </a>{" "}
+            and choose <code>sulyap-release.apk</code>.
+          </p>
 
           {release?.sha256 ? (
             <p className="break-all text-[10.5px] text-[#64748B]">
