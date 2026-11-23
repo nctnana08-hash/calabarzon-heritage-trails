@@ -37,6 +37,8 @@ public class MainActivity extends Activity {
 
     private static final String DEFAULT_URL = "https://calabarzon-heritage-trails.lovable.app";
     private static final int PERMISSION_REQUEST_LOCATION = 1001;
+    private static final int PERMISSION_REQUEST_CAMERA = 1002;
+    private PermissionRequest mPendingCameraRequest;
 
     private WebView mWebView;
     private ProgressBar mProgressBar;
@@ -204,10 +206,23 @@ public class MainActivity extends Activity {
 
             @Override
             public void onPermissionRequest(PermissionRequest request) {
-                // Grant camera access if AR or QR features requested
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                    request.grant(request.getResources());
+                if (!DEFAULT_URL.equals(request.getOrigin().toString().replaceAll("/$", "")) ||
+                    !java.util.Arrays.asList(request.getResources()).contains(PermissionRequest.RESOURCE_VIDEO_CAPTURE)) {
+                    request.deny();
+                    return;
                 }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                    if (mPendingCameraRequest != null) mPendingCameraRequest.deny();
+                    mPendingCameraRequest = request;
+                    requestPermissions(new String[]{Manifest.permission.CAMERA}, PERMISSION_REQUEST_CAMERA);
+                    return;
+                }
+                request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+            }
+
+            @Override
+            public void onPermissionRequestCanceled(PermissionRequest request) {
+                if (mPendingCameraRequest == request) mPendingCameraRequest = null;
             }
 
             @Override
@@ -285,6 +300,14 @@ public class MainActivity extends Activity {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == PERMISSION_REQUEST_CAMERA && mPendingCameraRequest != null) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                mPendingCameraRequest.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+            } else {
+                mPendingCameraRequest.deny();
+            }
+            mPendingCameraRequest = null;
+        }
         if (requestCode == PERMISSION_REQUEST_LOCATION) {
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
             if (mPendingGeoCallback != null && mPendingGeoOrigin != null) {
