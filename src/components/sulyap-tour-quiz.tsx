@@ -770,6 +770,7 @@ function PublishedPanoramaTour({
 
       <KrpanoViewer
         scenes={scenes}
+        fallbackPanoramaUrl={null}
         activeSceneId={activeSceneId}
         onSceneChange={setActiveSceneId}
         heightClass="h-[420px] sm:h-[540px]"

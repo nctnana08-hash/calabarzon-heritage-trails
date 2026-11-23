@@ -26,7 +26,6 @@ import {
   type PanoramaArtwork,
   type PanoramaHotspotKind,
   validatePanoramaDimensions,
-  generatePanoramaPreview,
   convertDynamicTourToKrpanoScenes,
   uploadPanoramaAssets,
   uploadArtworkImage,
@@ -45,40 +44,6 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-
-const PRESET_PANORAMAS = [
-  {
-    label: "16K Grand Heritage Pavilion (16,000 × 8,000)",
-    url: "/panoramas/calabarzon-grand-pavilion-16k.jpg",
-    previewUrl: "/panoramas/tiles/grand16k/preview.webp",
-    width: 16000,
-    height: 8000,
-    isUltraHd16k: true,
-  },
-  {
-    label: "12K Bahay na Bato Salon (12,000 × 6,000)",
-    url: "/panoramas/calabarzon-heritage-salon-12k.jpg",
-    previewUrl: "/panoramas/tiles/salon12k/preview.webp",
-    width: 12000,
-    height: 6000,
-    isUltraHd12k: true,
-  },
-  {
-    label: "12K Upstairs Heritage Mezzanine (12,000 × 6,000)",
-    url: "/panoramas/calabarzon-upstairs-mezzanine-12k.jpg",
-    previewUrl: "/panoramas/tiles/upstairs12k/preview.webp",
-    width: 12000,
-    height: 6000,
-    isUltraHd12k: true,
-  },
-  {
-    label: "6K Museum Rotunda (6,000 × 3,000)",
-    url: "/panoramas/museum-rotunda-360.jpg",
-    previewUrl: "/panoramas/tiles/rotunda/preview.webp",
-    width: 6000,
-    height: 3000,
-  },
-];
 
 export function PanoramaTourBuilder({
   initialDestinationSlug,
@@ -99,16 +64,23 @@ export function PanoramaTourBuilder({
   const [newSceneModalOpen, setNewSceneModalOpen] = useState(false);
   const [newSceneTitle, setNewSceneTitle] = useState("");
   const [newSceneLabel, setNewSceneLabel] = useState("");
-  const [newScenePanoUrl, setNewScenePanoUrl] = useState(PRESET_PANORAMAS[0]?.url || "");
-  const [newScenePreviewUrl, setNewScenePreviewUrl] = useState(
-    PRESET_PANORAMAS[0]?.previewUrl || "",
-  );
   const [newSceneFile, setNewSceneFile] = useState<File | null>(null);
   const [isPreparingPanorama, setIsPreparingPanorama] = useState(false);
   const [uploadStage, setUploadStage] = useState<string | null>(null);
   const [uploadValidation, setUploadValidation] = useState<string | null>(null);
   const [uploadValidationIsValid, setUploadValidationIsValid] = useState<boolean | null>(null);
   const [artworkUploadStage, setArtworkUploadStage] = useState<string | null>(null);
+
+  const openNewSceneModal = () => {
+    setNewSceneTitle("");
+    setNewSceneLabel("");
+    setNewSceneFile(null);
+    setUploadValidation(null);
+    setUploadValidationIsValid(null);
+    setUploadStage(null);
+    setIsPreparingPanorama(false);
+    setNewSceneModalOpen(true);
+  };
 
   // Quick helper to start a new tour
   const handleCreateNewTour = () => {
@@ -131,7 +103,7 @@ export function PanoramaTourBuilder({
     };
     setActiveTour(newTour);
     setActiveSceneId(initialSceneId);
-    setNewSceneModalOpen(true);
+    openNewSceneModal();
   };
 
   const currentScene = useMemo(() => {
@@ -319,40 +291,37 @@ export function PanoramaTourBuilder({
       toast.error("Please enter a room or area title.");
       return;
     }
+    if (!newSceneFile) {
+      toast.error("Upload the new 360° panorama before adding this room.");
+      return;
+    }
     const sceneId = crypto.randomUUID();
-    let originalPath = newScenePanoUrl;
-    let previewPath = newScenePreviewUrl;
+    let originalPath = "";
+    let previewPath = "";
     let width: number | undefined;
     let height: number | undefined;
     let gridTileUrls: PanoramaScene["tile_configuration"]["gridTileUrls"];
 
-    if (newSceneFile) {
-      try {
-        const uploaded = await uploadPanoramaAssets(
-          activeTour.id,
-          sceneId,
-          newSceneFile,
-          (stage) => {
-            const labels = {
-              validating: "Checking panorama dimensions…",
-              preview: "Uploading mobile preview…",
-              tiles: "Creating and uploading mobile-friendly panorama tiles…",
-              original: "Uploading full-resolution panorama…",
-              complete: "Upload complete",
-            };
-            setUploadStage(labels[stage]);
-          },
-        );
-        originalPath = uploaded.originalPath;
-        previewPath = uploaded.previewPath;
-        width = uploaded.width;
-        height = uploaded.height;
-        gridTileUrls = uploaded.gridTilePaths;
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Panorama upload failed.");
-        setUploadStage(null);
-        return;
-      }
+    try {
+      const uploaded = await uploadPanoramaAssets(activeTour.id, sceneId, newSceneFile, (stage) => {
+        const labels = {
+          validating: "Checking panorama dimensions…",
+          preview: "Uploading mobile preview…",
+          tiles: "Creating and uploading mobile-friendly panorama tiles…",
+          original: "Uploading full-resolution panorama…",
+          complete: "Upload complete",
+        };
+        setUploadStage(labels[stage]);
+      });
+      originalPath = uploaded.originalPath;
+      previewPath = uploaded.previewPath;
+      width = uploaded.width;
+      height = uploaded.height;
+      gridTileUrls = uploaded.gridTilePaths;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Panorama upload failed.");
+      setUploadStage(null);
+      return;
     }
 
     const tileConfiguration: PanoramaScene["tile_configuration"] = {
@@ -392,6 +361,8 @@ export function PanoramaTourBuilder({
     setNewSceneTitle("");
     setNewSceneLabel("");
     setNewSceneFile(null);
+    setUploadValidation(null);
+    setUploadValidationIsValid(null);
     setUploadStage(null);
     toast.success(`Room "${newScene.title}" added to tour!`);
   };
@@ -422,6 +393,14 @@ export function PanoramaTourBuilder({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (file.type !== "image/jpeg" && file.type !== "image/webp") {
+      setNewSceneFile(null);
+      setUploadValidationIsValid(false);
+      setUploadValidation("Choose a JPG or WebP equirectangular panorama.");
+      toast.error("Choose a JPG or WebP equirectangular panorama.");
+      e.target.value = "";
+      return;
+    }
 
     setIsPreparingPanorama(true);
     setNewSceneFile(null);
@@ -429,32 +408,20 @@ export function PanoramaTourBuilder({
     setUploadValidationIsValid(null);
     const objectUrl = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = async () => {
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
       const check = validatePanoramaDimensions(img.naturalWidth, img.naturalHeight);
       setUploadValidation(check.message);
       setUploadValidationIsValid(check.valid);
       if (!check.valid) {
-        setNewSceneFile(file);
-        setNewScenePanoUrl(objectUrl);
-        setNewScenePreviewUrl(objectUrl);
         toast.warning(check.message);
         setIsPreparingPanorama(false);
         return;
       }
 
-      try {
-        const previewUrl = await generatePanoramaPreview(file);
-        setNewSceneFile(file);
-        setNewScenePanoUrl(objectUrl);
-        setNewScenePreviewUrl(previewUrl);
-        toast.success(check.message);
-      } catch {
-        setNewSceneFile(file);
-        setNewScenePanoUrl(objectUrl);
-        setNewScenePreviewUrl(objectUrl);
-      } finally {
-        setIsPreparingPanorama(false);
-      }
+      setNewSceneFile(file);
+      setIsPreparingPanorama(false);
+      toast.success(check.message);
     };
     img.onerror = () => {
       URL.revokeObjectURL(objectUrl);
@@ -737,7 +704,7 @@ export function PanoramaTourBuilder({
               </h3>
               <button
                 type="button"
-                onClick={() => setNewSceneModalOpen(true)}
+                onClick={openNewSceneModal}
                 className="inline-flex cursor-pointer items-center gap-1 rounded-lg bg-[#EFF6FF] dark:bg-[#1E3A8A]/30 px-2.5 py-1 text-[11.5px] font-extrabold text-[#0038A8] dark:text-[#93C5FD]"
               >
                 <Plus className="size-3.5" /> Add Room
@@ -923,9 +890,7 @@ export function PanoramaTourBuilder({
                     panoramaAssetUrl(currentScene.original_image_path) ??
                     currentScene.original_image_path
                   }
-                  {...(PRESET_PANORAMAS[0]?.url
-                    ? { fallbackPanoramaUrl: PRESET_PANORAMAS[0].url }
-                    : {})}
+                  fallbackPanoramaUrl={null}
                   scenes={krpanoScenes}
                   activeSceneId={currentScene.id}
                   onSceneChange={(id) => setActiveSceneId(id)}
@@ -975,37 +940,14 @@ export function PanoramaTourBuilder({
               />
             </div>
 
-            {/* Choose or Upload Panorama */}
-            <div>
-              <label className="text-[12px] font-bold text-[#1E293B] dark:text-[#F8FAFC]">
-                Select 360° Equirectangular Panorama
-              </label>
-              <select
-                value={newScenePanoUrl}
-                onChange={(e) => {
-                  const found = PRESET_PANORAMAS.find((p) => p.url === e.target.value);
-                  setNewScenePanoUrl(e.target.value);
-                  setNewSceneFile(null);
-                  setIsPreparingPanorama(false);
-                  setUploadValidation(null);
-                  setUploadValidationIsValid(null);
-                  if (found) setNewScenePreviewUrl(found.previewUrl);
-                }}
-                className="mt-1 w-full rounded-xl border border-[#CBD5E1] dark:border-[#334155] bg-white dark:bg-[#1E293B] px-3 py-2 text-[13px]"
-              >
-                {PRESET_PANORAMAS.map((p) => (
-                  <option key={p.url} value={p.url}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Upload Custom 360 file */}
+            {/* Upload the exact panorama that this room will use. */}
             <div className="rounded-xl border border-dashed border-[#CBD5E1] dark:border-[#334155] p-3 text-center">
               <Upload className="mx-auto size-5 text-[#0038A8] opacity-70" />
               <p className="mt-1 text-[12px] font-bold text-[#1E293B] dark:text-[#F8FAFC]">
-                Or Upload 360° Equirectangular File (.jpg, .webp)
+                Upload this room’s 360° panorama (.jpg or .webp)
+              </p>
+              <p className="mt-1 text-[11px] text-[#64748B]">
+                A new panorama upload is required. No sample or previous panorama will be used.
               </p>
               <input
                 type="file"
@@ -1013,6 +955,11 @@ export function PanoramaTourBuilder({
                 onChange={handleFileUpload}
                 className="mt-2 text-[11px] text-[#64748B]"
               />
+              {newSceneFile && (
+                <p className="mt-1 text-[11px] font-semibold text-[#0038A8] dark:text-[#93C5FD]">
+                  Selected upload: {newSceneFile.name}
+                </p>
+              )}
               {uploadValidation && (
                 <p
                   className={`mt-1 text-[11px] font-bold ${uploadValidationIsValid ? "text-[#16A34A]" : "text-[#DC2626]"}`}
@@ -1041,10 +988,14 @@ export function PanoramaTourBuilder({
             <button
               type="button"
               onClick={() => void handleAddNewScene()}
-              disabled={Boolean(uploadStage) || isPreparingPanorama}
+              disabled={!newSceneFile || Boolean(uploadStage) || isPreparingPanorama}
               className="cursor-pointer rounded-xl bg-[#0038A8] px-4 py-2 text-[13px] font-bold text-white hover:bg-[#002366]"
             >
-              {isPreparingPanorama ? "Preparing…" : "Add Room"}
+              {isPreparingPanorama
+                ? "Checking upload…"
+                : newSceneFile
+                  ? "Upload & Add Room"
+                  : "Upload panorama first"}
             </button>
           </DialogFooter>
         </DialogContent>

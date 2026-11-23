@@ -408,7 +408,7 @@ export function KrpanoViewer({
   children,
 }: {
   panoramaUrl?: string;
-  fallbackPanoramaUrl?: string;
+  fallbackPanoramaUrl?: string | null;
   sceneName?: string;
   sceneTitle?: string;
   scenes?: KrpanoSceneConfig[];
@@ -500,6 +500,7 @@ export function KrpanoViewer({
 
   const [webglReady, setWebglReady] = useState(false);
   const [streamingTiles, setStreamingTiles] = useState(false);
+  const [panoramaLoadError, setPanoramaLoadError] = useState(false);
   const [panoDimensions, setPanoDimensions] = useState<{ w: number; h: number } | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionBanner, setTransitionBanner] = useState<string | null>(null);
@@ -1037,6 +1038,7 @@ export function KrpanoViewer({
     };
 
     const runStream = async () => {
+      setPanoramaLoadError(false);
       const urlsToLoad = !useCustomSingleUrl
         ? gridTilesKey
           ? gridTilesKey.split("|")
@@ -1154,6 +1156,7 @@ export function KrpanoViewer({
         try {
           src = await decodeBlobOrUrl(resolvedPanoUrl, abortCtrl.signal);
         } catch {
+          if (!fallbackPanoramaUrl) throw new Error("Uploaded panorama failed to load.");
           src = await decodeBlobOrUrl(fallbackPanoramaUrl, abortCtrl.signal);
         }
         if (aborted) return;
@@ -1206,7 +1209,7 @@ export function KrpanoViewer({
           }
         }
       } catch {
-        // Ignore aborted or headless test environment image load errors
+        if (!aborted) setPanoramaLoadError(true);
       } finally {
         releaseBitmap(src);
         if (tileCanvas) {
@@ -1576,6 +1579,16 @@ export function KrpanoViewer({
             transform: `scale(${clamp(115 / cam.fov, 1.05, 2.5)})`,
           }}
         />
+      )}
+
+      {panoramaLoadError && (
+        <div
+          role="alert"
+          className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-slate-950/90 p-6 text-center text-sm font-bold text-white"
+        >
+          This uploaded 360° panorama could not be loaded. Please upload it again and republish the
+          tour.
+        </div>
       )}
 
       {/* Subtle Ambient Vignette */}
