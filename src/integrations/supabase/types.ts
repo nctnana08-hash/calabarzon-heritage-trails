@@ -156,12 +156,230 @@ export type Database = {
           },
         ];
       };
+      panorama_tours: {
+        Row: {
+          id: string;
+          destination_id: string | null;
+          destination_slug: string;
+          title: string;
+          description: string;
+          cover_image_path: string | null;
+          status: string;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          destination_id?: string | null;
+          destination_slug: string;
+          title: string;
+          description?: string;
+          cover_image_path?: string | null;
+          status?: string;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          destination_id?: string | null;
+          destination_slug?: string;
+          title?: string;
+          description?: string;
+          cover_image_path?: string | null;
+          status?: string;
+          created_by?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "panorama_tours_destination_slug_fkey";
+            columns: ["destination_slug"];
+            isOneToOne: false;
+            referencedRelation: "destinations";
+            referencedColumns: ["slug"];
+          },
+        ];
+      };
+      panorama_scenes: {
+        Row: {
+          id: string;
+          tour_id: string;
+          title: string;
+          location_label: string;
+          original_image_path: string;
+          preview_image_path: string | null;
+          tile_configuration: Json;
+          initial_view: Json;
+          display_order: number;
+          status: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          tour_id: string;
+          title: string;
+          location_label?: string;
+          original_image_path: string;
+          preview_image_path?: string | null;
+          tile_configuration?: Json;
+          initial_view?: Json;
+          display_order?: number;
+          status?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          tour_id?: string;
+          title?: string;
+          location_label?: string;
+          original_image_path?: string;
+          preview_image_path?: string | null;
+          tile_configuration?: Json;
+          initial_view?: Json;
+          display_order?: number;
+          status?: string;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "panorama_scenes_tour_id_fkey";
+            columns: ["tour_id"];
+            isOneToOne: false;
+            referencedRelation: "panorama_tours";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      panorama_hotspots: {
+        Row: {
+          id: string;
+          scene_id: string;
+          hotspot_type: string;
+          title: string;
+          subtitle: string;
+          bearing: number;
+          pitch: number;
+          target_scene_id: string | null;
+          display_order: number;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          scene_id: string;
+          hotspot_type?: string;
+          title: string;
+          subtitle?: string;
+          bearing?: number;
+          pitch?: number;
+          target_scene_id?: string | null;
+          display_order?: number;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          scene_id?: string;
+          hotspot_type?: string;
+          title?: string;
+          subtitle?: string;
+          bearing?: number;
+          pitch?: number;
+          target_scene_id?: string | null;
+          display_order?: number;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "panorama_hotspots_scene_id_fkey";
+            columns: ["scene_id"];
+            isOneToOne: false;
+            referencedRelation: "panorama_scenes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      panorama_artworks: {
+        Row: {
+          id: string;
+          scene_id: string;
+          hotspot_id: string | null;
+          title: string;
+          filipino_title: string;
+          artist: string;
+          historical_period: string;
+          medium: string;
+          dimensions: string;
+          description: string;
+          historical_significance: string;
+          conservation_notes: string;
+          image_path: string | null;
+          display_order: number;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          scene_id: string;
+          hotspot_id?: string | null;
+          title: string;
+          filipino_title?: string;
+          artist?: string;
+          historical_period?: string;
+          medium?: string;
+          dimensions?: string;
+          description?: string;
+          historical_significance?: string;
+          conservation_notes?: string;
+          image_path?: string | null;
+          display_order?: number;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          scene_id?: string;
+          hotspot_id?: string | null;
+          title?: string;
+          filipino_title?: string;
+          artist?: string;
+          historical_period?: string;
+          medium?: string;
+          dimensions?: string;
+          description?: string;
+          historical_significance?: string;
+          conservation_notes?: string;
+          image_path?: string | null;
+          display_order?: number;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "panorama_artworks_scene_id_fkey";
+            columns: ["scene_id"];
+            isOneToOne: false;
+            referencedRelation: "panorama_scenes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      is_sulyap_admin: {
+        Args: Record<PropertyKey, never>;
+        Returns: boolean;
+      };
     };
     Enums: {
       [_ in never]: never;

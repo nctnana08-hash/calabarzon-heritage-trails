@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
 /**
- * Image proxy. The destination-images storage bucket is private (public
+ * Image proxy. Destination and panorama storage buckets are private (public
  * buckets are blocked by workspace policy), but an access policy lets requests
  * carrying the publishable key read it. Browsers cannot attach an apikey
  * header to <img>, so the app serves images through this same-origin route.
@@ -12,7 +12,7 @@ export const Route = createFileRoute("/api/public/images/$")({
       GET: async ({ params }) => {
         const splat = params._splat ?? "";
         if (
-          !splat.startsWith("destination-images/") ||
+          !(splat.startsWith("destination-images/") || splat.startsWith("panorama-assets/")) ||
           !/^[A-Za-z0-9._/-]+$/.test(splat) ||
           splat.includes("..")
         ) {

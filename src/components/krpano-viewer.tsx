@@ -31,6 +31,7 @@ import {
   type KrpanoHotspot,
   type KrpanoSceneConfig,
 } from "@/lib/krpano-scenes";
+import { screenToSpherical } from "@/lib/panorama-builder";
 import { C, F } from "@/lib/sulyap-theme";
 
 type CameraState = {
@@ -402,6 +403,8 @@ export function KrpanoViewer({
   targetView,
   autoRotateDefault = false,
   heightClass = "h-[400px] sm:h-[510px]",
+  onCanvasClick,
+  interactivePinMode = false,
   children,
 }: {
   panoramaUrl?: string;
@@ -427,11 +430,14 @@ export function KrpanoViewer({
   } | null;
   autoRotateDefault?: boolean;
   heightClass?: string;
+  onCanvasClick?: (coords: { ath: number; atv: number; clientX: number; clientY: number }) => void;
+  interactivePinMode?: boolean;
   children?: React.ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const glHandleRef = useRef<GlHandle | null>(null);
+  const pointerDownPosRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   const [internalSceneId, setInternalSceneId] = useState<string>(
     activeSceneId ?? scenes[0]?.id ?? "grand16k",
@@ -534,7 +540,7 @@ export function KrpanoViewer({
   const switchScene = useCallback(
     (
       nextSceneId: string,
-      customLook?: { ath: number; atv: number; fov?: number },
+      customLook?: { ath: number; atv: number; fov?: number | undefined },
       viaPortal?: { ath: number; atv: number; label: string },
     ) => {
       const nextScene = scenes.find((s) => s.id === nextSceneId);
@@ -1232,6 +1238,7 @@ export function KrpanoViewer({
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if ((e.target as HTMLElement).closest("button, [data-art-card='true']")) return;
+    pointerDownPosRef.current = { x: e.clientX, y: e.clientY, time: Date.now() };
     lookToRef.current = null;
     setAutoRotate(false);
     velocityRef.current = { h: 0, v: 0 };
@@ -1316,6 +1323,29 @@ export function KrpanoViewer({
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Detect click / tap without drag for interactive artwork / hotspot placement
+    if (pointerDownPosRef.current && onCanvasClick && interactivePinMode) {
+      const dx = e.clientX - pointerDownPosRef.current.x;
+      const dy = e.clientY - pointerDownPosRef.current.y;
+      const dt = Date.now() - pointerDownPosRef.current.time;
+      if (Math.hypot(dx, dy) < 8 && dt < 450) {
+        const el = containerRef.current;
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const clickX = e.clientX - rect.left;
+          const clickY = e.clientY - rect.top;
+          const coords = screenToSpherical(clickX, clickY, rect.width, rect.height, camRef.current);
+          onCanvasClick({
+            ath: coords.ath,
+            atv: coords.atv,
+            clientX: e.clientX,
+            clientY: e.clientY,
+          });
+        }
+      }
+    }
+    pointerDownPosRef.current = null;
+
     pointersRef.current.delete(e.pointerId);
     pinchDistRef.current = null;
 

@@ -130,7 +130,7 @@ export function SiteHeader() {
 
           {/* Desktop Navigation Links */}
           <nav className="hidden items-center gap-1.5 md:flex" aria-label="Primary navigation">
-            {NAV_ITEMS.map((item) => {
+            {NAV_ITEMS.filter((item) => item.label !== "Manage" || isAdmin).map((item) => {
               const on = item.isActive(pathname, searchStr);
               const isPassport = item.label === "e-Passport";
               const Icon = item.icon;
@@ -273,15 +273,17 @@ export function MobileBottomNav() {
   const pathname = location.pathname;
   const searchStr = location.searchStr ?? "";
   const progress = useSulyapProgress();
+  const { isAdmin } = useAuth();
   const stampedCount = Object.values(progress).filter((p) => p?.toured === 1).length;
+  const visibleItems = NAV_ITEMS.filter((item) => item.label !== "Manage" || isAdmin);
 
   return (
     <nav
       aria-label="Mobile bottom navigation"
       className="fixed inset-x-0 bottom-0 z-40 border-t border-[#E2E8F0] dark:border-[#22314E] bg-white/95 dark:bg-[#0B1120]/95 backdrop-blur-md md:hidden"
     >
-      <div className="mx-auto grid max-w-lg grid-cols-5">
-        {NAV_ITEMS.map((item) => {
+      <div className={`mx-auto grid max-w-lg ${isAdmin ? "grid-cols-5" : "grid-cols-4"}`}>
+        {visibleItems.map((item) => {
           const on = item.isActive(pathname, searchStr);
           const isPassport = item.label === "e-Passport";
           const Icon = item.icon;

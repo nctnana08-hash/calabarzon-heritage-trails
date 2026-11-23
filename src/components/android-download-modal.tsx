@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Download,
   Smartphone,
@@ -21,6 +21,30 @@ import { useAppBranding } from "@/hooks/use-app-branding";
 import { Mark } from "@/components/sulyap-ui";
 import { C, F } from "@/lib/sulyap-theme";
 
+type ReleaseManifest = {
+  versionName: string;
+  versionCode: number;
+  releaseNotes: string[];
+  apkDownloadUrl: string;
+  aabDownloadUrl: string;
+  releaseDate: string;
+  sha256: string;
+};
+
+declare global {
+  interface Window {
+    SulyapAndroid?: {
+      checkForUpdates: () => void;
+      getVersionName: () => string;
+    };
+  }
+}
+
+const LATEST_MANIFEST_URL =
+  "https://github.com/nctnana08-hash/calabarzon-heritage-trails/releases/latest/download/latest.json";
+const LATEST_APK_URL =
+  "https://github.com/nctnana08-hash/calabarzon-heritage-trails/releases/latest/download/sulyap-release.apk";
+
 export function AndroidDownloadModal({
   open,
   onOpenChange,
@@ -30,26 +54,44 @@ export function AndroidDownloadModal({
 }) {
   const { branding } = useAppBranding();
   const [downloading, setDownloading] = useState(false);
-  const apkPath = "/downloads/sulyap-calabarzon.apk";
+  const [release, setRelease] = useState<ReleaseManifest | null>(null);
+  const apkPath = release?.apkDownloadUrl || LATEST_APK_URL;
+  const androidBridge = typeof window !== "undefined" ? window.SulyapAndroid : undefined;
+  const installedVersion = androidBridge?.getVersionName();
+
+  useEffect(() => {
+    if (!open) return;
+    const controller = new AbortController();
+    void fetch(LATEST_MANIFEST_URL, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("Release manifest unavailable");
+        return response.json() as Promise<ReleaseManifest>;
+      })
+      .then(setRelease)
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setRelease(null);
+      });
+    return () => controller.abort();
+  }, [open]);
 
   const handleDownload = () => {
     setDownloading(true);
     const link = document.createElement("a");
     link.href = apkPath;
-    link.download = `${branding.appName.toLowerCase().replace(/\s+/g, "-")}-heritage-v1.0.apk`;
+    link.download = `${branding.appName.toLowerCase().replace(/\s+/g, "-")}-heritage-${release?.versionName ?? "latest"}.apk`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     toast.success("Android APK download started!", {
       description: "Check your browser Downloads or notification bar.",
     });
-    setTimeout(() => setDownloading(false), 2000);
+    setDownloading(false);
   };
 
   const copyLink = async () => {
-    const fullUrl = `${window.location.origin}${apkPath}`;
     try {
-      await navigator.clipboard.writeText(fullUrl);
+      await navigator.clipboard.writeText(apkPath);
       toast.success("APK direct download link copied to clipboard!");
     } catch {
       toast.error("Could not copy link automatically.");
@@ -95,7 +137,7 @@ export function AndroidDownloadModal({
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="rounded-md bg-[#0038A8] px-2 py-0.5 text-[11px] font-extrabold text-white">
-                  v1.0.0 RELEASE
+                  v{release?.versionName ?? "latest"} RELEASE
                 </span>
                 <span className="text-[12px] font-bold text-[#64748B]">Android 8.0+</span>
               </div>
@@ -141,6 +183,17 @@ export function AndroidDownloadModal({
           </div>
 
           {/* Direct Download Action Button */}
+          {androidBridge ? (
+            <button
+              type="button"
+              onClick={() => androidBridge.checkForUpdates()}
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-[#0038A8] py-3 text-[14px] font-extrabold text-[#0038A8]"
+            >
+              <Smartphone className="size-4" /> Check for Updates
+              {installedVersion ? ` (Installed ${installedVersion})` : ""}
+            </button>
+          ) : null}
+
           <button
             type="button"
             onClick={handleDownload}
@@ -154,6 +207,12 @@ export function AndroidDownloadModal({
             <Download className="size-5" />
             <span>{downloading ? "Starting Download..." : "Download Android App (.APK)"}</span>
           </button>
+
+          {release?.sha256 ? (
+            <p className="break-all text-[10.5px] text-[#64748B]">
+              APK SHA-256: <code>{release.sha256}</code>
+            </p>
+          ) : null}
 
           {/* Step-by-Step Installation Guide */}
           <div className="rounded-2xl border border-[#E2E8F0] bg-[#EFF6FF] p-3.5">

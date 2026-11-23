@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Smartphone,
   Download,
@@ -19,13 +19,49 @@ import { C, F } from "@/lib/sulyap-theme";
 export function AndroidManager() {
   const { branding } = useAppBranding();
   const [downloading, setDownloading] = useState(false);
-  const apkPath = "/downloads/sulyap-calabarzon.apk";
+  const [release, setRelease] = useState<{
+    versionName: string;
+    apkDownloadUrl: string;
+    aabDownloadUrl: string;
+    sha256?: string;
+  } | null>(null);
+  const manifestUrl =
+    "https://github.com/nctnana08-hash/calabarzon-heritage-trails/releases/latest/download/latest.json";
+  const apkPath =
+    release?.apkDownloadUrl || manifestUrl.replace("latest.json", "sulyap-release.apk");
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch(manifestUrl, { signal: controller.signal })
+      .then((response) =>
+        response.ok ? response.json() : Promise.reject(new Error("manifest unavailable")),
+      )
+      .then(
+        (data: {
+          versionName?: string;
+          apkDownloadUrl?: string;
+          aabDownloadUrl?: string;
+          sha256?: string;
+        }) => {
+          if (data.apkDownloadUrl && data.aabDownloadUrl) {
+            setRelease({
+              versionName: data.versionName || "latest",
+              apkDownloadUrl: data.apkDownloadUrl,
+              aabDownloadUrl: data.aabDownloadUrl,
+              ...(data.sha256 ? { sha256: data.sha256 } : {}),
+            });
+          }
+        },
+      )
+      .catch(() => undefined);
+    return () => controller.abort();
+  }, []);
 
   const handleDownload = () => {
     setDownloading(true);
     const link = document.createElement("a");
     link.href = apkPath;
-    link.download = `${branding.appName.toLowerCase().replace(/\s+/g, "-")}-heritage-v1.0.apk`;
+    link.download = `${branding.appName.toLowerCase().replace(/\s+/g, "-")}-heritage-${release?.versionName ?? "latest"}.apk`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -36,9 +72,8 @@ export function AndroidManager() {
   };
 
   const copyApkLink = async () => {
-    const fullUrl = `${window.location.origin}${apkPath}`;
     try {
-      await navigator.clipboard.writeText(fullUrl);
+      await navigator.clipboard.writeText(apkPath);
       toast.success("Direct APK link copied to clipboard!");
     } catch {
       toast.error("Could not copy link automatically.");
@@ -96,7 +131,22 @@ export function AndroidManager() {
                 <Copy className="size-4 text-[#0038A8]" />
                 <span>Copy Shareable Download Link</span>
               </button>
+
+              {release?.aabDownloadUrl ? (
+                <a
+                  href={release.aabDownloadUrl}
+                  download
+                  className="inline-flex items-center gap-2 rounded-xl border border-[#CBD5E1] bg-white px-4 py-3 text-[13.5px] font-bold text-[#1E293B] shadow-2xs hover:bg-[#F8FAFC]"
+                >
+                  <Download className="size-4 text-[#0038A8]" /> Download AAB (Google Play)
+                </a>
+              ) : null}
             </div>
+            {release?.sha256 ? (
+              <p className="mt-3 break-all text-[10.5px] text-[#64748B]">
+                APK SHA-256: <code>{release.sha256}</code>
+              </p>
+            ) : null}
           </div>
 
           <div className="flex justify-center md:col-span-4">

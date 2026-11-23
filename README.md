@@ -25,16 +25,17 @@ Includes **Phase 1** (CRUD, destination info, search and category/province filte
 
 ## Requirement Map
 
-| Requirement                | Implementation                                                                                                                                                                                              |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **CRUD**                   | [destination-form.tsx](src/components/destination-form.tsx) (add/edit with validation), [destinations.$slug.tsx](src/routes/destinations.$slug.tsx) (view/edit/delete), [manage.tsx](src/routes/manage.tsx) |
-| **Destination Info**       | Name, description, history (`Kasaysayan`), cultural significance (`Kahalagahan`), verified sources (`Mga Sanggunian`), address, province, category, coordinates, and images                                 |
-| **Search & Filter**        | [destinations.index.tsx](src/routes/destinations.index.tsx) live search + category and province `Chip` filters                                                                                              |
-| **Navigation**             | [site-nav.tsx](src/components/site-nav.tsx) (`Tahanan`, `Destinasyon`, `Pasaporte`, `Mapa`, `Pamahalaan`)                                                                                                   |
-| **Cultural Map**           | [cultural-map.tsx](src/components/cultural-map.tsx) interactive Leaflet map with category-colored diamond pins + "Open in Maps" link                                                                        |
-| **Virtual Tour**           | [sulyap-tour-quiz.tsx](src/components/sulyap-tour-quiz.tsx) (`SulyapTour`: 3 stops — `1. Larawan`, `2. Kasaysayan`, `3. Kahalagahan` + `Mga Sanggunian`)                                                    |
-| **Quiz & Auto Score**      | [sulyap-tour-quiz.tsx](src/components/sulyap-tour-quiz.tsx) (`SulyapQuiz`: 4-option multiple-choice questions, immediate feedback, historical explanation, auto-saved best/attempts/last score)             |
-| **Progress (`Pasaporte`)** | [sulyap-passport.tsx](src/components/sulyap-passport.tsx) (earned stamps grid, places finished, average best score, total quizzes taken, per-place score bars)                                              |
+| Requirement                | Implementation                                                                                                                                                                                                                         |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CRUD**                   | [destination-form.tsx](src/components/destination-form.tsx) (add/edit with validation), [destinations.$slug.tsx](src/routes/destinations.$slug.tsx) (view/edit/delete), [manage.tsx](src/routes/manage.tsx)                            |
+| **Destination Info**       | Name, description, history (`Kasaysayan`), cultural significance (`Kahalagahan`), verified sources (`Mga Sanggunian`), address, province, category, coordinates, and images                                                            |
+| **Search & Filter**        | [destinations.index.tsx](src/routes/destinations.index.tsx) live search + category and province `Chip` filters                                                                                                                         |
+| **Navigation**             | [site-nav.tsx](src/components/site-nav.tsx) (`Tahanan`, `Destinasyon`, `Pasaporte`, `Mapa`, `Pamahalaan`)                                                                                                                              |
+| **Cultural Map**           | [cultural-map.tsx](src/components/cultural-map.tsx) interactive Leaflet map with category-colored diamond pins + "Open in Maps" link                                                                                                   |
+| **Virtual Tour**           | [sulyap-tour-quiz.tsx](src/components/sulyap-tour-quiz.tsx) (`SulyapTour`: 3 stops — `1. Larawan`, `2. Kasaysayan`, `3. Kahalagahan` + `Mga Sanggunian`)                                                                               |
+| **Dynamic Tours**          | [panorama-tour-builder.tsx](src/components/panorama-tour-builder.tsx) creates authenticated multi-room tours, uploads equirectangular panoramas/artwork, and places viewer hotspots; published tours replace the fallback visitor tour |
+| **Quiz & Auto Score**      | [sulyap-tour-quiz.tsx](src/components/sulyap-tour-quiz.tsx) (`SulyapQuiz`: 4-option multiple-choice questions, immediate feedback, historical explanation, auto-saved best/attempts/last score)                                        |
+| **Progress (`Pasaporte`)** | [sulyap-passport.tsx](src/components/sulyap-passport.tsx) (earned stamps grid, places finished, average best score, total quizzes taken, per-place score bars)                                                                         |
 
 ---
 
@@ -48,6 +49,9 @@ npm run lint      # Run ESLint check
 npm test          # Run Vitest unit & routing tests
 npm run build     # Production SSR + client bundle check
 ```
+
+Android release setup, GitHub Actions secrets, Supabase administrator bootstrap, APK/AAB output, and the verified
+in-app updater are documented in [docs/ANDROID_RELEASES.md](docs/ANDROID_RELEASES.md).
 
 ---
 

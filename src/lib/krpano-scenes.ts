@@ -121,62 +121,64 @@ export type KrpanoArtDetails = {
 
 export type KrpanoHotspot = {
   id: string;
-  kind?: KrpanoHotspotKind;
+  kind?: KrpanoHotspotKind | undefined;
   title: string;
-  subtitle?: string;
-  badge?: string;
+  subtitle?: string | undefined;
+  badge?: string | undefined;
   /** Horizontal spherical azimuth of pin in degrees (-180..180, 0 = front center) */
   ath: number;
   /** Vertical spherical pitch of pin in degrees (-90..90, + = up, - = down) */
   atv: number;
   /** Optional true artwork center azimuth/pitch so pin sits neatly below frame without blocking art */
-  lookAtAth?: number;
-  lookAtAtv?: number;
+  lookAtAth?: number | undefined;
+  lookAtAtv?: number | undefined;
   /** Optional target FOV when flying to this hotspot */
-  fov?: number;
-  accentColor?: string;
+  fov?: number | undefined;
+  accentColor?: string | undefined;
   /** If set, clicking walks through a Door or climbs/descends Stairs to another 360° room! */
-  targetSceneId?: string;
+  targetSceneId?: string | undefined;
   /** Optional arrival camera orientation after walking through door or climbing stairs */
-  arrivalView?: { ath: number; atv: number; fov?: number };
+  arrivalView?: { ath: number; atv: number; fov?: number | undefined } | undefined;
   /** Rich curatorial details & Ultra-HD foreground image shown when clicked */
-  artDetails?: KrpanoArtDetails;
+  artDetails?: KrpanoArtDetails | undefined;
   /** Optional sequential order (1, 2, 3...) along the guided floor path */
-  pathOrder?: number;
+  pathOrder?: number | undefined;
 };
 
 export type KrpanoSceneConfig = {
   id: string;
   name: string;
   shortLabel: string;
-  floorLabel?: string;
+  floorLabel?: string | undefined;
   title: string;
   panoramaUrl: string;
   /** Instant <35ms 2048×1024 WebP preview sphere for zero-lag room entry */
-  previewUrl?: string;
+  previewUrl?: string | undefined;
   /** Pre-sliced 4-sector (4x1) GPU tiles */
-  tileUrls?: [string, string, string, string];
+  tileUrls?: [string, string, string, string] | undefined;
   /** Pre-sliced 8-tile (4x2 hemisphere grid) Ultra-HD 16K/12K GPU tiles (<=4032x4032 each) */
-  gridTileUrls?: EightTileTuple;
-  tilePadFrac?: number;
-  tilePadFracY?: number;
-  tilePixelSize?: [number, number];
-  nativeWidth?: number;
-  nativeHeight?: number;
-  isUltraHd16k?: boolean;
-  isUltraHd12k?: boolean;
-  initialHlookat?: number;
-  initialVlookat?: number;
-  initialFov?: number;
+  gridTileUrls?: EightTileTuple | undefined;
+  tilePadFrac?: number | undefined;
+  tilePadFracY?: number | undefined;
+  tilePixelSize?: [number, number] | undefined;
+  nativeWidth?: number | undefined;
+  nativeHeight?: number | undefined;
+  isUltraHd16k?: boolean | undefined;
+  isUltraHd12k?: boolean | undefined;
+  initialHlookat?: number | undefined;
+  initialVlookat?: number | undefined;
+  initialFov?: number | undefined;
   /** Ordered spherical floor path coordinates (ath, atv) drawn as a 3D museum trail */
-  floorPath?: {
-    ath: number;
-    atv: number;
-    label?: string;
-    lookAtAth?: number;
-    lookAtAtv?: number;
-    targetSceneId?: string;
-  }[];
+  floorPath?:
+    | {
+        ath: number;
+        atv: number;
+        label?: string | undefined;
+        lookAtAth?: number | undefined;
+        lookAtAtv?: number | undefined;
+        targetSceneId?: string | undefined;
+      }[]
+    | undefined;
   hotspots: KrpanoHotspot[];
 };
 

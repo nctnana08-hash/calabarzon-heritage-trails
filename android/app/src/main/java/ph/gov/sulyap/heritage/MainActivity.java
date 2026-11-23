@@ -19,6 +19,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.webkit.DownloadListener;
 import android.webkit.GeolocationPermissions;
+import android.webkit.JavascriptInterface;
 import android.webkit.PermissionRequest;
 import android.webkit.URLUtil;
 import android.webkit.ValueCallback;
@@ -42,6 +43,7 @@ public class MainActivity extends Activity {
     private FrameLayout mCustomViewContainer;
     private WebChromeClient.CustomViewCallback mCustomViewCallback;
     private View mCustomView;
+    private UpdateManager mUpdateManager;
 
     private String mPendingGeoOrigin;
     private GeolocationPermissions.Callback mPendingGeoCallback;
@@ -100,6 +102,8 @@ public class MainActivity extends Activity {
 
         setContentView(root);
         setupWebView();
+        mUpdateManager = new UpdateManager(this);
+        mWebView.addJavascriptInterface(new AndroidBridge(), "SulyapAndroid");
 
         Intent intent = getIntent();
         String targetUrl = DEFAULT_URL;
@@ -109,6 +113,7 @@ public class MainActivity extends Activity {
 
         if (isNetworkAvailable()) {
             mWebView.loadUrl(targetUrl);
+            mUpdateManager.checkForUpdates(false);
         } else {
             mWebView.loadUrl("file:///android_asset/offline.html");
         }
@@ -135,7 +140,7 @@ public class MainActivity extends Activity {
         }
 
         String defaultUa = s.getUserAgentString();
-        s.setUserAgentString(defaultUa + " SulyapHeritageApp/1.0.0 (Android)");
+        s.setUserAgentString(defaultUa + " SulyapHeritageApp/" + getVersionName() + " (Android)");
 
         mWebView.setWebViewClient(new WebViewClient() {
             @Override
@@ -257,6 +262,26 @@ public class MainActivity extends Activity {
         });
     }
 
+    private String getVersionName() {
+        try {
+            return getPackageManager().getPackageInfo(getPackageName(), 0).versionName;
+        } catch (PackageManager.NameNotFoundException ignored) {
+            return "unknown";
+        }
+    }
+
+    private final class AndroidBridge {
+        @JavascriptInterface
+        public void checkForUpdates() {
+            runOnUiThread(() -> mUpdateManager.checkForUpdates(true));
+        }
+
+        @JavascriptInterface
+        public String getVersionName() {
+            return MainActivity.this.getVersionName();
+        }
+    }
+
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -301,6 +326,7 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         if (mWebView != null) mWebView.onResume();
+        if (mUpdateManager != null) mUpdateManager.installPendingUpdate();
     }
 
     @Override
@@ -308,6 +334,7 @@ public class MainActivity extends Activity {
         if (mWebView != null) {
             mWebView.destroy();
         }
+        if (mUpdateManager != null) mUpdateManager.destroy();
         super.onDestroy();
     }
 }

@@ -5,7 +5,6 @@ import {
   RefreshCw,
   Check,
   Smartphone,
-  Shield,
   Lock,
   Layers,
   Palette,
@@ -34,7 +33,7 @@ const THEME_COLOR_OPTIONS = [
 
 export function AppBrandingEditor() {
   const { branding, updateBranding, resetBranding } = useAppBranding();
-  const { isAdmin, signInDemoAdmin } = useAuth();
+  const { isAdmin } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [activeTab, setActiveTab] = useState<"identity" | "logo" | "theme">("identity");
@@ -66,17 +65,9 @@ export function AppBrandingEditor() {
           authorized Regional Administrators.
         </p>
 
-        <div className="mt-6 flex justify-center">
-          <button
-            type="button"
-            onClick={signInDemoAdmin}
-            className="inline-flex cursor-pointer items-center gap-2 rounded-xl px-5 py-3 text-[14px] font-extrabold text-white shadow-md transition-transform hover:-translate-y-0.5"
-            style={{ backgroundColor: C.cover, fontFamily: F.body }}
-          >
-            <Shield className="size-4" />
-            <span>Sign In as Regional Administrator (Demo)</span>
-          </button>
-        </div>
+        <p className="mt-6 text-[12px] font-semibold text-[#64748B] dark:text-[#94A3B8]">
+          Sign in with an authorized administrator account to continue.
+        </p>
       </Pop>
     );
   }

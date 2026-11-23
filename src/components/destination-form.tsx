@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useSaveDestination, type DestinationInput } from "@/hooks/use-destinations";
@@ -6,6 +6,8 @@ import { CATEGORIES, PROVINCES, imageUrl, slugify, type Destination } from "@/li
 import { getEnrichment, saveCustomMeta } from "@/lib/sulyap-data";
 import { C, F, getCategoryMeta } from "@/lib/sulyap-theme";
 import { Btn, Chip, Label } from "./sulyap-ui";
+
+const DestinationLocationPicker = lazy(() => import("./destination-location-picker"));
 
 function friendlyError(message: string): string {
   if (message.includes("duplicate key")) {
@@ -355,49 +357,19 @@ export function DestinationForm({
         />
       </div>
 
-      {/* Coordinates */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div>
-          <Label className="mb-1.5">LATITUDE (-90 TO 90)</Label>
-          <input
-            id="dest-lat"
-            type="number"
-            step="any"
-            value={values.latitude}
-            onChange={(e) => set("latitude", e.target.value)}
-            placeholder="14.2115"
-            style={{
-              ...inputStyle,
-              borderColor: errors["latitude"] ? C.red : "#CBD5E1",
-            }}
-          />
-          {errors["latitude"] ? (
-            <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
-              {errors["latitude"]}
-            </p>
-          ) : null}
-        </div>
-        <div>
-          <Label className="mb-1.5">LONGITUDE (-180 TO 180)</Label>
-          <input
-            id="dest-lng"
-            type="number"
-            step="any"
-            value={values.longitude}
-            onChange={(e) => set("longitude", e.target.value)}
-            placeholder="121.1614"
-            style={{
-              ...inputStyle,
-              borderColor: errors["longitude"] ? C.red : "#CBD5E1",
-            }}
-          />
-          {errors["longitude"] ? (
-            <p className="mt-1 text-[12px] font-bold" style={{ fontFamily: F.mono, color: C.red }}>
-              {errors["longitude"]}
-            </p>
-          ) : null}
-        </div>
-      </div>
+      <Suspense fallback={<div className="h-64 animate-pulse rounded-xl bg-slate-100" />}>
+        <DestinationLocationPicker
+          latitude={values.latitude ? Number(values.latitude) : null}
+          longitude={values.longitude ? Number(values.longitude) : null}
+          onPick={(latitude, longitude) =>
+            setValues((current) => ({
+              ...current,
+              latitude: String(latitude),
+              longitude: String(longitude),
+            }))
+          }
+        />
+      </Suspense>
 
       {/* Photos (Upload + Image URL Links) */}
       <div>

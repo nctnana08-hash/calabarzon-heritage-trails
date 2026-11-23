@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LogIn, UserPlus, Shield, User, Check, Sparkles, MapPin } from "lucide-react";
+import { LogIn, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -21,7 +21,7 @@ export function AuthModal({
   onOpenChange: (open: boolean) => void;
   defaultMode?: "signin" | "signup";
 }) {
-  const { signIn, signUp, signInDemoAdmin, signInDemoTraveler } = useAuth();
+  const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<"signin" | "signup">(defaultMode);
 
   // Form states
@@ -71,22 +71,6 @@ export function AuthModal({
     }
   };
 
-  const handleDemoAdmin = () => {
-    signInDemoAdmin();
-    toast.success("Logged in as Regional Administrator", {
-      description: "Admin Control Center and branding customizer are now unlocked.",
-    });
-    onOpenChange(false);
-  };
-
-  const handleDemoTraveler = () => {
-    signInDemoTraveler();
-    toast.success("Logged in as Heritage Traveler (Student)", {
-      description: "Field quizzes, passport stamps, and certificate unlocked.",
-    });
-    onOpenChange(false);
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-md border border-[#E2E8F0] bg-white dark:bg-[#131C31] dark:border-[#22314E] text-[#0F172A] dark:text-[#F8FAFC]">
@@ -134,30 +118,6 @@ export function AuthModal({
           >
             Sign Up
           </button>
-        </div>
-
-        {/* Quick Demo Access Pills */}
-        <div className="mt-3 rounded-xl border border-[#CBD5E1] dark:border-[#334155] bg-[#F8FAFC] dark:bg-[#0B1120] p-3">
-          <div className="flex items-center justify-between text-[11px] font-extrabold tracking-wider text-[#64748B] dark:text-[#94A3B8] uppercase">
-            <span>Instant Demo Logins</span>
-            <Sparkles className="size-3 text-[#FCD116]" />
-          </div>
-          <div className="mt-2 flex gap-2">
-            <button
-              type="button"
-              onClick={handleDemoAdmin}
-              className="flex-1 cursor-pointer rounded-lg border border-[#0038A8]/30 bg-[#EFF6FF] dark:bg-[#1E3A8A]/30 py-2 text-center text-[12px] font-bold text-[#0038A8] dark:text-[#93C5FD] transition hover:bg-[#0038A8] hover:text-white"
-            >
-              👑 Demo Admin
-            </button>
-            <button
-              type="button"
-              onClick={handleDemoTraveler}
-              className="flex-1 cursor-pointer rounded-lg border border-[#CBD5E1] dark:border-[#334155] bg-white dark:bg-[#1E293B] py-2 text-center text-[12px] font-bold text-[#334155] dark:text-[#E2E8F0] transition hover:bg-[#F1F5F9]"
-            >
-              🧭 Demo Traveler
-            </button>
-          </div>
         </div>
 
         {/* Form */}

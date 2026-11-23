@@ -15,6 +15,8 @@ import {
   type KrpanoSceneConfig,
 } from "@/lib/krpano-scenes";
 import { ARTWORK_HD_PLATES, getArtPieceHdImage, getArtPieces360 } from "@/lib/sulyap-art-360";
+import { convertDynamicTourToKrpanoScenes, type PanoramaTour } from "@/lib/panorama-builder";
+import { usePanoramaTours } from "@/hooks/use-panorama-builder";
 import {
   getEnrichment,
   getQuestionsForDestination,
@@ -89,6 +91,7 @@ export function SulyapTour({
 
   const enrichment = getEnrichment(destination);
   const artPieces = useMemo(() => getArtPieces360(destination), [destination]);
+  const { tours: dynamicTours } = usePanoramaTours(destination.slug);
 
   const goToStep = (nextStep: 0 | 1 | 2) => {
     setStep(nextStep);
@@ -508,6 +511,18 @@ export function SulyapTour({
     artPieces,
   ]);
 
+  const publishedTour = dynamicTours[0];
+  if (publishedTour?.scenes?.length) {
+    return (
+      <PublishedPanoramaTour
+        destination={destination}
+        tour={publishedTour}
+        onBack={onBack}
+        onStartQuiz={onStartQuiz}
+      />
+    );
+  }
+
   const activeText =
     step === 0
       ? destination.description
@@ -687,6 +702,98 @@ export function SulyapTour({
               </button>
             )}
           </div>
+        )}
+      </Pop>
+    </div>
+  );
+}
+
+function PublishedPanoramaTour({
+  destination,
+  tour,
+  onBack,
+  onStartQuiz,
+}: {
+  destination: Destination;
+  tour: PanoramaTour;
+  onBack: () => void;
+  onStartQuiz: () => void;
+}) {
+  const scenes = useMemo(() => convertDynamicTourToKrpanoScenes(tour, []), [tour]);
+  const [activeSceneId, setActiveSceneId] = useState(scenes[0]?.id ?? "");
+  const [done, setDone] = useState(false);
+
+  const finishTour = () => {
+    markToured(destination.id, destination.slug);
+    setDone(true);
+  };
+
+  return (
+    <div className="mx-auto w-full max-w-4xl pb-8">
+      <Pop className="mb-3 p-4 sm:p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#0038A8]">
+              Published 360° Virtual Tour
+            </p>
+            <h3 className="mt-1 text-[21px] font-extrabold" style={{ fontFamily: F.display }}>
+              {tour.title}
+            </h3>
+            {tour.description ? (
+              <p className="mt-1 text-[13px]" style={{ color: C.mute }}>
+                {tour.description}
+              </p>
+            ) : null}
+          </div>
+          <Btn label="Back to Overview" color={C.card} onClick={onBack} />
+        </div>
+      </Pop>
+
+      {scenes.length > 1 ? (
+        <div className="mb-3 flex gap-2 overflow-x-auto pb-1" aria-label="Tour rooms">
+          {scenes.map((scene) => (
+            <button
+              key={scene.id}
+              type="button"
+              onClick={() => setActiveSceneId(scene.id)}
+              className="shrink-0 cursor-pointer rounded-xl border px-3 py-2 text-[12px] font-bold"
+              style={{
+                backgroundColor: activeSceneId === scene.id ? C.cover : C.card,
+                color: activeSceneId === scene.id ? "#FFFFFF" : C.ink,
+              }}
+            >
+              {scene.shortLabel}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <KrpanoViewer
+        scenes={scenes}
+        activeSceneId={activeSceneId}
+        onSceneChange={setActiveSceneId}
+        heightClass="h-[420px] sm:h-[540px]"
+      />
+
+      <Pop className="mt-3 p-5 text-center">
+        {done ? (
+          <>
+            <Stamp destination={destination} label="✓" size={120} tilt={-4} animateIn={true} />
+            <h4 className="mt-2 text-[20px] font-extrabold">Tour completed and stamped!</h4>
+            <div className="mt-4 flex flex-wrap justify-center gap-3">
+              <Btn label="Take the Heritage Quiz →" color={C.foil} onClick={onStartQuiz} />
+              <Btn label="Back to Overview" color={C.card} onClick={onBack} />
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-[13px]" style={{ color: C.mute }}>
+              Explore every room and tap the markers to read the artwork stories.
+            </p>
+            <div className="mt-3">
+              <Btn label="Complete Tour & Collect Stamp" color={C.green} onClick={finishTour} />
+            </div>
+          </>
         )}
       </Pop>
     </div>

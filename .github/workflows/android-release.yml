@@ -1,0 +1,224 @@
+name: Validate and build Sulyap Android
+
+on:
+  push:
+    branches:
+      - "**"
+    tags:
+      - "v*"
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release_notes:
+        description: "Short public release notes"
+        required: false
+        default: "Performance, reliability, and heritage-tour improvements."
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sulyap-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Test web app and Android debug build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install locked web dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test
+        run: bun run test
+
+      - name: Build production web app
+        run: bun run build
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.9"
+          cache-provider: basic
+
+      - name: Build Android validation APK and AAB
+        run: >-
+          gradle :app:assembleDebug :app:bundleDebug
+          -PsulyapVersionCode=${{ github.run_number }}
+          -PsulyapVersionName=0.${{ github.run_number }}-validation
+
+      - name: Collect validation artifacts
+        run: |
+          mkdir -p artifacts
+          cp android/app/build/outputs/apk/debug/app-debug.apk artifacts/sulyap-validation.apk
+          cp android/app/build/outputs/bundle/debug/app-debug.aab artifacts/sulyap-validation.aab
+
+      - name: Upload validation artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sulyap-validation-${{ github.run_number }}
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: Sign and publish production Android release
+    needs: validate
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' &&
+      (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      RELEASE_NOTES_INPUT: ${{ inputs.release_notes }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v6
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+        with:
+          gradle-version: "8.9"
+          cache-provider: basic
+
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            version_name="${GITHUB_REF_NAME#v}"
+            release_tag="$GITHUB_REF_NAME"
+          else
+            version_name="1.0.${GITHUB_RUN_NUMBER}"
+            release_tag="build-${GITHUB_RUN_NUMBER}"
+          fi
+          echo "version_code=${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          echo "version_name=${version_name}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${release_tag}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore signing identity from GitHub secrets
+        shell: bash
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64"
+          test -n "$ANDROID_KEYSTORE_PASSWORD"
+          test -n "$ANDROID_KEY_ALIAS"
+          test -n "$ANDROID_KEY_PASSWORD"
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/sulyap-release.keystore"
+          chmod 600 "$RUNNER_TEMP/sulyap-release.keystore"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/sulyap-release.keystore" >> "$GITHUB_ENV"
+
+      - name: Build signed production APK and AAB
+        run: >-
+          gradle :app:assembleRelease :app:bundleRelease
+          -PsulyapVersionCode=${{ steps.version.outputs.version_code }}
+          -PsulyapVersionName=${{ steps.version.outputs.version_name }}
+
+      - name: Prepare release assets and manifest
+        id: assets
+        shell: bash
+        env:
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+        run: |
+          mkdir -p release-assets
+          cp android/app/build/outputs/apk/release/app-release.apk release-assets/sulyap-release.apk
+          cp android/app/build/outputs/bundle/release/app-release.aab release-assets/sulyap-release.aab
+          sha256="$(sha256sum release-assets/sulyap-release.apk | awk '{print $1}')"
+          notes="${RELEASE_NOTES_INPUT:-Performance, reliability, and heritage-tour improvements.}"
+          repo_url="https://github.com/${GITHUB_REPOSITORY}"
+          asset_base="${repo_url}/releases/download/${RELEASE_TAG}"
+          jq -n \
+            --arg versionName "$VERSION_NAME" \
+            --argjson versionCode "$VERSION_CODE" \
+            --arg releaseNotes "$notes" \
+            --arg apkDownloadUrl "${asset_base}/sulyap-release.apk" \
+            --arg aabDownloadUrl "${asset_base}/sulyap-release.aab" \
+            --arg releaseDate "$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --arg sha256 "$sha256" \
+            --arg releaseDetailsUrl "${repo_url}/releases/tag/${RELEASE_TAG}" \
+            '{
+              versionName: $versionName,
+              versionCode: $versionCode,
+              releaseNotes: [$releaseNotes],
+              apkDownloadUrl: $apkDownloadUrl,
+              aabDownloadUrl: $aabDownloadUrl,
+              releaseDate: $releaseDate,
+              mandatoryUpdate: false,
+              minimumSupportedVersion: 1,
+              sha256: $sha256,
+              releaseDetailsUrl: $releaseDetailsUrl
+            }' > release-assets/latest.json
+          echo "sha256=$sha256" >> "$GITHUB_OUTPUT"
+
+      - name: Upload signed workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: sulyap-release-${{ steps.version.outputs.version_name }}
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+        run: |
+          notes="${RELEASE_NOTES_INPUT:-Performance, reliability, and heritage-tour improvements.}"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
+            gh release edit "$RELEASE_TAG" --latest --title "Sulyap $VERSION_NAME" --notes "$notes"
+          else
+            gh release create "$RELEASE_TAG" release-assets/* \
+              --target "$GITHUB_SHA" \
+              --latest \
+              --title "Sulyap $VERSION_NAME" \
+              --notes "$notes"
+          fi
+
+      - name: Write build summary
+        shell: bash
+        env:
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
+          RELEASE_TAG: ${{ steps.version.outputs.release_tag }}
+          APK_SHA256: ${{ steps.assets.outputs.sha256 }}
+        run: |
+          {
+            echo "## Sulyap Android release"
+            echo "- Version: **${VERSION_NAME}** (${VERSION_CODE})"
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- APK: [sulyap-release.apk](https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/sulyap-release.apk)"
+            echo "- AAB: [sulyap-release.aab](https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/sulyap-release.aab)"
+            echo "- APK SHA-256: \`${APK_SHA256}\`"
+            echo "- Update manifest: [latest.json](https://github.com/${GITHUB_REPOSITORY}/releases/download/${RELEASE_TAG}/latest.json)"
+          } >> "$GITHUB_STEP_SUMMARY"
